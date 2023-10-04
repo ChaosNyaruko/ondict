@@ -44,7 +44,7 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 - [x] integrated with (n)vim
 - [ ] hyphen-connected for phrases, and "space separated" queries.
 - [x] take input from stdin
-- [ ] work as a server (to cache something)
+- [x] work as a server (to cache something)
 - [ ] cache and save/restore stuff, in pure text, for reviewing, i.e. simple ANKI?
 - [ ] more information such as collocations/corpus/...
 - [ ] format: indents and colors(go get github.com/fatih/color go get github.com/mattn/go-colorable)

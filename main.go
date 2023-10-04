@@ -18,6 +18,8 @@ var easyMode = flag.Bool("e", false, "true to show only 'frequent' meaning")
 var dev = flag.Bool("d", false, "if specified, a static html file will be parsed, instead of an online query")
 var verbose = flag.Bool("v", false, "show debug logs")
 var interactive = flag.Bool("i", false, "launch an interactive CLI app")
+var server = flag.Bool("s", false, "serve as a HTTP server, for cache stuff, make it quicker!")
+var remote = flag.String("c", "", "it can serve as a HTTP client, to get response from server")
 
 func main() {
 	flag.Parse()
@@ -25,12 +27,36 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-	if !*verbose {
+	if !*verbose && !*server {
 		log.SetOutput(io.Discard)
 	}
 
 	if *interactive {
 		startLoop()
+		return
+	}
+
+	if *server {
+		p := new(proxy)
+		p.history = make(map[string]string)
+		log.Fatal(http.ListenAndServe(":8999", p)) // TODO: use gin instead?
+		return
+	}
+
+	if *remote == "auto" {
+		res, err := http.Get(fmt.Sprintf("http://localhost:8999/?query=%s", *word))
+		if err != nil {
+			fmt.Printf("new request error %v/%v", res, err)
+			return
+		}
+		defer res.Body.Close()
+		if res, err := io.ReadAll(res.Body); err != nil {
+			fmt.Printf("read body error %v", err)
+		} else {
+			fmt.Println(string(res))
+
+		}
+		return
 	}
 
 	// just for offline test.
@@ -43,10 +69,10 @@ func main() {
 		fmt.Println(parseHTML(fd))
 		return
 	}
-	queryByURL(*word)
+	fmt.Println(queryByURL(*word))
 }
 
-func queryByURL(word string) {
+func queryByURL(word string) string {
 	start := time.Now()
 	url := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
 	resp, err := http.Get(url)
@@ -55,7 +81,7 @@ func queryByURL(word string) {
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-	fmt.Println(parseHTML(resp.Body))
+	return parseHTML(resp.Body)
 }
 
 func parseHTML(info io.Reader) string {
