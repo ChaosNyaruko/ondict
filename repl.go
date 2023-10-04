@@ -78,7 +78,7 @@ func startLoop() {
 			// Pass the command to the parser
 			handleCmd(text)
 		} else {
-			queryByURL(text)
+			fmt.Println(query(text))
 		}
 		printPrompt()
 	}

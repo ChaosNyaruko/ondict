@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/html"
@@ -20,6 +21,9 @@ var verbose = flag.Bool("v", false, "show debug logs")
 var interactive = flag.Bool("i", false, "launch an interactive CLI app")
 var server = flag.Bool("s", false, "serve as a HTTP server, for cache stuff, make it quicker!")
 var remote = flag.String("c", "", "it can serve as a HTTP client, to get response from server")
+
+var mu sync.Mutex // owns history
+var history map[string]string = make(map[string]string)
 
 func main() {
 	flag.Parse()
@@ -38,7 +42,6 @@ func main() {
 
 	if *server {
 		p := new(proxy)
-		p.history = make(map[string]string)
 		log.Fatal(http.ListenAndServe(":8999", p)) // TODO: use gin instead?
 		return
 	}
@@ -46,12 +49,12 @@ func main() {
 	if *remote == "auto" {
 		res, err := http.Get(fmt.Sprintf("http://localhost:8999/?query=%s", *word))
 		if err != nil {
-			fmt.Printf("new request error %v/%v", res, err)
+			log.Printf("new request error %v/%v", res, err)
 			return
 		}
 		defer res.Body.Close()
 		if res, err := io.ReadAll(res.Body); err != nil {
-			fmt.Printf("read body error %v", err)
+			log.Printf("read body error %v", err)
 		} else {
 			fmt.Println(string(res))
 
@@ -70,6 +73,20 @@ func main() {
 		return
 	}
 	fmt.Println(queryByURL(*word))
+}
+
+func query(word string) string {
+	var res string
+	mu.Lock()
+	if ex, ok := history[word]; ok {
+		log.Printf("cache hit!")
+		res = ex
+	} else {
+		res = queryByURL(word)
+		history[word] = res
+	}
+	mu.Unlock() // TODO: performance
+	return res
 }
 
 func queryByURL(word string) string {

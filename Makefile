@@ -13,3 +13,6 @@ debug:
 
 install:
 	go install .
+
+server:
+	go run . -s
