@@ -19,7 +19,7 @@ function M.query()
 
     if vim.fn.executable "ondict" == 0 then
         tutils.notify("executable missing!", {
-            msg = "ondict is not available, please refer to http://TODO to install it.", level = "ERROR"})
+            msg = "ondict is not available, please refer to https://github.com/ChaosNyaruko/ondict to install it.", level = "ERROR"})
         return
     end
 
@@ -29,18 +29,22 @@ function M.query()
     vim.fn.jobstart({"ondict", "-q", word}, {
         on_stdout = function(_, d, _)
             -- tutils.notify(string.format("on _stdout event: %s", e), {msg = string.format("ondict result, output:%s", vim.inspect(d)), level = "INFO"})
-            output = vim.tbl_extend("keep", output, d)
+            for _, item in pairs(d) do
+                table.insert(output, item)
+            end
         end,
         on_exit = function(_, status, _)
             -- tutils.notify(string.format("exit event: %s", event), {msg = string.format("ondict result, output:%s", vim.inspect(output)), level = "INFO"})
             if status == 0 then
                 -- tutils.notify(string.format("ondict good"), {msg = string.format("ondict result, output:%s", vim.inspect(output)), level = "INFO"})
-                -- output = vimutil.trim_empty_lines(output) -- TODO: it will cut the frequent HEAD, don't know why yet.
+                -- print(string.format("type output: %s, %s", type(output), vim.inspect(output)))
+                output = vimutil.trim_empty_lines(output)
                 info = vim.fn.join(output, "\n")
             else
                 info = "ondict error"
                 -- tutils.notify(string.format("ondict error"), {msg = string.format("ondict result, output:%s", vim.inspect(status)), level = "WARN"})
             end
+            -- print(string.format("type info: %s, %s", type(info), info))
             vimutil.open_floating_preview(vimutil.convert_input_to_markdown_lines(info), "markdown", {})
         end
     })
@@ -61,5 +65,8 @@ function M.query()
     --  })
     --end
     --
+
+-- for quick-test
+-- vim.keymap.set("n", "<leader>d", M.query)
 return M
 

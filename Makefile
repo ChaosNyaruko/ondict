@@ -1,15 +1,15 @@
 .PHONY: run debug install 
 run:
-	go run . -q=$(word) 2>/dev/null
+	go run . -q=$(word) 
 
 test:
-	go run . -q=doctor -d=true 2>/dev/null
+	go run . -q=doctor -d=true 
 
 easy:
-	go run . -q=doctor -e=true -d=true 2>/dev/null
+	go run . -q=doctor -e=true -d=true 
 
 debug:
-	go run . -q=doctor -d=true 2>&1
+	go run . -q=doctor -d=true -v
 
 install:
 	go install .

@@ -16,35 +16,49 @@ import (
 var word = flag.String("q", "", "specify the word that you want to query")
 var easyMode = flag.Bool("e", false, "true to show only 'frequent' meaning")
 var dev = flag.Bool("d", false, "if specified, a static html file will be parsed, instead of an online query")
+var verbose = flag.Bool("v", false, "show debug logs")
+var interactive = flag.Bool("i", false, "launch an interactive CLI app")
 
 func main() {
-	var info io.Reader
 	flag.Parse()
-	fmt.Println(flag.Args())
 	if len(flag.Args()) > 0 {
 		flag.PrintDefaults()
 		return
 	}
-	if !*dev {
+	if !*verbose {
 		log.SetOutput(io.Discard)
-		start := time.Now()
-		url := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", *word)
-		resp, err := http.Get(url)
-		log.Printf("query %v cost: %v", url, time.Since(start))
-		if err != nil {
-			log.Fatal(err)
-		}
-		info = resp.Body
-		defer resp.Body.Close()
-	} else {
+	}
+
+	if *interactive {
+		startLoop()
+	}
+
+	// just for offline test.
+	if *dev {
 		fd, err := os.Open("./doctor_ldoce.html")
 		if err != nil {
 			log.Fatal(err)
 		}
-		info = fd
 		defer fd.Close()
+		parseHTML(fd)
+		return
 	}
+	queryByURL(*word)
+}
 
+func queryByURL(word string) {
+	start := time.Now()
+	url := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
+	resp, err := http.Get(url)
+	log.Printf("query %q cost: %v", url, time.Since(start))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	parseHTML(resp.Body)
+}
+
+func parseHTML(info io.Reader) {
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {
 		log.Fatal(err)
