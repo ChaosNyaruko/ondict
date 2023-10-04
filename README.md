@@ -1,5 +1,10 @@
+# Introduction
+It's a really simple dictionary CLI app, relying on Longman online dictionary.
+
+![Gif](./assets/ondict_example.gif)
 # Prerequisites
 - Go version >=1.16
+- Neovim version >= 0.9.1 [recommended, cause I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) is required. So it can also be ported to Vim, but I am not quite familiar with vim's popup feature]
 # Installation
 ```console
 go install github.com/ChaosNyaruko/ondict@latest
@@ -9,15 +14,29 @@ go install github.com/ChaosNyaruko/ondict@latest
 ### One-shot query
 ```console
 ondict -q <word>
-### A repl-like querier
+```
 
+### A "repl" querier
 ```console
 ondict -i
 ```
+
 ## Working with Vim
 1. Install the plugin with a plugin manager or manually.
 2. Use `:lua require("ondict").query()` to query \<cword\>.
 3. Define a mapping for yourself to call it easier. NOTE: in visual mode, use "\<cmd\>lua require("ondict").query()\<cr\>" instead. It will capture the "SELECTED" word. Otherwise, the "mode" will be changed and only "\<cword\>" can be queried.
+
+### Mapping examples
+```vimscript
+nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
+vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
+```
+
+```lua
+vim.keymap.set("n", "<leader>d", require("ondict").query)
+vim.keymap.set("v", "<leader>d", require("ondict").query)
+```
+
 
 # TODO
 - [ ] this README document
@@ -35,4 +54,5 @@ ondict -i
     ---
 - [ ] ~Other dict parsing engines if I have the motivation?~
 - [ ] ~offline support? Not going to do that recently... I just use it myself.~
+- [ ] ~Vim version~
 
