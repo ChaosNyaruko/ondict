@@ -40,7 +40,7 @@ func main() {
 			log.Fatal(err)
 		}
 		defer fd.Close()
-		parseHTML(fd)
+		fmt.Println(parseHTML(fd))
 		return
 	}
 	queryByURL(*word)
@@ -55,10 +55,10 @@ func queryByURL(word string) {
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-	parseHTML(resp.Body)
+	fmt.Println(parseHTML(resp.Body))
 }
 
-func parseHTML(info io.Reader) {
+func parseHTML(info io.Reader) string {
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {
 		log.Fatal(err)
@@ -68,11 +68,12 @@ func parseHTML(info io.Reader) {
 	// Data      string
 	// Namespace string
 	// Attr      []Attribute
+	var res []string
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		// log.Printf("Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
 		if isElement(n, "div", "dictionary") {
-			ldoceDict(n)
+			res = ldoceDict(n)
 			return
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -81,6 +82,22 @@ func parseHTML(info io.Reader) {
 	}
 	// log.Printf("result: %v", readText(doc))
 	f(doc)
+	return format(res)
+}
+
+func pureEmpty(s string) bool {
+	for _, c := range s {
+		if c == ' ' || c == '\n' || c == '\t' || c == '\u00a0' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func format(input []string) string {
+	// TODO: remove consecutive CRLFs or "empty lines"?
+	return strings.Join(input, "\n")
 }
 
 func findFirstSubSpan(n *html.Node, class string) *html.Node {
@@ -96,49 +113,44 @@ func findFirstSubSpan(n *html.Node, class string) *html.Node {
 	return nil
 }
 
-func readLongmanEntry(n *html.Node) {
+func readLongmanEntry(n *html.Node) []string {
 	// read "frequent head" for PRON
 	if isElement(n, "span", "frequent Head") {
-		fmt.Printf("frequent HEAD %s\n", readText(n, 0))
-		return
+		return []string{fmt.Sprintf("frequent HEAD %s", readText(n))}
 	}
 	// read Sense for DEF
 	if isElement(n, "span", "Sense") {
-		fmt.Printf("Sense(%v):%s\n", getSpanID(n), readText(n, 0))
-		return
+		return []string{fmt.Sprintf("Sense(%v):%s", getSpanID(n), readText(n))}
 	}
 	if isElement(n, "span", "Head") {
-		fmt.Printf("\nHEAD %s\n", readText(n, 0))
-		return
+		return []string{fmt.Sprintf("HEAD %s", readText(n))}
 	}
+	var res []string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		readLongmanEntry(c)
+		res = append(res, readLongmanEntry(c)...)
 	}
+	return res
 }
 
-func ldoceDict(n *html.Node) bool {
-	// log.Printf("Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
-	// if isElement(n, "span", "dictionary_intro span") {
-	// 	dictName := readText(n, 0)
-	// 	fmt.Printf("dictionary_intro: %v\n", dictName)
-	// }
+func ldoceDict(n *html.Node) []string {
+	var res []string
 	if isElement(n, "span", "ldoceEntry Entry") {
-		fmt.Printf("==find an ldoce entry==\n")
-		readLongmanEntry(n)
-		return true
+		res = append(res, fmt.Sprintf("==find an ldoce entry=="))
+		res = append(res, readLongmanEntry(n)...)
+		return res
 	}
 
-	if isElement(n, "span", "bussdictEntry Entry") {
-		fmt.Printf("==find an bussdict entry==\n")
-		readLongmanEntry(n)
-		return true
+	if !*easyMode && isElement(n, "span", "bussdictEntry Entry") {
+		res = append(res, fmt.Sprintf("==find a buss entry=="))
+		res = append(res, readLongmanEntry(n)...)
+		return readLongmanEntry(n)
 	}
 
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		ldoceDict(c)
+		res = append(res, ldoceDict(c)...)
 	}
 
-	return false
+	return res
 }
 
 func isElement(n *html.Node, ele string, class string) bool {
@@ -156,25 +168,23 @@ func isElement(n *html.Node, ele string, class string) bool {
 	return false
 }
 
-// TODO: indent for format
-func readOneExample(n *html.Node, eID int) string {
+func readOneExample(n *html.Node) string {
 	var s string
 	defer func() {
-		log.Printf("example[%d/%q]:", eID, s)
+		log.Printf("example[%q]:", s)
 	}()
 	if n.Type == html.TextNode {
 		return n.Data
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += readText(c, eID)
+		s += readText(c)
 	}
 	return s
 }
 
-// TODO: indent for format
-func readText(n *html.Node, eID int) string {
+func readText(n *html.Node) string {
 	if n.Type == html.TextNode {
-		log.Printf("text: [%d/%q]", eID, n.Data)
+		log.Printf("text: [%q]", n.Data)
 		return n.Data
 	}
 	if isElement(n, "script", "") {
@@ -190,12 +200,11 @@ func readText(n *html.Node, eID int) string {
 		return ""
 	}
 	if isElement(n, "span", "EXAMPLE") {
-		eID += 1
-		return fmt.Sprintf("\n%sEXAMPLE%d:%s", strings.Repeat(" ", 0), eID, readOneExample(n, eID))
+		return fmt.Sprintf("\n%sEXAMPLE:%s", strings.Repeat(" ", 0), readOneExample(n))
 	}
 	var s string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += readText(c, eID)
+		s += readText(c)
 	}
 	return s
 }

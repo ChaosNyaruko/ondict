@@ -39,7 +39,6 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 
 
 # TODO
-- [ ] this README document
 - [x] parsing
 - [x] do HTTP req instead of parsing a static html file
 - [x] integrated with (n)vim
