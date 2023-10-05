@@ -1,9 +1,9 @@
 # Introduction
-It's a really simple dictionary CLI app, relying on Longman online dictionary.
+It's a really simple dictionary CLI app, relying on Longman online dictionary, with simple cache and history functionality.
 
 ![Gif](./assets/ondict_example.gif)
 # Prerequisites
-- Go version >=1.16
+- Go version >=1.16, and add $GOBIN in your $PATH
 - Neovim version >= 0.9.1 [recommended, cause I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) is required. So it can also be ported to Vim, but I am not quite familiar with vim's popup feature]
 # Installation
 ```console
@@ -11,6 +11,13 @@ go install github.com/ChaosNyaruko/ondict@latest
 ```
 # Usage
 ## CLI
+### Help
+```console
+ondict 
+```
+```console
+ondict -h
+```
 ### One-shot query
 ```console
 ondict -q <word>
@@ -19,6 +26,13 @@ ondict -q <word>
 ### A "repl" querier
 ```console
 ondict -i
+```
+input `.help` for commands that can be used.
+
+### Work as a server
+This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
+```console
+ondict -s
 ```
 
 ## Working with Vim
@@ -39,13 +53,14 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 
 
 # TODO
-- [x] parsing
+- [x] basic parsing
 - [x] do HTTP req instead of parsing a static html file
 - [x] integrated with (n)vim
-- [ ] hyphen-connected for phrases, and "space separated" queries.
+- [x] hyphen-connected for phrases, and "space separated" queries.
 - [x] take input from stdin
 - [x] work as a server (to cache something)
-- [ ] cache and save/restore stuff, in pure text, for reviewing, i.e. simple ANKI?
+- [x] cache and save/restore stuff, in pure text
+- [ ] for reviewing, e.g. simple ANKI?
 - [ ] more information such as collocations/corpus/...
 - [ ] format: indents and colors(go get github.com/fatih/color go get github.com/mattn/go-colorable)
 - [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?

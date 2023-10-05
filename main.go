@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/net/html"
 )
 
+var help = flag.Bool("h", false, "show this help doc")
 var word = flag.String("q", "", "specify the word that you want to query")
 var easyMode = flag.Bool("e", false, "true to show only 'frequent' meaning")
 var dev = flag.Bool("d", false, "if specified, a static html file will be parsed, instead of an online query")
@@ -44,7 +46,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	if len(flag.Args()) > 0 {
+	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
 		flag.PrintDefaults()
 		return
 	}
@@ -108,7 +110,8 @@ func query(word string) string {
 
 func queryByURL(word string) string {
 	start := time.Now()
-	url := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
+	// url := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
+	url := fmt.Sprintf("https://ldoceonline.com/search/english/direct/?q=%s", url.QueryEscape(word))
 	resp, err := http.Get(url)
 	log.Printf("query %q cost: %v", url, time.Since(start))
 	if err != nil {
