@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +26,21 @@ var remote = flag.String("c", "", "it can serve as a HTTP client, to get respons
 
 var mu sync.Mutex // owns history
 var history map[string]string = make(map[string]string)
+var dataPath string
+var historyFile string
+
+func init() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	config := filepath.Join(home, ".config")
+	dataPath = filepath.Join(config, "ondict")
+	historyFile = filepath.Join(dataPath, "history.json")
+	if dataPath == "" || historyFile == "" {
+		log.Fatalf("empty datapath/historyfile: %v||%v", dataPath, historyFile)
+	}
+}
 
 func main() {
 	flag.Parse()
@@ -272,4 +289,42 @@ func getSpanClass(n *html.Node) string {
 		}
 	}
 	return ""
+}
+
+func Restore() {
+	data, err := os.ReadFile(historyFile)
+	if err != nil {
+		log.Printf("open file history err: %v", err)
+		return
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = json.Unmarshal(data, &history)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("history: %v", history)
+}
+
+func Store() {
+	his, err := json.Marshal(history)
+	if err != nil {
+		log.Fatal("marshal err ", err)
+	}
+	if err := os.MkdirAll(dataPath, 0755); err != nil {
+		log.Fatal("make dir err", err)
+	}
+	f, err := os.Create(historyFile)
+	if err != nil {
+		log.Fatal("create file err", err)
+	}
+
+	defer f.Close()
+
+	_, err = f.Write(his)
+
+	if err != nil {
+		log.Fatal("write file err", err)
+	}
 }

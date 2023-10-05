@@ -29,6 +29,8 @@ func displayHelp() {
 	)
 	fmt.Println("word     - Query word online")
 	fmt.Println(".help    - Show available commands")
+	fmt.Println(".store   - Store the history to a JSON file")
+	fmt.Println(".restore - Restore the history from a JSON file")
 	fmt.Println(".clear   - Clear the terminal screen")
 	fmt.Println(".exit    - Closes your connection to ", cliName)
 }
@@ -60,8 +62,10 @@ func cleanInput(text string) string {
 func startLoop() {
 	// Hardcoded repl commands
 	commands := map[string]interface{}{
-		".help":  displayHelp,
-		".clear": clearScreen,
+		".help":    displayHelp,
+		".clear":   clearScreen,
+		".store":   Store,
+		".restore": Restore,
 	}
 	// Begin the repl loop
 	reader := bufio.NewScanner(os.Stdin)
