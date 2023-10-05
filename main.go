@@ -66,10 +66,10 @@ func main() {
 	}
 
 	if *remote == "auto" {
-		res, err := http.Get(fmt.Sprintf("http://localhost:8999/?query=%s", *word))
+		res, err := http.Get(fmt.Sprintf("http://localhost:8999/?query=%s", url.QueryEscape(*word)))
 		if err != nil {
-			log.Printf("new request error %v/%v", res, err)
-			return
+			log.SetOutput(os.Stderr)
+			log.Fatalf("new request error %v/%v", res, err)
 		}
 		defer res.Body.Close()
 		if res, err := io.ReadAll(res.Body); err != nil {
