@@ -68,6 +68,6 @@ function M.query()
     end
 
 -- for quick-test
-vim.keymap.set("n", "<leader>d", M.query)
+-- vim.keymap.set("n", "<leader>d", M.query)
 return M
 
