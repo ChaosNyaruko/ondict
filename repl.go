@@ -49,7 +49,7 @@ func handleInvalidCmd(text string) {
 
 // handleCmd parses the given commands
 func handleCmd(text string) {
-	// handleInvalidCmd(text)
+	handleInvalidCmd(text)
 }
 
 // cleanInput preprocesses input to the db repl
@@ -69,6 +69,7 @@ func startLoop() {
 	}
 	// Begin the repl loop
 	reader := bufio.NewScanner(os.Stdin)
+	displayHelp()
 	printPrompt()
 	for reader.Scan() {
 		text := cleanInput(reader.Text())

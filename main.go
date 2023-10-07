@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatih/color"
 	"golang.org/x/net/html"
 )
 
@@ -25,6 +26,7 @@ var verbose = flag.Bool("v", false, "show debug logs")
 var interactive = flag.Bool("i", false, "launch an interactive CLI app")
 var server = flag.Bool("s", false, "serve as a HTTP server, for cache stuff, make it quicker!")
 var remote = flag.String("c", "", "it can serve as a HTTP client, to get response from server")
+var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
 
 var mu sync.Mutex // owns history
 var history map[string]string = make(map[string]string)
@@ -53,6 +55,9 @@ func main() {
 	if !*verbose && !*server {
 		log.SetOutput(io.Discard)
 	}
+	if !*colour {
+		color.NoColor = true
+	}
 
 	if *interactive {
 		startLoop()
@@ -69,7 +74,7 @@ func main() {
 		res, err := http.Get(fmt.Sprintf("http://localhost:8999/?query=%s", url.QueryEscape(*word)))
 		if err != nil {
 			log.SetOutput(os.Stderr)
-			log.Fatalf("new request error %v/%v", res, err)
+			log.Fatalf("new request error %v", err)
 		}
 		defer res.Body.Close()
 		if res, err := io.ReadAll(res.Body); err != nil {
@@ -179,14 +184,17 @@ func findFirstSubSpan(n *html.Node, class string) *html.Node {
 func readLongmanEntry(n *html.Node) []string {
 	// read "frequent head" for PRON
 	if isElement(n, "span", "frequent Head") {
-		return []string{fmt.Sprintf("frequent HEAD %s", readText(n))}
+		blue := color.New(color.FgBlue).SprintfFunc()
+		return []string{blue("%s", fmt.Sprintf("frequent HEAD %s", readText(n)))}
 	}
 	// read Sense for DEF
 	if isElement(n, "span", "Sense") {
-		return []string{fmt.Sprintf("Sense(%v):%s", getSpanID(n), readText(n))}
+		red := color.New(color.FgRed).SprintfFunc()
+		return []string{red("%s", fmt.Sprintf("Sense(%v):%s", getSpanID(n), readText(n)))}
 	}
 	if isElement(n, "span", "Head") {
-		return []string{fmt.Sprintf("HEAD %s", readText(n))}
+		cyan := color.New(color.FgCyan).SprintfFunc()
+		return []string{cyan("%s", fmt.Sprintf("HEAD %s", readText(n)))}
 	}
 	var res []string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {

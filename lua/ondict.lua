@@ -51,7 +51,9 @@ function M.query()
             end
         end,
         on_stderr = function(_, d, _)
-            notify(vim.inspect(d))
+            if d and d[1] ~= "" then
+                notify(vim.inspect(d))
+            end
         end,
         on_exit = function(_, status, _)
             if status == 0 then
@@ -68,6 +70,6 @@ function M.query()
     end
 
 -- for quick-test
--- vim.keymap.set("n", "<leader>d", M.query)
+vim.keymap.set("n", "<leader>d", M.query)
 return M
 
