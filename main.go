@@ -271,7 +271,8 @@ func readText(n *html.Node) string {
 		return ""
 	}
 	if isElement(n, "span", "EXAMPLE") {
-		return fmt.Sprintf("\n%sEXAMPLE:%s", strings.Repeat(" ", 0), readOneExample(n))
+		noColor := color.New().SprintfFunc()
+		return noColor("%s", fmt.Sprintf("\n%sEXAMPLE:%s", strings.Repeat(" ", 0), readOneExample(n)))
 	}
 	var s string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
