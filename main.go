@@ -56,7 +56,7 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-	if !*verbose && !*server {
+	if !*verbose {
 		log.SetOutput(io.Discard)
 	}
 	if !*colour {
