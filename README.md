@@ -61,7 +61,7 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 - [x] work as a server (to cache something)
 - [x] cache and save/restore stuff, in pure text
 - [x] a real "auto" mode
-- [ ] kill the server with a timeout
+- [x] kill the server with a timeout
 - [ ] a system for reviewing, e.g. simple ANKI?
 - [ ] more information such as collocations/corpus/...
 - [x] format: basic colors

@@ -20,6 +20,7 @@ import (
 )
 
 var dialTimeout = 5 * time.Second
+var idleTimeout = 30 * time.Second
 
 var help = flag.Bool("h", false, "show this help doc")
 var word = flag.String("q", "", "specify the word that you want to query")
@@ -68,12 +69,19 @@ func main() {
 	}
 
 	if *server {
+		stop := make(chan error)
 		p := new(proxy)
+		p.timeout = time.NewTimer(idleTimeout)
 		dp, err := os.Executable()
 		if err != nil {
 			log.Fatalf("getting ondict path error: %v", err)
 		}
 		network, addr := autoNetworkAddressPosix(dp, "")
+		if _, err := os.Stat(addr); err == nil {
+			if err := os.Remove(addr); err != nil {
+				log.Fatalf("removing remote socket file: %v", err)
+			}
+		}
 		log.Printf("%s, start a new server: %s", dp, addr)
 		l, err := net.Listen(network, addr)
 		if err != nil {
@@ -82,7 +90,20 @@ func main() {
 		server := http.Server{
 			Handler: p,
 		}
-		log.Fatal(server.Serve(l))
+
+		go func() {
+			if err := server.Serve(l); err != nil {
+				stop <- err
+				close(stop)
+			}
+		}()
+
+		select {
+		case c := <-p.timeout.C:
+			log.Fatal("timeout, server down!", c)
+		case err := <-stop:
+			log.Fatal("server down", err)
+		}
 	}
 
 	if *remote == "auto" {
