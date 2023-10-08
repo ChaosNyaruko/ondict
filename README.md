@@ -52,20 +52,23 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 ```
 
 
-# TODO
-- [x] basic parsing
+# Features
+- [x] basic parsing from Longman online dictionary
 - [x] do HTTP req instead of parsing a static html file
 - [x] integrated with (n)vim
 - [x] hyphen-connected for phrases, and "space separated" queries.
 - [x] take input from stdin
 - [x] work as a server (to cache something)
 - [x] cache and save/restore stuff, in pure text
-- [ ] for reviewing, e.g. simple ANKI?
+- [x] a real "auto" mode
+- [ ] kill the server with a timeout
+- [ ] a system for reviewing, e.g. simple ANKI?
 - [ ] more information such as collocations/corpus/...
-- [ ] format: indents and colors(go get github.com/fatih/color go get github.com/mattn/go-colorable)
+- [x] format: basic colors
+- [ ] format: indents 
 - [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?
 
-    ---
+---
 - [ ] ~Other dict parsing engines if I have the motivation?~
 - [ ] ~offline support? Not going to do that recently... I just use it myself.~
 - [ ] ~Vim version~
