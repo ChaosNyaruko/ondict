@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +18,8 @@ import (
 	"github.com/fatih/color"
 	"golang.org/x/net/html"
 )
+
+var dialTimeout = 5 * time.Second
 
 var help = flag.Bool("h", false, "show this help doc")
 var word = flag.String("q", "", "specify the word that you want to query")
@@ -66,24 +69,77 @@ func main() {
 
 	if *server {
 		p := new(proxy)
-		log.Fatal(http.ListenAndServe(":8999", p)) // TODO: use gin instead?
-		return
+		dp, err := os.Executable()
+		if err != nil {
+			log.Fatalf("getting ondict path error: %v", err)
+		}
+		network, addr := autoNetworkAddressPosix(dp, "")
+		log.Printf("%s, start a new server: %s", dp, addr)
+		l, err := net.Listen(network, addr)
+		if err != nil {
+			log.Fatal("bad Listen: ", err)
+		}
+		server := http.Server{
+			Handler: p,
+		}
+		log.Fatal(server.Serve(l))
 	}
 
 	if *remote == "auto" {
-		res, err := http.Get(fmt.Sprintf("http://localhost:8999/?query=%s", url.QueryEscape(*word)))
+		dp, err := os.Executable()
 		if err != nil {
-			log.SetOutput(os.Stderr)
-			log.Fatalf("new request error %v", err)
+			log.Fatalf("getting ondict path error: %v", err)
 		}
-		defer res.Body.Close()
-		if res, err := io.ReadAll(res.Body); err != nil {
-			log.Printf("read body error %v", err)
-		} else {
-			fmt.Println(string(res))
+		network, address := autoNetworkAddressPosix(dp, "")
+		log.Printf("auto mode dp: %v, network: %v, address: %v", dp, network, address)
+		netConn, err := net.DialTimeout(network, address, dialTimeout)
 
+		if err == nil { // detect an exsitng server, just forward a request
+			if err := request(netConn); err != nil {
+				log.Fatal(err)
+			}
+			return
 		}
-		return
+		if network == "unix" {
+			// Sometimes the socketfile isn't properly cleaned up when the server
+			// shuts down. Since we have already tried and failed to dial this
+			// address, it should *usually* be safe to remove the socket before
+			// binding to the address.
+			// TODO(rfindley): there is probably a race here if multiple server
+			// instances are simultaneously starting up.
+			if _, err := os.Stat(address); err == nil {
+				if err := os.Remove(address); err != nil {
+					log.Fatalf("removing remote socket file: %v", err)
+				}
+			}
+		}
+		args := []string{
+			"-s=true",
+		}
+		log.Printf("starting remote: %v", args)
+		if err := startRemote(dp, args...); err != nil {
+			log.Fatal(err)
+		}
+		const retries = 5
+		// It can take some time for the newly started server to bind to our address,
+		// so we retry for a bit.
+		for retry := 0; retry < retries; retry++ {
+			startDial := time.Now()
+			netConn, err = net.DialTimeout(network, address, dialTimeout)
+			if err == nil {
+				if err := request(netConn); err != nil {
+					log.Fatal(err)
+				}
+				return
+			}
+			log.Printf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
+			// In case our failure was a fast-failure, ensure we wait at least
+			// f.dialTimeout before trying again.
+			if retry != retries-1 {
+				time.Sleep(dialTimeout - time.Since(startDial))
+			}
+		}
+		os.Exit(3)
 	}
 
 	// just for offline test.
