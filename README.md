@@ -69,7 +69,7 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 - [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?
 
 ---
-- [ ] ~Other dict parsing engines if I have the motivation?~
-- [ ] ~offline support? Not going to do that recently... I just use it myself.~
-- [ ] ~Vim version~
+- [ ] Other dict parsing engines if I have the motivation?
+- [ ] offline support? Not going to do that recently... I just use it myself. Refer to https://github.com/binhetech/mdict-parser https://github.com/zhansliu/writemdict https://github.com/ninja33/ODH/
+- [ ] Vim(not neovim) plugin version
 
