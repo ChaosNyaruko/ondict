@@ -71,16 +71,21 @@ function M.query()
     })
 end
 
-function M.install()
+function M.install(path)
     local root_dir = vim.fn.expand('<sfile>:h:h')
+    if path ~= "" then
+        root_dir = path
+    end
     if root_dir ~= "" then
         vim.cmd.lcd(root_dir)
         local res = vim.fn.system({ "go", "install", "." })
         if res == "" then
             notify(string.format("install success: <sfile>: %s, prj_dir: %s", vim.fn.expand('<sfile>'), root_dir))
+            vim.cmd.lcd("-")
             return
         end
         notify(string.format("install error: %s", res))
+        vim.cmd.lcd("-")
         return
     end
     notify(string.format("empty root dir, <sfile>: %s", vim.fn.expand('<sfile>')))
@@ -88,5 +93,5 @@ end
 
 -- for quick-test
 -- vim.keymap.set("n", "<leader>d", M.query)
--- M.install()
+-- M.install(".")
 return M
