@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -19,10 +20,12 @@ import (
 	"golang.org/x/net/html"
 )
 
+var version = "v0.0.1"
 var dialTimeout = 5 * time.Second
 var defaultIdleTimeout = 1 * time.Minute
 
 var help = flag.Bool("h", false, "Show this help doc")
+var ver = flag.Bool("version", false, "Show current version of ondict")
 var word = flag.String("q", "", "Specify the word that you want to query")
 var easyMode = flag.Bool("e", false, "True to show only 'frequent' meaning")
 var dev = flag.Bool("d", false, "If specified, a static html file will be parsed, instead of an online query, just for dev debugging")
@@ -59,6 +62,10 @@ func main() {
 	}
 	if !*verbose {
 		log.SetOutput(io.Discard)
+	}
+	if *ver {
+		fmt.Printf("ondict %s %s %s with %s\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())
+		return
 	}
 
 	if !*colour {

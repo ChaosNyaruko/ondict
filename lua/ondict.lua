@@ -75,14 +75,14 @@ function M.install()
     local root_dir = vim.fn.expand('<sfile>:h:h')
     if root_dir ~= "" then
         vim.cmd.lcd(root_dir)
-        local res = vim.fn.system({"go", "install", "."})
+        local res = vim.fn.system({ "go", "install", "." })
         if res == "" then
             notify(string.format("install ondict success"))
             return
         end
         notify(string.format("install error: %s", res))
     end
-    notify(string.format("empty root dir"))
+    notify(string.format("empty root dir, <sfile>: %s"), vim.fn.expand('<sfile'))
 end
 
 -- for quick-test
