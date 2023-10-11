@@ -18,21 +18,28 @@ ondict
 ```console
 ondict -h
 ```
-### One-shot query
+
+### Examples
+#### One-shot query
 ```console
 ondict -q <word>
 ```
 
-### A "repl" querier
+#### One-shot query, but from remote server
+```console
+ondict -q <word> -remote auto 
+```
+
+#### A "repl" querier
 ```console
 ondict -i
 ```
 input `.help` for commands that can be used.
 
-### Work as a server
+#### Work as a server
 This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
 ```console
-ondict -s
+ondict -server
 ```
 
 ## Working with Vim
@@ -53,23 +60,23 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 
 
 # Features
-- [x] basic parsing from Longman online dictionary
-- [x] do HTTP req instead of parsing a static html file
-- [x] integrated with (n)vim
-- [x] hyphen-connected for phrases, and "space separated" queries.
-- [x] take input from stdin
-- [x] work as a server (to cache something)
-- [x] cache and save/restore stuff, in pure text
-- [x] a real "auto" mode
-- [x] kill the server with a timeout
-- [ ] a system for reviewing, e.g. simple ANKI?
-- [ ] more information such as collocations/corpus/...
-- [x] format: basic colors
-- [ ] format: indents 
-- [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?
-
+- [x] Basic parsing from Longman online dictionary.
+- [x] Do HTTP req instead of parsing a static html file.
+- [x] Integrated with (n)vim.
+- [x] Hyphen-connected for phrases, and "space separated" queries.
+- [x] Take input from stdin.
+- [x] Work as a server (to cache something).
+- [x] Cache and save/restore stuff, in pure text.
+- [x] A real "auto" mode.
+- [x] Kill the server with a timeout.
+- [ ] A system for reviewing, e.g. simple ANKI?
+- [ ] More information such as collocations/corpus/.....
+- [x] Format: basic colors.
+- [ ] Format: indents and blank lines.
+- [ ] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
 ---
-- [ ] Other dict parsing engines if I have the motivation?
-- [ ] offline support? Not going to do that recently... I just use it myself. Refer to https://github.com/binhetech/mdict-parser https://github.com/zhansliu/writemdict https://github.com/ninja33/ODH/
-- [ ] Vim(not neovim) plugin version
+- [ ] ~Other dict parsing engines if I have the motivation?~
+- [ ] ~offline support? Not going to do that recently... I just use it myself.~
+- [ ] ~Vim version~
+- [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?
 

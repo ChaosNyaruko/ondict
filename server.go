@@ -11,7 +11,14 @@ type proxy struct {
 }
 
 func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.timeout.Reset(idleTimeout)
+	if !s.timeout.Stop() {
+		select {
+		case t := <-s.timeout.C: // try to drain from the channel
+			log.Printf("drained from timer: %v", t)
+		default:
+		}
+	}
+	s.timeout.Reset(*idleTimeout)
 	q := r.URL.Query()
 	word := q.Get("query")
 	log.Printf("query HTTP: %v", word)

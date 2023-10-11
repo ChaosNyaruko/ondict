@@ -20,16 +20,17 @@ import (
 )
 
 var dialTimeout = 5 * time.Second
-var idleTimeout = 30 * time.Second
+var defaultIdleTimeout = 1 * time.Minute
 
-var help = flag.Bool("h", false, "show this help doc")
-var word = flag.String("q", "", "specify the word that you want to query")
-var easyMode = flag.Bool("e", false, "true to show only 'frequent' meaning")
-var dev = flag.Bool("d", false, "if specified, a static html file will be parsed, instead of an online query")
-var verbose = flag.Bool("v", false, "show debug logs")
-var interactive = flag.Bool("i", false, "launch an interactive CLI app")
-var server = flag.Bool("s", false, "serve as a HTTP server, for cache stuff, make it quicker!")
-var remote = flag.String("c", "", "it can serve as a HTTP client, to get response from server")
+var help = flag.Bool("h", false, "Show this help doc")
+var word = flag.String("q", "", "Specify the word that you want to query")
+var easyMode = flag.Bool("e", false, "True to show only 'frequent' meaning")
+var dev = flag.Bool("d", false, "If specified, a static html file will be parsed, instead of an online query, just for dev debugging")
+var verbose = flag.Bool("v", false, "Show debug logs")
+var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
+var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
+var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
+var remote = flag.String("remote", "", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 1 min.")
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
 
 var mu sync.Mutex // owns history
@@ -59,6 +60,7 @@ func main() {
 	if !*verbose {
 		log.SetOutput(io.Discard)
 	}
+
 	if !*colour {
 		color.NoColor = true
 	}
@@ -71,7 +73,7 @@ func main() {
 	if *server {
 		stop := make(chan error)
 		p := new(proxy)
-		p.timeout = time.NewTimer(idleTimeout)
+		p.timeout = time.NewTimer(*idleTimeout)
 		dp, err := os.Executable()
 		if err != nil {
 			log.Fatalf("getting ondict path error: %v", err)
@@ -135,7 +137,7 @@ func main() {
 			}
 		}
 		args := []string{
-			"-s=true",
+			"-serve=true",
 		}
 		log.Printf("starting remote: %v", args)
 		if err := startRemote(dp, args...); err != nil {
@@ -161,6 +163,8 @@ func main() {
 			}
 		}
 		os.Exit(3)
+	} else if *remote != "" {
+		log.Fatal("TODO: specify a remote address not supported yet")
 	}
 
 	// just for offline test.

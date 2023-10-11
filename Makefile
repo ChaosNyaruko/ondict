@@ -1,18 +1,18 @@
 .PHONY: run debug install 
-run:
-	go run . -q=$(word) 
+word=doctor
 
-test:
-	go run . -q=doctor -d=true 
+# one-shot run
+run: 
+	go run . -q=$(word) -color
 
-easy:
-	go run . -q=doctor -e=true -d=true 
+serve:
+	go run . -serve
+
+auto:
+	go run . -q=$(word) -remote=auto
 
 debug:
-	go run . -q=doctor -d=true -v
+	go run . -d=true -v
 
 install:
 	go install .
-
-server:
-	go run . -s

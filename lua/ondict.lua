@@ -25,25 +25,27 @@ function M.query()
     local word
     local visual = vim.fn.mode() == "v"
     if visual == true then
-      local saved_reg = vim.fn.getreg "v"
-      vim.cmd [[noautocmd sil norm "vy]]
-      local selected = vim.fn.getreg "v"
-      vim.fn.setreg("v", saved_reg)
-      word = selected
+        local saved_reg = vim.fn.getreg "v"
+        vim.cmd [[noautocmd sil norm "vy]]
+        local selected = vim.fn.getreg "v"
+        vim.fn.setreg("v", saved_reg)
+        word = selected
     else
-      word = vim.fn.expand "<cword>"
+        word = vim.fn.expand "<cword>"
     end
 
     if vim.fn.executable "ondict" == 0 then
         notify("executable missing!", {
-            msg = "ondict is not available, please refer to https://github.com/ChaosNyaruko/ondict to install it.", level = "ERROR"})
+            msg = "ondict is not available, please refer to https://github.com/ChaosNyaruko/ondict to install it.",
+            level = "ERROR"
+        })
         return
     end
 
     -- doctor
     local output = {}
     local info = ""
-    vim.fn.jobstart({"ondict", "-q", word, "-c", "auto"}, {
+    vim.fn.jobstart({ "ondict", "-q", word, "-remote", "", "-color" }, {
         on_stdout = function(_, d, _)
             -- tutils.notify(string.format("on _stdout event: %s", e), {msg = string.format("ondict result, output:%s", vim.inspect(d)), level = "INFO"})
             for _, item in pairs(d) do
@@ -52,7 +54,7 @@ function M.query()
         end,
         on_stderr = function(_, d, _)
             if d and d[1] ~= "" then
-                notify(vim.inspect(d))
+                -- notify(vim.inspect(d))
             end
         end,
         on_exit = function(_, status, _)
@@ -67,9 +69,8 @@ function M.query()
             end
         end
     })
-    end
+end
 
 -- for quick-test
-vim.keymap.set("n", "<leader>d", M.query)
+-- vim.keymap.set("n", "<leader>d", M.query)
 return M
-
