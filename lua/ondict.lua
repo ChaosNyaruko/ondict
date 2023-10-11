@@ -45,7 +45,7 @@ function M.query()
     -- doctor
     local output = {}
     local info = ""
-    vim.fn.jobstart({ "ondict", "-q", word, "-remote", "", "-color" }, {
+    vim.fn.jobstart({ "ondict", "-q", word, "-remote", "auto", "-color" }, {
         on_stdout = function(_, d, _)
             -- tutils.notify(string.format("on _stdout event: %s", e), {msg = string.format("ondict result, output:%s", vim.inspect(d)), level = "INFO"})
             for _, item in pairs(d) do
@@ -54,7 +54,7 @@ function M.query()
         end,
         on_stderr = function(_, d, _)
             if d and d[1] ~= "" then
-                -- notify(vim.inspect(d))
+                notify(vim.inspect(d))
             end
         end,
         on_exit = function(_, status, _)
