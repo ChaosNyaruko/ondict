@@ -71,6 +71,16 @@ function M.query()
     })
 end
 
+function M.install()
+    local res = vim.fn.system({"go", "install", "."})
+    if res == "" then
+        notify(string.format("install ondict success"))
+        return
+    end
+    notify(string.format("install error: %s", res))
+end
+
 -- for quick-test
 -- vim.keymap.set("n", "<leader>d", M.query)
+-- M.install()
 return M
