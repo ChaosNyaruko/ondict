@@ -72,12 +72,17 @@ function M.query()
 end
 
 function M.install()
-    local res = vim.fn.system({"go", "install", "."})
-    if res == "" then
-        notify(string.format("install ondict success"))
-        return
+    local root_dir = vim.fn.expand('<sfile>:h:h')
+    if root_dir ~= "" then
+        vim.cmd.lcd(root_dir)
+        local res = vim.fn.system({"go", "install", "."})
+        if res == "" then
+            notify(string.format("install ondict success"))
+            return
+        end
+        notify(string.format("install error: %s", res))
     end
-    notify(string.format("install error: %s", res))
+    notify(string.format("empty root dir"))
 end
 
 -- for quick-test
