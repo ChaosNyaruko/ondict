@@ -157,13 +157,13 @@ func readLongmanEntry(n *html.Node) []string {
 func ldoceDict(n *html.Node) []string {
 	var res []string
 	if isElement(n, "span", "ldoceEntry Entry") {
-		res = append(res, fmt.Sprintf("*****LDOCE ENTRY****\n"))
+		res = append(res, fmt.Sprintf("\n*****LDOCE ENTRY*****\n"))
 		res = append(res, readLongmanEntry(n)...)
 		return res
 	}
 
 	if !*easyMode && isElement(n, "span", "bussdictEntry Entry") {
-		res = append(res, fmt.Sprintf("*****BUSS ENTRY*****\n"))
+		res = append(res, fmt.Sprintf("\n*****BUSS ENTRY*****\n"))
 		res = append(res, readLongmanEntry(n)...)
 		return res
 	}
