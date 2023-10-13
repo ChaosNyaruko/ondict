@@ -32,7 +32,7 @@ func displayHelp() {
 	fmt.Println(".store   - Store the history to a JSON file")
 	fmt.Println(".restore - Restore the history from a JSON file")
 	fmt.Println(".clear   - Clear the terminal screen")
-	fmt.Println(".exit    - Closes your connection to ", cliName)
+	fmt.Println(".exit    - Closes your connection to", cliName)
 }
 
 // clearScreen clears the terminal screen

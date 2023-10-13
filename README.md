@@ -89,8 +89,10 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 - [x] Kill the server with a timeout.
 - [ ] A system for reviewing, e.g. simple ANKI?
 - [ ] More information such as collocations/corpus/.....
+- [ ] Parse \<span class="PhrVbEntry"\>, e.g. consist. 
+- [ ] Space/indent in \<span class="heading span"\>, e.g."return"
 - [x] Format: basic colors.
-- [ ] Format: indents and blank lines.
+- [x] Format: basic indents and blank lines, make display more compact.
 - [ ] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
 ---
 - [ ] ~Other dict parsing engines if I have the motivation?~

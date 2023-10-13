@@ -20,7 +20,7 @@ end
 
 
 function M.query()
-    -- notify("??")
+    notify("dev version!")
     -- copy something from telescope.nvim's grep_string
     local word
     local visual = vim.fn.mode() == "v"
