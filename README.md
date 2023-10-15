@@ -1,7 +1,7 @@
 # Introduction
 It's a really simple dictionary CLI app, relying on Longman online dictionary, with simple cache and history functionality.
 
-![Gif](./assets/ondict_example.gif)
+![Gif](./assets/ondict_example1.gif)
 # Prerequisites
 - Go version >=1.16, and add $GOBIN in your $PATH
 - Neovim version >= 0.9.1 [recommended, cause I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) is required. So it can also be ported to Vim, but I am not quite familiar with vim's popup feature]
@@ -95,8 +95,8 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 - [x] Format: basic indents and blank lines, make display more compact.
 - [ ] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
 ---
-- [ ] ~Other dict parsing engines if I have the motivation?~
-- [ ] ~offline support? Not going to do that recently... I just use it myself.~
-- [ ] ~Vim version~
+- [ ] Other dict parsing engines if I have the motivation?
+- [ ] offline support? Not going to do that recently... I just use it myself.
+- [ ] Vim version
 - [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?
 
