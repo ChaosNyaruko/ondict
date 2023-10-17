@@ -99,4 +99,3 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 - [ ] offline support? Not going to do that recently... I just use it myself.
 - [ ] Vim version
 - [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?
-
