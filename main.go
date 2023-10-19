@@ -173,7 +173,7 @@ func main() {
 
 	// just for offline test.
 	if *dev {
-		fd, err := os.Open("./tmp/doctor_ldoce.html")
+		fd, err := os.Open("./tmp/return.html")
 		if err != nil {
 			log.Fatal(err)
 		}

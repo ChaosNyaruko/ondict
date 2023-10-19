@@ -93,6 +93,8 @@ func pureEmptyLineEndLF(s string) bool {
 // 2. remove consecutive CRLFs(the input lines are has been "compressed" in readText)
 // TODO: make it elegant and robust.
 func format(input []string) string {
+	// TODO
+	return strings.Join(input, "\n")
 	tmp := make([]string, 0, len(input))
 	for i, s := range input {
 		if i < len(input)-1 && input[i] == "\n                " && input[i+1] == "\u00a0" {
@@ -139,9 +141,14 @@ func readLongmanEntry(n *html.Node) []string {
 	// read Sense for DEF
 	if isElement(n, "span", "Sense") {
 		red := color.New(color.FgRed).SprintfFunc()
-		sense := fmt.Sprintf("%sDEF:%s", strings.Repeat("\t", 1), readText(n))
+		sense := fmt.Sprintf("%sSense:%s", strings.Repeat("\t", 0), readText(n))
 		log.Printf("Sense: %q", sense)
 		return []string{red("%s", sense)}
+	}
+	if isElement(n, "span", "PhrVbEntry") {
+		pvb := fmt.Sprintf("%sPhrVbEntry:%s", "", readText(n))
+		log.Printf("PhrVbEntry: %q", pvb)
+		return []string{pvb}
 	}
 	if isElement(n, "span", "Head") {
 		cyan := color.New(color.FgCyan).SprintfFunc()
@@ -190,7 +197,7 @@ func isElement(n *html.Node, ele string, class string) bool {
 	return false
 }
 
-func readOneExample(n *html.Node) string {
+func readAllText(n *html.Node) string {
 	var s string
 	defer func() {
 		log.Printf("example[%q]:", s)
@@ -221,9 +228,26 @@ func readText(n *html.Node) string {
 	if getSpanClass(n) == "ACTIV" {
 		return ""
 	}
+	if isElement(n, "span", "LEXUNIT") {
+		noColor := color.New().SprintfFunc()
+		return noColor("%s", fmt.Sprintf("\n%sLEXUNIT: %s \n", "", strings.TrimLeft(readAllText(n), " \n")))
+	}
+	if isElement(n, "span", "DEF") {
+		noColor := color.New().SprintfFunc()
+		return noColor("%s", fmt.Sprintf("\n%sDEF: %s \n", "", strings.TrimLeft(readAllText(n), " \n")))
+	}
+
+	if isElement(n, "span", "ColloExa") {
+		noColor := color.New().SprintfFunc()
+		return noColor("%s", fmt.Sprintf("%sColloExa:[ %s ]\n", "", strings.TrimLeft(readAllText(n), " \n")))
+	}
+	if isElement(n, "span", "GramExa") {
+		noColor := color.New().SprintfFunc()
+		return noColor("%s", fmt.Sprintf("%sGramExa:{ %s }\n", "", strings.TrimLeft(readAllText(n), " \n")))
+	}
 	if isElement(n, "span", "EXAMPLE") {
 		noColor := color.New().SprintfFunc()
-		return noColor("%s", fmt.Sprintf("\n\u00a0%sEXAMPLE:> %s <\n", strings.Repeat("\t", 2), strings.TrimLeft(readOneExample(n), " \n")))
+		return noColor("%s", fmt.Sprintf("\n\u00a0%sEXAMPLE:> %s <\n", strings.Repeat("\t", 0), strings.TrimLeft(readAllText(n), " \n")))
 	}
 	var s string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {

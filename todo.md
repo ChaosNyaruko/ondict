@@ -1,1 +1,2 @@
-in particular
+- [ ] in particular
+- [ ] consist verb table
