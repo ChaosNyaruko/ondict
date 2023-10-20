@@ -3,7 +3,7 @@ word=doctor
 
 # one-shot run
 run: 
-	go run . -q=$(word) -color
+	go run . -q=$(word) 
 
 serve:
 	go run . -serve

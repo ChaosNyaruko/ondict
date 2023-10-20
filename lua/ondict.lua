@@ -23,7 +23,7 @@ function M.query()
     -- notify("dev version!")
     -- copy something from telescope.nvim's grep_string
     local word
-    local visual = vim.fn.mode() == "v"
+    local visual = vim.fn.mode() == "v" -- TODO: v-line mode is not included
     if visual == true then
         local saved_reg = vim.fn.getreg "v"
         vim.cmd [[noautocmd sil norm "vy]]

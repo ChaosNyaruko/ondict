@@ -59,6 +59,7 @@ func main() {
 	}
 	if !*verbose {
 		log.SetOutput(io.Discard)
+		separatorOpen, separatorClose = "", ""
 	}
 	if *ver {
 		fmt.Printf("ondict %s %s %s with %s\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())

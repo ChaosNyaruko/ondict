@@ -14,6 +14,9 @@ import (
 	"golang.org/x/net/html"
 )
 
+var separatorOpen = "{"
+var separatorClose = "}"
+
 func queryByURL(word string) string {
 	start := time.Now()
 	// url := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
@@ -124,7 +127,7 @@ func readLongmanEntry(n *html.Node) []string {
 	// read "frequent head" for PRON
 	if isElement(n, "span", "frequent Head") {
 		blue := color.New(color.FgBlue).SprintfFunc()
-		head := fmt.Sprintf("{%s}", readText(n))
+		head := fmt.Sprintf("%s", separate(readText(n)))
 		head = strings.TrimLeft(head, " ")
 		head = strings.ReplaceAll(head, "\n", " ")
 		return []string{blue("%s", head)}
@@ -132,23 +135,23 @@ func readLongmanEntry(n *html.Node) []string {
 	// read Sense for DEF
 	if isElement(n, "span", "Sense") {
 		red := color.New(color.FgRed).SprintfFunc()
-		sense := fmt.Sprintf("%sSense{%s}", strings.Repeat("\t", 0), readText(n))
+		sense := fmt.Sprintf("%sSense%s", strings.Repeat("\t", 0), separate(readText(n)))
 		sense = strings.TrimLeft(sense, " ")
 		log.Printf("Sense: %q", sense)
 		return []string{red("%s", sense)}
 	}
 	if isElement(n, "span", "PhrVbEntry") {
-		pvb := fmt.Sprintf("%s{PhrVbEntry:%s}", "", readText(n))
+		pvb := fmt.Sprintf("%sPhrVbEntry:%s", "", separate(readText(n)))
 		pvb = strings.TrimLeft(pvb, " ")
 		log.Printf("PhrVbEntry: %q", pvb)
 		return []string{pvb}
 	}
 	if isElement(n, "span", "Head") {
 		cyan := color.New(color.FgCyan).SprintfFunc()
-		head := fmt.Sprintf("{%s}", readText(n))
+		head := fmt.Sprintf("%s", separate(readText(n)))
 		head = strings.TrimLeft(head, " ")
 		head = strings.ReplaceAll(head, "\n", " ")
-		return []string{cyan("%s", fmt.Sprintf("{%s}", head))}
+		return []string{cyan("%s", fmt.Sprintf("%s", separate(head)))}
 	}
 	var res []string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -226,31 +229,31 @@ func readText(n *html.Node) string {
 	}
 	if isElement(n, "span", "LEXUNIT") {
 		noColor := color.New().SprintfFunc()
-		return noColor("%s", fmt.Sprintf("\n%sLEXUNIT: %s \n", "", strings.TrimLeft(readAllText(n), " ")))
+		return noColor("%s", fmt.Sprintf("\n%sLEXUNIT: %s \n", "", strings.TrimLeft(readSubs(n), " ")))
 	}
 	if isElement(n, "span", "DEF") {
 		noColor := color.New().SprintfFunc()
-		return noColor("%s", fmt.Sprintf("%sDEF: %s \n", "", strings.TrimLeft(readAllText(n), " ")))
+		return noColor("%s", fmt.Sprintf("%sDEF: %s \n", "", strings.TrimLeft(readSubs(n), " ")))
 	}
 
 	if isElement(n, "span", "ColloExa") {
 		noColor := color.New().SprintfFunc()
-		return noColor("%s", fmt.Sprintf("%sColloExa:[ %s ]\n", "", strings.TrimLeft(readAllText(n), " ")))
+		return noColor("%s", fmt.Sprintf("%sColloExa: %s \n", "", separate(strings.TrimLeft(readSubs(n), " "))))
 	}
 
 	if isElement(n, "span", "F2NBox") {
 		noColor := color.New().SprintfFunc()
-		return noColor("%s", fmt.Sprintf("%sF2NBox:[ %s ]\n", "", strings.TrimLeft(readSubs(n), " ")))
+		return noColor("%s", fmt.Sprintf("%sF2NBox: %s \n", "", separate(strings.TrimLeft(readSubs(n), " "))))
 	}
 
 	if isElement(n, "span", "heading span") {
 		noColor := color.New().SprintfFunc()
-		return noColor("%s", fmt.Sprintf("%sheading span:[%s]\n", "", strings.TrimLeft(readSubs(n), " ")))
+		return noColor("%s", fmt.Sprintf("%sheading span:%s\n", "", separate(strings.TrimLeft(readSubs(n), " "))))
 	}
 
 	if isElement(n, "span", "GramExa") {
 		noColor := color.New().SprintfFunc()
-		return noColor("%s", fmt.Sprintf("%sGramExa:{ %s }\n", "", strings.TrimLeft(readSubs(n), " ")))
+		return noColor("%s", fmt.Sprintf("%sGramExa:%s\n", "", separate(strings.TrimLeft(readSubs(n), " "))))
 	}
 	if isElement(n, "span", "EXAMPLE") {
 		noColor := color.New().SprintfFunc()
@@ -297,4 +300,8 @@ func readSubs(n *html.Node) string {
 		s += readText(c)
 	}
 	return s
+}
+
+func separate(s string) string {
+	return fmt.Sprintf("%s%s%s", separatorOpen, s, separatorClose)
 }
