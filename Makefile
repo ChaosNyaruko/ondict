@@ -12,7 +12,7 @@ auto:
 	go run . -q=$(word) -remote=auto
 
 debug:
-	go run . -d=true -v -color
+	go run . -d=true -v 
 
 install:
 	go install .
