@@ -12,7 +12,10 @@ auto:
 	go run . -q=$(word) -remote=auto
 
 debug:
-	go run . -d=true -v 
+	go run . -d=true -v
+
+mdx:
+	go run . -v -e=mdx
 
 install:
 	go install .

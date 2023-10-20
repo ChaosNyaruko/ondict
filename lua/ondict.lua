@@ -3,8 +3,8 @@ local M = {}
 local vimutil = require("vim.lsp.util")
 -- local tutils = require ("telescope.utils")
 -- local notify = tutils.notify
-local notify = function(funname, _)
-    vim.notify(funname, vim.log.levels.WARN)
+local notify = function(msg, _)
+    vim.notify(msg, vim.log.levels.WARN)
 end
 -- local notify = function(funname, opts)
 --   opts.once = vim.F.if_nil(opts.once, false)
@@ -45,7 +45,10 @@ function M.query()
     -- doctor
     local output = {}
     local info = ""
-    vim.fn.jobstart({ "ondict", "-q", word, "-remote", "auto", "-color" }, {
+    local job = { "ondict", "-q", word, "-remote", "auto", "-f=md", "-e=" }
+    -- job = { "ondict", "-q", word, "-f=md", "-e=mdx" }
+    notify(string.format("start query: [[ %s ]]", word))
+    vim.fn.jobstart(job, {
         on_stdout = function(_, d, _)
             -- tutils.notify(string.format("on _stdout event: %s", e), {msg = string.format("ondict result, output:%s", vim.inspect(d)), level = "INFO"})
             for _, item in pairs(d) do
@@ -58,6 +61,7 @@ function M.query()
             end
         end,
         on_exit = function(_, status, _)
+            notify(string.format("query finised:%d", status))
             if status == 0 then
                 -- notify(string.format("ondict good"), {msg = string.format("ondict result, output:%s", vim.inspect(output)), level = "INFO"})
                 -- print(string.format("type output: %s, %s", type(output), vim.inspect(output)))
@@ -94,4 +98,5 @@ end
 -- for quick-test
 -- vim.keymap.set("n", "<leader>d", M.query)
 -- M.install(".")
+M.query()
 return M

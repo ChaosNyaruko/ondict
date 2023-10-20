@@ -58,7 +58,7 @@ func parseHTML(info io.Reader) string {
 }
 
 func compressEmptyLine(s string) string {
-	t := strings.Trim(s, " \n")
+	t := strings.Trim(s, " \n\u00a0")
 	if len(t) == 0 {
 		return " "
 	}
@@ -92,9 +92,7 @@ func pureEmptyLineEndLF(s string) bool {
 	return last == '\n' || last == '\u00a0'
 }
 
-// format does:
-// 1. compress a ["\n                "] + ["\u00a0"] sequence into one "\n"
-// 2. remove consecutive CRLFs(the input lines are has been "compressed" in readText)
+// format removes consecutive CRLFs(the input lines are has been "compressed" in readText)
 // TODO: make it elegant and robust.
 func format(input []string) string {
 	joined := strings.Join(input, "\n")
@@ -168,7 +166,7 @@ func ldoceDict(n *html.Node) []string {
 		return res
 	}
 
-	if !*easyMode && isElement(n, "span", "bussdictEntry Entry") {
+	if isElement(n, "span", "bussdictEntry Entry") {
 		res = append(res, fmt.Sprintf("\n*****BUSS ENTRY*****\n"))
 		res = append(res, readLongmanEntry(n)...)
 		return res
@@ -182,7 +180,7 @@ func ldoceDict(n *html.Node) []string {
 }
 
 func isElement(n *html.Node, ele string, class string) bool {
-	if n.Type == html.ElementNode && n.DataAtom.String() == ele {
+	if n.Type == html.ElementNode && (n.DataAtom.String() == ele || n.Data == ele) {
 		if class == "" {
 			return true
 		}

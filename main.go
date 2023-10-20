@@ -24,7 +24,8 @@ var defaultIdleTimeout = 1 * time.Minute
 var help = flag.Bool("h", false, "Show this help doc")
 var ver = flag.Bool("version", false, "Show current version of ondict")
 var word = flag.String("q", "", "Specify the word that you want to query")
-var easyMode = flag.Bool("e", false, "True to show only 'frequent' meaning")
+
+// var easyMode = flag.Bool("e", false, "True to show only 'frequent' meaning")
 var dev = flag.Bool("d", false, "If specified, a static html file will be parsed, instead of an online query, just for dev debugging")
 var verbose = flag.Bool("v", false, "Show debug logs")
 var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
@@ -32,6 +33,8 @@ var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, 
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var remote = flag.String("remote", "", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 1 min.")
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
+var render = flag.String("f", "", "render [f]ormat, md for markdown (only for mdx engine now)")
+var engine = flag.String("e", "", "query engine, mdx or online")
 
 var mu sync.Mutex // owns history
 var history map[string]string = make(map[string]string)
@@ -61,6 +64,11 @@ func main() {
 		log.SetOutput(io.Discard)
 		separatorOpen, separatorClose = "", ""
 	}
+
+	if *render != "md" {
+		bold, italic = "", ""
+	}
+
 	if *ver {
 		fmt.Printf("ondict %s %s %s with %s\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())
 		return
@@ -169,17 +177,27 @@ func main() {
 		}
 		os.Exit(3)
 	} else if *remote != "" {
-		log.Fatal("TODO: specify a remote address not supported yet")
+		log.Fatal("TODO(ch): specify a remote address not supported yet")
 	}
 
 	// just for offline test.
 	if *dev {
-		fd, err := os.Open("./tmp/doctor.html")
+		fd, err := os.Open("./tmp/doctor_ldoce.html")
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer fd.Close()
 		fmt.Println(parseHTML(fd))
+		return
+	}
+
+	if *engine == "mdx" { // TODO(ch): extract the word, build the real offline dict.
+		fd, err := os.Open("./tmp/doctor_mdx.html")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer fd.Close()
+		fmt.Println(parseMDX(fd))
 		return
 	}
 	fmt.Println(queryByURL(*word))
