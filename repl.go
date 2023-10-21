@@ -55,7 +55,7 @@ func handleCmd(text string) {
 // cleanInput preprocesses input to the db repl
 func cleanInput(text string) string {
 	output := strings.TrimSpace(text)
-	output = strings.ToLower(output)
+	// output = strings.ToLower(output)
 	return output
 }
 

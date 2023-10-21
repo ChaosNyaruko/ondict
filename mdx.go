@@ -1,15 +1,23 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"strings"
 
 	"golang.org/x/net/html"
 )
 
 var bold = "**"
 var italic = "*"
+
+func queryMDX(word string) string {
+	fd := strings.NewReader(ldoceDict[word]) // TODO: find a "close" one when missing?
+	return parseMDX(fd)
+}
 
 func parseMDX(info io.Reader) string {
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
@@ -74,4 +82,22 @@ func readS(n *html.Node) string {
 
 func renderMD(s string, id string) string {
 	return id + s + id
+}
+
+func loadDecodedMdx(filePath string) map[string]string {
+	jsonData, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
+	}
+
+	// Define a map to hold the unmarshaled data
+	data := make(map[string]string)
+
+	// Unmarshal the JSON data into the map
+	err = json.Unmarshal(jsonData, &data)
+	if err != nil {
+		log.Fatalf("Failed to unmarshal JSON: %v", err)
+	}
+
+	return data
 }

@@ -1,2 +1,27 @@
-- [ ] in particular
-- [ ] consist verb table
+- [x] in particular
+- [x] consist verb table
+- [x] Parse \<span class="PhrVbEntry"\>, e.g. consist. 
+- [x] Space/indent in \<span class="heading span"\>, e.g."return"
+- [x] Hyphen-connected for phrases, and "space separated" queries.
+- [x] Take input from stdin.
+- [x] Work as a server (to cache something).
+- [x] Cache and save/restore stuff, in pure text.
+- [x] A real "auto" mode.
+- [x] Kill the server with a timeout.
+- [x] Format: basic indents and blank lines, make display more compact.
+- [x] Offline support? Not going to do that recently... I just use it myself.
+- [ ] Dictionary locations? 
+- [ ] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
+- [ ] Serve the "offline mode" on a website, for better display.
+- [ ] Vim version
+- [ ] nested queries (the windows are overlapped now)
+- [ ] A system for reviewing, e.g. simple ANKI?
+- [ ] Online mode: more information such as collocations/corpus/.....
+- [ ] refactor.
+
+---
+- [ ] Other online dict parsing engines if I have the motivation?
+- [ ] Automate the dict generating process, registering, and lazy-loading.
+- [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
+- [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
+- [ ] cache for offline mode?

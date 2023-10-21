@@ -17,7 +17,7 @@ import (
 	"github.com/fatih/color"
 )
 
-var version = "v0.0.1"
+var version = "v0.0.2"
 var dialTimeout = 5 * time.Second
 var defaultIdleTimeout = 1 * time.Minute
 
@@ -41,6 +41,10 @@ var history map[string]string = make(map[string]string)
 var dataPath string
 var historyFile string
 
+const ldoceMdx = "Longman Dictionary of Contemporary English" + ".json"
+
+var ldoceDict map[string]string
+
 func init() {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -52,6 +56,7 @@ func init() {
 	if dataPath == "" || historyFile == "" {
 		log.Fatalf("empty datapath/historyfile: %v||%v", dataPath, historyFile)
 	}
+	ldoceDict = loadDecodedMdx(filepath.Join("./dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
 }
 
 func main() {
@@ -191,19 +196,18 @@ func main() {
 		return
 	}
 
-	if *engine == "mdx" { // TODO(ch): extract the word, build the real offline dict.
-		fd, err := os.Open("./tmp/doctor_mdx.html")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer fd.Close()
-		fmt.Println(parseMDX(fd))
+	if *engine == "mdx" {
+		// io.Copy(os.Stdout, fd)
+		fmt.Println(queryMDX(*word))
 		return
 	}
 	fmt.Println(queryByURL(*word))
 }
 
 func query(word string) string {
+	if *engine == "md" {
+		return queryMDX(word)
+	}
 	var res string
 	mu.Lock()
 	if ex, ok := history[word]; ok {

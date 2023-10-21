@@ -45,8 +45,8 @@ function M.query()
     -- doctor
     local output = {}
     local info = ""
-    local job = { "ondict", "-q", word, "-remote", "auto", "-f=md", "-e=" }
-    -- job = { "ondict", "-q", word, "-f=md", "-e=mdx" }
+    local job = { "ondict", "-q", word, "-remote", "auto", "-f=md", "-e=mdx" }
+    job = { "ondict", "-q", word, "-f=md", "-e=mdx" }
     notify(string.format("start query: [[ %s ]]", word))
     vim.fn.jobstart(job, {
         on_stdout = function(_, d, _)

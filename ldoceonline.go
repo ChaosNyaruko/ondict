@@ -45,7 +45,7 @@ func parseHTML(info io.Reader) string {
 	f = func(n *html.Node) {
 		// log.Printf("Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
 		if isElement(n, "div", "dictionary") {
-			res = ldoceDict(n)
+			res = ldoceOnline(n)
 			return
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -158,7 +158,7 @@ func readLongmanEntry(n *html.Node) []string {
 	return res
 }
 
-func ldoceDict(n *html.Node) []string {
+func ldoceOnline(n *html.Node) []string {
 	var res []string
 	if isElement(n, "span", "ldoceEntry Entry") {
 		res = append(res, fmt.Sprintf("\n*****LDOCE ENTRY*****\n"))
@@ -173,7 +173,7 @@ func ldoceDict(n *html.Node) []string {
 	}
 
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		res = append(res, ldoceDict(c)...)
+		res = append(res, ldoceOnline(c)...)
 	}
 
 	return res

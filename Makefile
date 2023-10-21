@@ -15,7 +15,7 @@ debug:
 	go run . -d=true -v
 
 mdx:
-	go run . -v -e=mdx
+	go run . -e=mdx -q=$(word)
 
 install:
 	go install .
