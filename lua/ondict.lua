@@ -18,7 +18,7 @@ end
 --   })
 -- end
 
-
+local last_f_bufnr
 function M.query()
     -- notify("dev version!")
     -- copy something from telescope.nvim's grep_string
@@ -58,7 +58,6 @@ function M.query()
         on_stderr = function(_, _, _)
         end,
         on_exit = function(_, status, _)
-            notify(string.format("query [[ %s ]] finised: %d", word, status))
             if status == 0 then
                 -- notify(string.format("ondict good"), {msg = string.format("ondict result, output:%s", vim.inspect(output)), level = "INFO"})
                 -- print(string.format("type output: %s, %s", type(output), vim.inspect(output)))
@@ -66,7 +65,17 @@ function M.query()
                 info = vim.fn.join(output, "\n")
                 -- notify(info)
                 if info and info:len() ~= 0 then
-                    vimutil.open_floating_preview(vimutil.convert_input_to_markdown_lines(info), "markdown", {})
+                    notify(string.format("query [[ %s ]] finished: %d", word, status))
+                    -- notify(vim.inspect(vim.fn.exists("w:ondict_window")))
+                    if vim.fn.exists("w:ondict_window") ~= 0 and vim.api.nvim_win_get_var(0, "ondict_window") == true then
+                        vim.api.nvim_win_close(0, { force = false })
+                    end
+                    local bufnr, winbuf, winnr =
+                    -- opts.close_events = opts.close_events or { 'CursorMoved', 'CursorMovedI', 'InsertCharPre' }
+                        vimutil.open_floating_preview(vimutil.convert_input_to_markdown_lines(info), "markdown",
+                            {})
+                    vim.api.nvim_win_set_var(winbuf, "ondict_window", true)
+                    -- notify(string.format("bufnr: %s, (%s)winbuf: %s, winnr %s", bufnr, type(winbuf), winbuf, vim.inspect(winnr)))
                 else
                     notify(string.format("empty valid response for [[ %s ]] ", word))
                 end
