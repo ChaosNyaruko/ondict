@@ -39,7 +39,11 @@ input `.help` for commands that can be used.
 #### Work as a server
 This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
 ```console
-ondict -server
+ondict -server -listen=localhost:1345 -engine=mdx
+```
+Launch a http request
+```console
+curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 ```
 
 ## Working with Neovim
@@ -75,28 +79,10 @@ vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
 vim.keymap.set("n", "<leader>d", require("ondict").query)
 vim.keymap.set("v", "<leader>d", require("ondict").query)
 ```
-
+# Offline dictionary files
+Put the decoded JSON files in $HOME/.config/ondict/dicts
 
 # Features
-- [x] Basic parsing from Longman online dictionary.
-- [x] Do HTTP req instead of parsing a static html file.
-- [x] Integrated with (n)vim.
-- [x] Hyphen-connected for phrases, and "space separated" queries.
-- [x] Take input from stdin.
-- [x] Work as a server (to cache something).
-- [x] Cache and save/restore stuff, in pure text.
-- [x] A real "auto" mode.
-- [x] Kill the server with a timeout.
-- [ ] A system for reviewing, e.g. simple ANKI?
-- [ ] More information such as collocations/corpus/.....
-- [ ] Parse \<span class="PhrVbEntry"\>, e.g. consist. 
-- [ ] Space/indent in \<span class="heading span"\>, e.g."return"
-- [x] Format: basic colors.
-- [x] Format: basic indents and blank lines, make display more compact.
-- [ ] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
----
-- [ ] Other dict parsing engines if I have the motivation?
-- [ ] offline support? Not going to do that recently... I just use it myself.
-- [ ] Vim version
-- [ ] a simple TUI using https://github.com/charmbracelet/bubbletea ?
-
+- Online query support based on [Longman online dictionary](https://ldoceonline.com)
+- Integrated with (n)vim, feel free to use it in whatever editor you are using!
+- Offline engine/mode is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time.

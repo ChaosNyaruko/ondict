@@ -67,7 +67,7 @@ func startRemote(dp string, args ...string) error {
 	return nil
 }
 
-func request(netConn net.Conn) error {
+func request(netConn net.Conn, e, f string) error {
 	httpc := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -75,7 +75,7 @@ func request(netConn net.Conn) error {
 			},
 		},
 	}
-	res, err := httpc.Get(fmt.Sprintf("http://localunix/?query=%s", url.QueryEscape(*word)))
+	res, err := httpc.Get(fmt.Sprintf("http://localunix/?query=%s&engine=%s&format=%s", url.QueryEscape(*word), e, f))
 	if err != nil {
 		log.SetOutput(os.Stderr)
 		log.Fatalf("new request error %v", err)
