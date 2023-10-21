@@ -28,10 +28,11 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		word := q.Get("query")
 		e := q.Get("engine")
 		f := q.Get("format")
-		log.Printf("query HTTP: %v, engine: %v, format: %v", word, e, f)
+		log.Printf("query dict: %v, engine: %v, format: %v", word, e, f)
 
 		res := query(word, e, f)
 		w.Write([]byte(res))
+		return
 	}
 	http.FileServer(http.Dir(".")).ServeHTTP(w, r)
 }
