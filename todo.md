@@ -2,7 +2,7 @@
 - [x] consist verb table
 - [x] Parse \<span class="PhrVbEntry"\>, e.g. consist. 
 - [x] Space/indent in \<span class="heading span"\>, e.g."return"
-- [x] Hyphen-connected for phrases, and "space separated" queries.
+- [x] Hyphen-connected for phrases (only for online mode), and "space separated" queries.
 - [x] Take input from stdin.
 - [x] Work as a server (to cache something).
 - [x] Cache and save/restore stuff, in pure text.
@@ -12,16 +12,16 @@
 - [x] Offline support? Not going to do that recently... I just use it myself.
 - [ ] Dictionary locations? 
 - [ ] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
-- [ ] Serve the "offline mode" on a website, for better display.
-- [ ] Vim version
+- [ ] Serve the "offline mode" on a website, for better display, html format, single static pages (mime things)?
 - [ ] nested queries (the windows are overlapped now)
 - [ ] A system for reviewing, e.g. simple ANKI?
 - [ ] Online mode: more information such as collocations/corpus/.....
-- [ ] refactor.
+- [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
 
 ---
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] Automate the dict generating process, registering, and lazy-loading.
-- [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] cache for offline mode?
+- [ ] refactor.
+- [ ] Vim version

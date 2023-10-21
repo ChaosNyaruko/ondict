@@ -19,7 +19,7 @@ import (
 
 var version = "v0.0.2"
 var dialTimeout = 5 * time.Second
-var defaultIdleTimeout = 1 * time.Minute
+var defaultIdleTimeout = 876000 * time.Hour // 100 years
 
 var help = flag.Bool("h", false, "Show this help doc")
 var ver = flag.Bool("version", false, "Show current version of ondict")
@@ -31,32 +31,28 @@ var verbose = flag.Bool("v", false, "Show debug logs")
 var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
+var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
 var remote = flag.String("remote", "", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 1 min.")
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
-var render = flag.String("f", "", "render [f]ormat, md for markdown (only for mdx engine now)")
-var engine = flag.String("e", "", "query engine, mdx or online")
+var render = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
+var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 
 var mu sync.Mutex // owns history
 var history map[string]string = make(map[string]string)
 var dataPath string
 var historyFile string
 
-const ldoceMdx = "Longman Dictionary of Contemporary English" + ".json"
-
-var ldoceDict map[string]string
-
 func init() {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
 	}
-	config := filepath.Join(home, ".config")
-	dataPath = filepath.Join(config, "ondict")
+	configPath := filepath.Join(home, ".config")
+	dataPath = filepath.Join(configPath, "ondict")
 	historyFile = filepath.Join(dataPath, "history.json")
 	if dataPath == "" || historyFile == "" {
 		log.Fatalf("empty datapath/historyfile: %v||%v", dataPath, historyFile)
 	}
-	ldoceDict = loadDecodedMdx(filepath.Join("./dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
 }
 
 func main() {
@@ -69,9 +65,10 @@ func main() {
 		log.SetOutput(io.Discard)
 		separatorOpen, separatorClose = "", ""
 	}
+	loadConfig()
 
 	if *render != "md" {
-		bold, italic = "", ""
+		gbold, gitalic = "", ""
 	}
 
 	if *ver {
@@ -84,6 +81,7 @@ func main() {
 	}
 
 	if *interactive {
+		ldoceDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
 		startLoop()
 		return
 	}
@@ -91,18 +89,24 @@ func main() {
 	if *server {
 		stop := make(chan error)
 		p := new(proxy)
-		p.timeout = time.NewTimer(*idleTimeout)
-		dp, err := os.Executable()
-		if err != nil {
-			log.Fatalf("getting ondict path error: %v", err)
+		if *idleTimeout > 0 {
+			p.timeout = time.NewTimer(*idleTimeout)
 		}
-		network, addr := autoNetworkAddressPosix(dp, "")
-		if _, err := os.Stat(addr); err == nil {
-			if err := os.Remove(addr); err != nil {
-				log.Fatalf("removing remote socket file: %v", err)
+		network, addr := ParseAddr(*listenAddr)
+		if network == "auto" || addr == "" {
+			dp, err := os.Executable()
+			if err != nil {
+				log.Fatalf("getting ondict path error: %v", err)
+			}
+			network, addr = autoNetworkAddressPosix(dp, "")
+			if _, err := os.Stat(addr); err == nil {
+				if err := os.Remove(addr); err != nil {
+					log.Fatalf("removing remote socket file: %v", err)
+				}
 			}
 		}
-		log.Printf("%s, start a new server: %s", dp, addr)
+		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *render, *engine)
+		ldoceDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -136,7 +140,7 @@ func main() {
 		netConn, err := net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
-			if err := request(netConn); err != nil {
+			if err := request(netConn, *engine, *render); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -156,6 +160,9 @@ func main() {
 		}
 		args := []string{
 			"-serve=true",
+			"-listen.timeout=2m",
+			"-e=" + *engine,
+			"-f=" + *render,
 		}
 		log.Printf("starting remote: %v", args)
 		if err := startRemote(dp, args...); err != nil {
@@ -168,7 +175,7 @@ func main() {
 			startDial := time.Now()
 			netConn, err = net.DialTimeout(network, address, dialTimeout)
 			if err == nil {
-				if err := request(netConn); err != nil {
+				if err := request(netConn, *engine, *render); err != nil {
 					log.Fatal(err)
 				}
 				return
@@ -198,15 +205,22 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		fmt.Println(queryMDX(*word))
+		ldoceDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
+		fmt.Println(queryMDX(*word, *render))
 		return
 	}
 	fmt.Println(queryByURL(*word))
 }
 
-func query(word string) string {
-	if *engine == "md" {
-		return queryMDX(word)
+func query(word string, e string, f string) string {
+	if e == "" {
+		e = *engine
+	}
+	if f == "" {
+		f = *render
+	}
+	if e == "mdx" {
+		return queryMDX(word, f)
 	}
 	var res string
 	mu.Lock()

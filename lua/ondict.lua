@@ -46,8 +46,8 @@ function M.query()
     local output = {}
     local info = ""
     local job = { "ondict", "-q", word, "-remote", "auto", "-f=md", "-e=mdx" }
-    job = { "ondict", "-q", word, "-f=md", "-e=mdx" }
-    notify(string.format("start query: [[ %s ]]", word))
+    -- job = { "ondict", "-remote=auto", "-q", word, "-f=x", "-e=mdx" }
+    -- notify(string.format("start query: [[ %s ]]", word))
     vim.fn.jobstart(job, {
         on_stdout = function(_, d, _)
             -- tutils.notify(string.format("on _stdout event: %s", e), {msg = string.format("ondict result, output:%s", vim.inspect(d)), level = "INFO"})
@@ -55,19 +55,21 @@ function M.query()
                 table.insert(output, item)
             end
         end,
-        on_stderr = function(_, d, _)
-            if d and d[1] ~= "" then
-                notify(vim.inspect(d))
-            end
+        on_stderr = function(_, _, _)
         end,
         on_exit = function(_, status, _)
-            notify(string.format("query finised:%d", status))
+            notify(string.format("query [[ %s ]] finised: %d", word, status))
             if status == 0 then
                 -- notify(string.format("ondict good"), {msg = string.format("ondict result, output:%s", vim.inspect(output)), level = "INFO"})
                 -- print(string.format("type output: %s, %s", type(output), vim.inspect(output)))
                 output = vimutil.trim_empty_lines(output)
                 info = vim.fn.join(output, "\n")
-                vimutil.open_floating_preview(vimutil.convert_input_to_markdown_lines(info), "markdown", {})
+                -- notify(info)
+                if info and info:len() ~= 0 then
+                    vimutil.open_floating_preview(vimutil.convert_input_to_markdown_lines(info), "markdown", {})
+                else
+                    notify(string.format("empty valid response for [[ %s ]] ", word))
+                end
             else
                 -- notify("ondict error") -- TODO: ERROR doesn't always show the message, why?
             end
@@ -98,5 +100,5 @@ end
 -- for quick-test
 -- vim.keymap.set("n", "<leader>d", M.query)
 -- M.install(".")
-M.query()
+-- M.query()
 return M

@@ -39,7 +39,11 @@ input `.help` for commands that can be used.
 #### Work as a server
 This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
 ```console
-ondict -server
+ondict -server -listen=localhost:1345 -engine=mdx
+```
+Launch a http request
+```console
+curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 ```
 
 ## Working with Neovim
@@ -75,7 +79,8 @@ vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
 vim.keymap.set("n", "<leader>d", require("ondict").query)
 vim.keymap.set("v", "<leader>d", require("ondict").query)
 ```
-
+# Offline dictionary files
+Put the decoded JSON files in $HOME/.config/ondict/dicts
 
 # Features
 - Online query support based on [Longman online dictionary](https://ldoceonline.com)

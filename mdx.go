@@ -11,28 +11,37 @@ import (
 	"golang.org/x/net/html"
 )
 
-var bold = "**"
-var italic = "*"
+var (
+	ldoceMdx  = "Longman Dictionary of Contemporary English" + ".json"
+	ldoceDict map[string]string
+)
 
-func queryMDX(word string) string {
+var gbold = "**"
+var gitalic = "*"
+
+func queryMDX(word string, f string) string {
+	if f == "html" {
+		return ldoceDict[word]
+	}
 	fd := strings.NewReader(ldoceDict[word]) // TODO: find a "close" one when missing?
-	return parseMDX(fd)
+	return parseMDX(fd, f)
 }
 
-func parseMDX(info io.Reader) string {
+func parseMDX(info io.Reader, ft string) string {
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {
 		log.Fatal(err)
 	}
-	return format([]string{f(doc, 0, nil)})
+	return format([]string{f(doc, 0, nil, ft)})
 }
 
 // f -> readText
-func f(n *html.Node, level int, parent *html.Node) string {
-	// log.Printf("LEVEL[%d %p <- %p] Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", level, n, parent, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
-	if level == 0 {
-		// t.Logf("ROOT: type: %v atom[%s]", n.Type, n.DataAtom)
+func f(n *html.Node, level int, parent *html.Node, ft string) string {
+	var bold, italic string
+	if ft == "md" {
+		bold, italic = "**", "*"
 	}
+	// log.Printf("LEVEL[%d %p <- %p] Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", level, n, parent, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
 	if n.Type == html.TextNode {
 		// t.Logf("text: [%s] level %d", n.Data, level)
 		return compressEmptyLine(n.Data)
@@ -44,29 +53,29 @@ func f(n *html.Node, level int, parent *html.Node) string {
 	}
 	// italic
 	if isElement(n, "i", "") {
-		return renderMD(readS(n), italic)
+		return renderMD(readS(n, ft), italic)
 	}
 	// bold
 	if isElement(n, "b", "") {
-		return renderMD(readS(n), bold)
+		return renderMD(readS(n, ft), bold)
 	}
 	if isElement(n, "table", "") {
-		return "\n" + readS(n) + "\n"
+		return "\n" + readS(n, ft) + "\n"
 	}
 	if isElement(n, "ex", "") {
-		return fmt.Sprintf("EXAMPLE:%s", readS(n))
+		return fmt.Sprintf("> %s <", readS(n, ft))
 	}
 	if n.Type == html.ElementNode && n.DataAtom.String() == "br" {
 		return "\n"
 	}
 	var s string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += f(c, level+1, n)
+		s += f(c, level+1, n, ft)
 	}
 	return s
 }
 
-func readS(n *html.Node) string {
+func readS(n *html.Node, ft string) string {
 	if n == nil {
 		return ""
 	}
@@ -75,7 +84,7 @@ func readS(n *html.Node) string {
 	}
 	var s string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += f(c, 0, n)
+		s += f(c, 0, n, ft)
 	}
 	return s
 }
