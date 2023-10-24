@@ -19,6 +19,7 @@
 - [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
 
 ---
+- [ ] A more decent web page.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] Automate the dict generating process, registering, and lazy-loading.
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
