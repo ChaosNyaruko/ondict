@@ -130,14 +130,17 @@ func main() {
 		}
 	}
 
+	var netConn net.Conn
+	var err error
+	var network, address string
 	if *remote == "auto" {
 		dp, err := os.Executable()
 		if err != nil {
 			log.Fatalf("getting ondict path error: %v", err)
 		}
-		network, address := autoNetworkAddressPosix(dp, "")
+		network, address = autoNetworkAddressPosix(dp, "")
 		log.Printf("auto mode dp: %v, network: %v, address: %v", dp, network, address)
-		netConn, err := net.DialTimeout(network, address, dialTimeout)
+		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
 			if err := request(netConn, *engine, *render); err != nil {
@@ -168,29 +171,28 @@ func main() {
 		if err := startRemote(dp, args...); err != nil {
 			log.Fatal(err)
 		}
-		const retries = 5
-		// It can take some time for the newly started server to bind to our address,
-		// so we retry for a bit.
-		for retry := 0; retry < retries; retry++ {
-			startDial := time.Now()
-			netConn, err = net.DialTimeout(network, address, dialTimeout)
-			if err == nil {
-				if err := request(netConn, *engine, *render); err != nil {
-					log.Fatal(err)
-				}
-				return
-			}
-			log.Printf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
-			// In case our failure was a fast-failure, ensure we wait at least
-			// f.dialTimeout before trying again.
-			if retry != retries-1 {
-				time.Sleep(dialTimeout - time.Since(startDial))
-			}
-		}
-		os.Exit(3)
-	} else if *remote != "" {
-		log.Fatal("TODO(ch): specify a remote address not supported yet")
 	}
+	network, address = ParseAddr(*remote)
+	const retries = 5
+	// It can take some time for the newly started server to bind to our address,
+	// so we retry for a bit.
+	for retry := 0; retry < retries; retry++ {
+		startDial := time.Now()
+		netConn, err = net.DialTimeout(network, address, dialTimeout)
+		if err == nil {
+			if err := request(netConn, *engine, *render); err != nil {
+				log.Fatal(err)
+			}
+			return
+		}
+		log.Printf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
+		// In case our failure was a fast-failure, ensure we wait at least
+		// f.dialTimeout before trying again.
+		if retry != retries-1 {
+			time.Sleep(dialTimeout - time.Since(startDial))
+		}
+	}
+	log.Fatalf("failed after %d attempts", retries)
 
 	// just for offline test.
 	if *dev {

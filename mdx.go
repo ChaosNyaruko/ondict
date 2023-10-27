@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	ldoceMdx  = "Longman Dictionary of Contemporary English" + ".json"
+	// ldoceMdx = "Longman Dictionary of Contemporary English" + ".json"
+	// ldoceMdx = "ODE_zh" + ".json"
+	ldoceMdx  = "oald9" + ".json"
 	ldoceDict map[string]string
 )
 
@@ -47,7 +49,6 @@ func f(n *html.Node, level int, parent *html.Node, ft string) string {
 		return compressEmptyLine(n.Data)
 	}
 	if isElement(n, "div", "") {
-		// TODO: origin?
 		// return "\n" + readS(n) + "\n"
 		return "\n"
 	}

@@ -75,7 +75,7 @@ func request(netConn net.Conn, e, f string) error {
 			},
 		},
 	}
-	res, err := httpc.Get(fmt.Sprintf("http://localunix/dict?query=%s&engine=%s&format=%s", url.QueryEscape(*word), e, f))
+	res, err := httpc.Get(fmt.Sprintf("http://fakedomain/dict?query=%s&engine=%s&format=%s", url.QueryEscape(*word), e, f))
 	if err != nil {
 		log.SetOutput(os.Stderr)
 		log.Fatalf("new request error %v", err)
