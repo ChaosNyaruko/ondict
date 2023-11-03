@@ -45,6 +45,14 @@ Launch a http request
 ```console
 curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 ```
+If you are visiting the URL with a web browser, setting format to "html" is recommended. The browser will automatically render a more beautiful page than it is in the "CLI" interface.
+
+You can also deploy it on your server, as an upstream of Nginx/, or just exposing it with a suitable ip/port.
+
+You can run `make serve` locally for an easy example. My front-end skill is poor, so the page is ugly and rough, don't hate it :(. 
+
+There are still a lot of [TODOs](./todo.md), free free to give me PRs and contribute to the immature project, thanks in advance.
+
 
 ## Working with Neovim
 1. Install the plugin with a plugin manager or manually. 
