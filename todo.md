@@ -11,18 +11,17 @@
 - [x] Format: basic indents and blank lines, make display more compact.
 - [x] Offline support? Not going to do that recently... I just use it myself.
 - [ ] Dictionary locations? 
-- [ ] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
-- [ ] Serve the "offline mode" on a website, for better display, html format, single static pages (mime things)?
-- [ ] nested queries (the windows are overlapped now)
+- [x] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
+- [x] Serve the "offline mode" on a website, for better display, html format, single static pages (mime things)?
+- [x] nested queries (the windows are overlapped now)
 - [ ] A system for reviewing, e.g. simple ANKI?
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
+- [ ] Add an en-cn online/offline dictionary for quick enquiry.
 
 ---
 - [ ] A more decent web page.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] Automate the dict generating process, registering, and lazy-loading.
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
-- [ ] cache for offline mode?
-- [ ] refactor.
 - [ ] Vim version
