@@ -171,8 +171,9 @@ func main() {
 		if err := startRemote(dp, args...); err != nil {
 			log.Fatal(err)
 		}
+	} else {
+		network, address = ParseAddr(*remote)
 	}
-	network, address = ParseAddr(*remote)
 	const retries = 5
 	// It can take some time for the newly started server to bind to our address,
 	// so we retry for a bit.
