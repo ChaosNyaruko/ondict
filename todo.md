@@ -18,6 +18,7 @@
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
 - [ ] Add an en-cn online/offline dictionary for quick enquiry.
+- [ ] Bind an MDX with a potential CSS file for html mode, for display effects.
 
 ---
 - [ ] A more decent web page.
