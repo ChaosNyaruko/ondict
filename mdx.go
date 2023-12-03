@@ -6,26 +6,42 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
-var (
-	// ldoceMdx = "Longman Dictionary of Contemporary English" + ".json"
-	// ldoceMdx = "ODE_zh" + ".json"
-	ldoceMdx  = "oald9" + ".json"
-	ldoceDict map[string]string
-)
+type MdxDict struct {
+	// For personal usage, "oald9.json", or "Longman Dictionary of Contemporary English"
+	mdxFile string
+	// Only match the mdx with the same mdxFile name
+	mdxCss  string
+	mdxDict map[string]string
+}
+
+func (g *MdxDict) Load() error {
+	g.mdxDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", g.mdxFile))
+	if contents, err := os.ReadFile((filepath.Join(dataPath, "dicts", g.mdxCss))); err == nil {
+		g.mdxCss = string(contents)
+	} else {
+		g.mdxCss = ""
+		log.Printf("load dicts[%v] css err: %v", g.mdxFile, err)
+	}
+	return nil
+}
+
+// TODO: support multiple mdx lib at the same time.
+var globalDict MdxDict
 
 var gbold = "**"
 var gitalic = "*"
 
 func queryMDX(word string, f string) string {
 	if f == "html" {
-		return ldoceDict[word]
+		return globalDict.mdxDict[word]
 	}
-	fd := strings.NewReader(ldoceDict[word]) // TODO: find a "close" one when missing?
+	fd := strings.NewReader(globalDict.mdxDict[word]) // TODO: find a "close" one when missing?
 	return parseMDX(fd, f)
 }
 

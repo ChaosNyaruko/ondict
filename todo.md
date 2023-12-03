@@ -10,16 +10,20 @@
 - [x] Kill the server with a timeout.
 - [x] Format: basic indents and blank lines, make display more compact.
 - [x] Offline support? Not going to do that recently... I just use it myself.
-- [ ] Dictionary locations? 
+- [x] Dictionary locations? -> \$XDG_CONFIG_HOME/ondict aka "~/.config/ondict"
 - [x] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
 - [x] Serve the "offline mode" on a website, for better display, html format, single static pages (mime things)?
 - [x] nested queries (the windows are overlapped now)
 - [ ] A system for reviewing, e.g. simple ANKI?
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
-- [ ] Add an en-cn online/offline dictionary for quick enquiry.
+- [x] Add an en-cn online/offline dictionary for quick enquiry -> oald9.
+- [x] Bind an MDX with a potential CSS file for html mode, for display effects.
+- [ ] Support multiple mdx libs at the same time and provide a .
+- [ ] Appropriate module abstraction, and unit testing automation.
 
 ---
+The following are less important things that I want to finish.
 - [ ] A more decent web page.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] Automate the dict generating process, registering, and lazy-loading.

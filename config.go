@@ -26,7 +26,8 @@ func loadConfig() error { // TODO: more configurations, such as default engine.
 	if len(c.Dicts) == 0 {
 		return nil
 	}
-	ldoceMdx = c.Dicts[0] + ".json"
-	log.Printf("get dicts: %v", ldoceMdx)
+	globalDict.mdxFile = c.Dicts[0] + ".json"
+	globalDict.mdxCss = c.Dicts[0] + ".css"
+	log.Printf("get global dicts: %v", globalDict)
 	return nil
 }
