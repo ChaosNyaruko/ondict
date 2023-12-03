@@ -81,7 +81,7 @@ func main() {
 	}
 
 	if *interactive {
-		ldoceDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
+		globalDict.Load() // TODO(ch): lazy loading for performance?
 		startLoop()
 		return
 	}
@@ -106,7 +106,7 @@ func main() {
 			}
 		}
 		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *render, *engine)
-		ldoceDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
+		globalDict.Load()
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -208,7 +208,7 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		ldoceDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", ldoceMdx)) // TODO(ch): lazy loading for performance?
+		globalDict.Load()
 		fmt.Println(queryMDX(*word, *render))
 		return
 	}

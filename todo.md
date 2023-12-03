@@ -19,6 +19,7 @@
 - [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
 - [ ] Add an en-cn online/offline dictionary for quick enquiry.
 - [ ] Bind an MDX with a potential CSS file for html mode, for display effects.
+- [ ] Support multiple mdx lib at the same time.
 
 ---
 - [ ] A more decent web page.
