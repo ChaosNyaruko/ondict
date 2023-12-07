@@ -19,12 +19,33 @@ var separatorClose = "}"
 
 func queryByURL(word string) string {
 	start := time.Now()
-	// url := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
-	url := fmt.Sprintf("https://ldoceonline.com/search/english/direct/?q=%s", url.QueryEscape(word))
-	resp, err := http.Get(url)
-	log.Printf("query %q cost: %v", url, time.Since(start))
+	// queryURL := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
+	queryURL := fmt.Sprintf("https://ldoceonline.com/search/english/direct/?q=%s", url.QueryEscape(word))
+	// resp, err := http.Get(queryURL) // an unexpected EOF will occur
+	// Refer to https://www.reddit.com/r/golang/comments/y971ye/unexpected_eof_from_http_request/ --> not working
+	// https://bugz.pythonanywhere.com/golang/Unexpected-EOF-golang-http-client-error --> not working either
+	// Maybe not my problem? It's work when I developed the first demo version. https://www.appsloveworld.com/go/2/golang-http-request-results-in-eof-errors-when-making-multiple-requests-successiv
+	// I change my User-Agent to curl, it works then. 🥲
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"GET",
+		queryURL,
+		http.NoBody,
+	)
+	req.Close = true
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	req.Header.Set("Accept-Encoding", "identity") // NOTE THIS LINE
+	req.Header.Set("User-Agent", "curl/8.1.2")
+
+	resp, err := client.Do(req)
+
+	log.Printf("query %q cost: %v", queryURL, time.Since(start))
+	if err != nil {
+		log.Printf("Get url %v err: %v", queryURL, err)
+		return fmt.Sprintf("ERROR: ", err)
 	}
 	defer resp.Body.Close()
 	return parseHTML(resp.Body)

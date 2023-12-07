@@ -21,6 +21,7 @@
 - [x] Bind an MDX with a potential CSS file for html mode, for display effects.
 - [ ] Support multiple mdx libs at the same time and provide a .
 - [ ] Appropriate module abstraction, and unit testing automation. (https://aclanthology.org/C10-1096.pdf https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm https://github.com/BobuSumisu/aho-corasick)
+- [x] BUG: queryByURL will get an unexpected EOF error.
 
 ---
 The following are less important things that I want to finish.
