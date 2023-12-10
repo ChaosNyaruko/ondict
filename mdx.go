@@ -39,6 +39,7 @@ var gitalic = "*"
 
 func queryMDX(word string, f string) string {
 	if f == "html" {
+		// TODO: abstract it
 		return globalDict.mdxDict[word]
 	}
 	fd := strings.NewReader(globalDict.mdxDict[word]) // TODO: find a "close" one when missing?

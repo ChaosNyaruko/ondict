@@ -45,7 +45,7 @@ func queryByURL(word string) string {
 	log.Printf("query %q cost: %v", queryURL, time.Since(start))
 	if err != nil {
 		log.Printf("Get url %v err: %v", queryURL, err)
-		return fmt.Sprintf("ERROR: ", err)
+		return fmt.Sprintf("ERROR: %v", err)
 	}
 	defer resp.Body.Close()
 	return parseHTML(resp.Body)
