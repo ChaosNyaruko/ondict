@@ -61,7 +61,7 @@ func Test_MultiMatch(t *testing.T) {
 	d := MdxDict{
 		mdxFile: "test_dict.json",
 	}
-	d.Load()
+	d.Register()
 	assert.Equal(t, 1, len(d.Get("doctor")), "doctor")
 	assert.Equal(t, 1, len(d.Get("jesus")), "jesus")
 	assert.Equal(t, 1, len(d.Get("Doctor")), "Doctor")
