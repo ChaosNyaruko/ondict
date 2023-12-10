@@ -3,6 +3,7 @@ package sources
 import (
 	"log"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,6 +71,42 @@ func Test_MultiMatch(t *testing.T) {
 	assert.Equal(t, 2, len(d.Get("august")), "august")
 	t.Logf("%v", d.Get("from a to b"))
 	assert.Equal(t, 0, len(d.Get("b")), "b")
+}
+
+func Test_play(t *testing.T) {
+	var g MdxDict
+	if os.Getenv("FULLTEST") == "1" {
+		LoadConfig()
+		g = GlobalDict
+	} else {
+		dataPath = "../testdata/"
+		d := MdxDict{
+			mdxFile: "test_dict.json",
+		}
+		g = d
+	}
+	g.Register()
+	dict := g.mdxDict
+	input := make([]string, 0, len(dict))
+	// lowercase
+	lowDict := make(map[string][]string, len(dict))
+	for k, _ := range dict {
+		lk := strings.ToLower(k)
+		lowDict[lk] = append(lowDict[lk], k)
+	}
+
+	for k, _ := range lowDict {
+		input = append(input, k)
+	}
+	log.Printf("raw dict %d items, "+
+		"lowercase dict %d items, "+
+		"because different item in the raw dictionary "+
+		"like 'August' and 'august' will be "+
+		"combined into a string slice\n",
+		len(dict), len(lowDict))
+
+	word := "want"
+	t.Logf("%q output: %v", word, lowDict[word])
 }
 
 func TestMain(m *testing.M) {
