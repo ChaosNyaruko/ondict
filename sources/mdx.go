@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 
@@ -123,21 +124,20 @@ func (d *MdxDict) CSS() string {
 }
 
 func (d *MdxDict) Get(word string) string {
-	results := d.searcher.GetRawOutputs(word)
+	results := d.searcher.GetRawOutputs(strings.ToLower(word))
 	if len(results) == 0 {
 		return "<p>NO MATCH</p>"
 	}
 	// TODO: Give user the options.
 	// Naive solution: Give user the longest match.
-	// What about same length?
+	// What about same length? Random for now
 	var match, def string
 	for _, res := range results {
 		m := res.GetMatch()
-		if len(m) > len(match) {
+		if (len(m) > len(match)) || (len(m) == len(match) && rand.Uint32()%2 == 1) {
 			match = m
 			def = res.GetDefinition()
 		}
-
 	}
 	return def
 }
