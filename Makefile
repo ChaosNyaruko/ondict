@@ -26,3 +26,6 @@ interactive:
 
 install:
 	go install .
+
+localtest:
+	FULLTEST=1 go test -v ./...

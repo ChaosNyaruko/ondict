@@ -1,10 +1,11 @@
-package main
+package sources
 
 import (
 	"log"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/html"
 )
 
@@ -26,7 +27,7 @@ func Test_GetWords(t *testing.T) {
 			dfs(c, level+1, n)
 		}
 	}
-	fd, err := os.Open("./testdata/ldoce5.html")
+	fd, err := os.Open("../testdata/ldoce5.html")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,8 +42,8 @@ func Test_GetWords(t *testing.T) {
 }
 
 func Test_MDXParser(t *testing.T) {
-	// fd, err := os.Open("./testdata/test.html")
-	fd, err := os.Open("./testdata/doctor_mdx.html")
+	// fd, err := os.Open("../testdata/test.html")
+	fd, err := os.Open("../testdata/doctor_mdx.html")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,4 +54,25 @@ func Test_MDXParser(t *testing.T) {
 	}
 	// log.Printf("result: %v", readText(doc))
 	t.Logf("res: %v", format([]string{f(doc, 0, nil, "md")}))
+}
+
+func Test_MultiMatch(t *testing.T) {
+	dataPath = "../testdata/"
+	d := MdxDict{
+		mdxFile: "test_dict.json",
+	}
+	d.Register()
+	assert.Equal(t, 1, len(d.Get("doctor")), "doctor")
+	assert.Equal(t, 1, len(d.Get("jesus")), "jesus")
+	assert.Equal(t, 1, len(d.Get("Doctor")), "Doctor")
+	assert.Equal(t, 1, len(d.Get("Jesus")), "Jesus")
+	assert.Equal(t, 2, len(d.Get("August")), "August")
+	assert.Equal(t, 2, len(d.Get("august")), "august")
+	t.Logf("%v", d.Get("from a to b"))
+	assert.Equal(t, 0, len(d.Get("b")), "b")
+}
+
+func TestMain(m *testing.M) {
+	// log.SetOutput(io.Discard)
+	m.Run()
 }

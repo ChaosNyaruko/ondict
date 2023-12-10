@@ -14,16 +14,21 @@
 - [x] Serve on a TCP connection and can query from a "real" remote server, rather than local UDS.
 - [x] Serve the "offline mode" on a website, for better display, html format, single static pages (mime things)?
 - [x] nested queries (the windows are overlapped now)
-- [ ] A system for reviewing, e.g. simple ANKI?
-- [ ] Online mode: more information such as collocations/corpus/.....
-- [ ] A guessing/fallback algorithm for words missing (especially for offline dicts)
+- [x] A guessing/fallback algorithm for words missing (especially for offline dicts)
 - [x] Add an en-cn online/offline dictionary for quick enquiry -> oald9.
 - [x] Bind an MDX with a potential CSS file for html mode, for display effects.
-- [ ] Support multiple mdx libs at the same time and provide a .
-- [ ] Appropriate module abstraction, and unit testing automation.
+- [ ] Support multiple mdx libs at the same time and provide a user interface
+- [ ] Appropriate module abstraction, and unit testing automation. 
+- [x] Use [`aho-corasick`](https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm) algorithm to perform a fuzzy search. 
+- [x] BUG: QueryByURL will get an unexpected EOF error.
+- [ ] See the TODOs in the code.
+- [ ] Give users the option to setup the server in advance, for better first-query user experience. 
 
 ---
 The following are less important things that I want to finish.
+- [ ] A system for reviewing, e.g. simple ANKI?
+- [ ] Online mode: more information such as collocations/corpus/.....
+- [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
 - [ ] A more decent web page.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] Automate the dict generating process, registering, and lazy-loading.

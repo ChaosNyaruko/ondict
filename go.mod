@@ -5,6 +5,7 @@ go 1.20
 require golang.org/x/net v0.15.0
 
 require (
+	github.com/BobuSumisu/aho-corasick v1.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

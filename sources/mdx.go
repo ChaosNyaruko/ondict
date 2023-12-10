@@ -1,4 +1,4 @@
-package main
+package sources
 
 import (
 	"encoding/json"
@@ -6,43 +6,29 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
-type MdxDict struct {
-	// For personal usage, "oald9.json", or "Longman Dictionary of Contemporary English"
-	mdxFile string
-	// Only match the mdx with the same mdxFile name
-	mdxCss  string
-	mdxDict map[string]string
-}
+var Gbold = "**"
+var Gitalic = "*"
 
-func (g *MdxDict) Load() error {
-	g.mdxDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", g.mdxFile))
-	if contents, err := os.ReadFile((filepath.Join(dataPath, "dicts", g.mdxCss))); err == nil {
-		g.mdxCss = string(contents)
-	} else {
-		g.mdxCss = ""
-		log.Printf("load dicts[%v] css err: %v", g.mdxFile, err)
+var GlobalDict MdxDict
+
+func QueryMDX(word string, f string) string {
+	defs := GlobalDict.Get(word)
+	// TODO: put the render abstraction here?
+	if f == "html" { // f for format
+		return strings.Join(defs, "<br><br>")
 	}
-	return nil
-}
 
-// TODO: support multiple mdx lib at the same time.
-var globalDict MdxDict
-
-var gbold = "**"
-var gitalic = "*"
-
-func queryMDX(word string, f string) string {
-	if f == "html" {
-		return globalDict.mdxDict[word]
+	var res string
+	for _, def := range defs {
+		fd := strings.NewReader(def) // TODO: find a "close" one when missing?
+		res += "\n---\n" + parseMDX(fd, f)
 	}
-	fd := strings.NewReader(globalDict.mdxDict[word]) // TODO: find a "close" one when missing?
-	return parseMDX(fd, f)
+	return res
 }
 
 func parseMDX(info io.Reader, ft string) string {
@@ -126,4 +112,39 @@ func loadDecodedMdx(filePath string) map[string]string {
 	}
 
 	return data
+}
+
+type MdxDict struct {
+	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
+	mdxFile string
+	// Only match the mdx with the same mdxFile name
+	mdxCss   string
+	mdxDict  map[string]string
+	searcher Searcher
+}
+
+func (d *MdxDict) CSS() string {
+	return d.mdxCss
+}
+
+func (d *MdxDict) Get(word string) []string {
+	results := d.searcher.GetRawOutputs(strings.ToLower(word))
+	if len(results) == 0 {
+		return []string{}
+	}
+	// TODO: Give user the options.
+	// Naive solution: Give user the longest match.
+	// What about same length? Show all of them.
+	var maxes, defs []string
+	for _, res := range results {
+		m := res.GetMatch()
+		if len(maxes) == 0 || len(m) > len(maxes[0]) {
+			maxes = []string{m}
+			defs = []string{res.GetDefinition()}
+		} else if len(m) == len(maxes[0]) {
+			maxes = append(maxes, m)
+			defs = append(defs, res.GetDefinition())
+		}
+	}
+	return defs
 }

@@ -1,4 +1,4 @@
-package main
+package sources
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ type Config struct {
 	Dicts []string `json:"dicts"`
 }
 
-func loadConfig() error { // TODO: more configurations, such as default engine.
+func LoadConfig() error {
 	data, err := os.ReadFile(filepath.Join(dataPath, "config.json"))
 	if err != nil && errors.Is(err, os.ErrNotExist) {
 		log.Printf("load config file err: %v, default settings are used.", err)
@@ -26,8 +26,8 @@ func loadConfig() error { // TODO: more configurations, such as default engine.
 	if len(c.Dicts) == 0 {
 		return nil
 	}
-	globalDict.mdxFile = c.Dicts[0] + ".json"
-	globalDict.mdxCss = c.Dicts[0] + ".css"
-	log.Printf("get global dicts: %v", globalDict)
+	GlobalDict.mdxFile = c.Dicts[0] + ".json"
+	GlobalDict.mdxCss = c.Dicts[0] + ".css"
+	log.Printf("get global dicts: %v", GlobalDict)
 	return nil
 }
