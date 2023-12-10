@@ -4,8 +4,8 @@ import "testing"
 
 func Test_New(t *testing.T) {
 	LoadConfig()
-	globalDict.Load()
-	ack := New(globalDict.mdxDict)
-	res := ack.Get("jesus")
+	GlobalDict.Load()
+	ack := New(GlobalDict.mdxDict)
+	res := ack.GetRawOutputs("jesus")
 	t.Logf("%q output: %v", "jesus", res)
 }

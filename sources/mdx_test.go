@@ -1,4 +1,4 @@
-package main
+package sources
 
 import (
 	"log"
@@ -26,7 +26,7 @@ func Test_GetWords(t *testing.T) {
 			dfs(c, level+1, n)
 		}
 	}
-	fd, err := os.Open("./testdata/ldoce5.html")
+	fd, err := os.Open("../testdata/ldoce5.html")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,8 +41,8 @@ func Test_GetWords(t *testing.T) {
 }
 
 func Test_MDXParser(t *testing.T) {
-	// fd, err := os.Open("./testdata/test.html")
-	fd, err := os.Open("./testdata/doctor_mdx.html")
+	// fd, err := os.Open("../testdata/test.html")
+	fd, err := os.Open("../testdata/doctor_mdx.html")
 	if err != nil {
 		log.Fatal(err)
 	}
