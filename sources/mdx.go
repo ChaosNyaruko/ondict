@@ -1,4 +1,4 @@
-package main
+package sources
 
 import (
 	"encoding/json"
@@ -6,43 +6,23 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
-type MdxDict struct {
-	// For personal usage, "oald9.json", or "Longman Dictionary of Contemporary English"
-	mdxFile string
-	// Only match the mdx with the same mdxFile name
-	mdxCss  string
-	mdxDict map[string]string
-}
+var Gbold = "**"
+var Gitalic = "*"
 
-func (g *MdxDict) Load() error {
-	g.mdxDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", g.mdxFile))
-	if contents, err := os.ReadFile((filepath.Join(dataPath, "dicts", g.mdxCss))); err == nil {
-		g.mdxCss = string(contents)
-	} else {
-		g.mdxCss = ""
-		log.Printf("load dicts[%v] css err: %v", g.mdxFile, err)
-	}
-	return nil
-}
+var GlobalDict MdxDict
 
-// TODO: support multiple mdx lib at the same time.
-var globalDict MdxDict
-
-var gbold = "**"
-var gitalic = "*"
-
-func queryMDX(word string, f string) string {
-	if f == "html" {
+func QueryMDX(word string, f string) string {
+	def := GlobalDict.mdxDict[word]
+	if f == "html" { // f for format
 		// TODO: abstract it
-		return globalDict.mdxDict[word]
+		return def
 	}
-	fd := strings.NewReader(globalDict.mdxDict[word]) // TODO: find a "close" one when missing?
+	fd := strings.NewReader(def) // TODO: find a "close" one when missing?
 	return parseMDX(fd, f)
 }
 
@@ -127,4 +107,20 @@ func loadDecodedMdx(filePath string) map[string]string {
 	}
 
 	return data
+}
+
+type MdxDict struct {
+	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
+	mdxFile string
+	// Only match the mdx with the same mdxFile name
+	mdxCss  string
+	mdxDict map[string]string
+}
+
+func (d *MdxDict) CSS() string {
+	return d.mdxCss
+}
+
+func (d *MdxDict) Get(word string) []RawOutput {
+	return []RawOutput{output{rawWord: word, def: d.mdxDict[word]}}
 }

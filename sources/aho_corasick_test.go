@@ -1,9 +1,9 @@
-package main
+package sources
 
 import "testing"
 
 func Test_New(t *testing.T) {
-	loadConfig()
+	LoadConfig()
 	globalDict.Load()
 	ack := New(globalDict.mdxDict)
 	res := ack.Get("jesus")

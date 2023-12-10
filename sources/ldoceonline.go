@@ -1,11 +1,13 @@
-package main
+package sources
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 	"unicode"
@@ -14,10 +16,10 @@ import (
 	"golang.org/x/net/html"
 )
 
-var separatorOpen = "{"
-var separatorClose = "}"
+var SeparatorOpen = "{"
+var SeparatorClose = "}"
 
-func queryByURL(word string) string {
+func QueryByURL(word string) string {
 	start := time.Now()
 	// queryURL := fmt.Sprintf("https://ldoceonline.com/dictionary/%s", word)
 	queryURL := fmt.Sprintf("https://ldoceonline.com/search/english/direct/?q=%s", url.QueryEscape(word))
@@ -48,10 +50,10 @@ func queryByURL(word string) string {
 		return fmt.Sprintf("ERROR: %v", err)
 	}
 	defer resp.Body.Close()
-	return parseHTML(resp.Body)
+	return ParseHTML(resp.Body)
 }
 
-func parseHTML(info io.Reader) string {
+func ParseHTML(info io.Reader) string {
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {
 		log.Fatal(err)
@@ -322,5 +324,57 @@ func readSubs(n *html.Node) string {
 }
 
 func separate(s string) string {
-	return fmt.Sprintf("%s%s%s", separatorOpen, s, separatorClose)
+	return fmt.Sprintf("%s%s%s", SeparatorOpen, s, SeparatorClose)
+}
+
+func GetFromLDOCE(word string) string {
+	var res string
+	mu.Lock()
+	if ex, ok := history[word]; ok {
+		log.Printf("cache hit!")
+		res = ex
+	} else {
+		res = QueryByURL(word)
+		history[word] = res
+	}
+	mu.Unlock() // TODO: performance
+	return res
+}
+
+func Restore() {
+	data, err := os.ReadFile(historyFile)
+	if err != nil {
+		log.Printf("open file history err: %v", err)
+		return
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = json.Unmarshal(data, &history)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("history: %v", history)
+}
+
+func Store() {
+	his, err := json.Marshal(history)
+	if err != nil {
+		log.Fatal("marshal err ", err)
+	}
+	if err := os.MkdirAll(dataPath, 0755); err != nil {
+		log.Fatal("make dir err", err)
+	}
+	f, err := os.Create(historyFile)
+	if err != nil {
+		log.Fatal("create file err", err)
+	}
+
+	defer f.Close()
+
+	_, err = f.Write(his)
+
+	if err != nil {
+		log.Fatal("write file err", err)
+	}
 }

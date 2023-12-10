@@ -2,7 +2,7 @@
 // Refer to https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm
 // https://www.youtube.com/watch?v=O7_w001f58c
 // https://www.youtube.com/watch?v=OFKxWFew_L0
-package main
+package sources
 
 import (
 	"log"
@@ -10,11 +10,6 @@ import (
 
 	ahocorasick "github.com/BobuSumisu/aho-corasick"
 )
-
-type RawOutput interface {
-	GetMatch() string
-	GetDefinition() string
-}
 
 type AhoCorasick struct {
 	dict    map[string]string
@@ -43,19 +38,6 @@ func New(dict map[string]string) *AhoCorasick {
 	trie := ahocorasick.NewTrieBuilder().AddStrings(input).Build()
 
 	return &AhoCorasick{dict: dict, trie: trie, lowDict: lowDict}
-}
-
-type output struct {
-	rawWord string
-	def     string
-}
-
-func (o output) GetMatch() string {
-	return o.rawWord
-}
-
-func (o output) GetDefinition() string {
-	return o.def
 }
 
 func (ack *AhoCorasick) Get(input string) []RawOutput {

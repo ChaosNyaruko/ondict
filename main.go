@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -9,12 +8,12 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/fatih/color"
+
+	"github.com/ChaosNyaruko/ondict/sources"
 )
 
 var version = "v0.0.2"
@@ -37,24 +36,6 @@ var colour = flag.Bool("color", false, "This flags controls whether to use color
 var render = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 
-var mu sync.Mutex // owns history
-var history map[string]string = make(map[string]string)
-var dataPath string
-var historyFile string
-
-func init() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	configPath := filepath.Join(home, ".config")
-	dataPath = filepath.Join(configPath, "ondict")
-	historyFile = filepath.Join(dataPath, "history.json")
-	if dataPath == "" || historyFile == "" {
-		log.Fatalf("empty datapath/historyfile: %v||%v", dataPath, historyFile)
-	}
-}
-
 func main() {
 	flag.Parse()
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
@@ -63,12 +44,14 @@ func main() {
 	}
 	if !*verbose {
 		log.SetOutput(io.Discard)
-		separatorOpen, separatorClose = "", ""
+		// TODO: they should be bound with a renderer?
+		sources.SeparatorOpen, sources.SeparatorClose = "", ""
 	}
-	loadConfig()
+	// TODO: put it in a better place.
+	sources.LoadConfig()
 
 	if *render != "md" {
-		gbold, gitalic = "", ""
+		sources.Gbold, sources.Gitalic = "", ""
 	}
 
 	if *ver {
@@ -81,7 +64,7 @@ func main() {
 	}
 
 	if *interactive {
-		globalDict.Load() // TODO(ch): lazy loading for performance?
+		sources.GlobalDict.Load() // TODO(ch): lazy loading for performance?
 		startLoop()
 		return
 	}
@@ -106,7 +89,7 @@ func main() {
 			}
 		}
 		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *render, *engine)
-		globalDict.Load()
+		sources.GlobalDict.Load()
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -202,17 +185,17 @@ func main() {
 			log.Fatal(err)
 		}
 		defer fd.Close()
-		fmt.Println(parseHTML(fd))
+		fmt.Println(sources.ParseHTML(fd))
 		return
 	}
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		globalDict.Load()
-		fmt.Println(queryMDX(*word, *render))
+		sources.GlobalDict.Load()
+		fmt.Println(sources.QueryMDX(*word, *render))
 		return
 	}
-	fmt.Println(queryByURL(*word))
+	fmt.Println(sources.QueryByURL(*word))
 }
 
 func query(word string, e string, f string) string {
@@ -223,55 +206,15 @@ func query(word string, e string, f string) string {
 		f = *render
 	}
 	if e == "mdx" {
-		return queryMDX(word, f)
+		return sources.QueryMDX(word, f)
 	}
-	var res string
-	mu.Lock()
-	if ex, ok := history[word]; ok {
-		log.Printf("cache hit!")
-		res = ex
-	} else {
-		res = queryByURL(word)
-		history[word] = res
-	}
-	mu.Unlock() // TODO: performance
-	return res
+	return sources.GetFromLDOCE(word)
 }
 
 func Restore() {
-	data, err := os.ReadFile(historyFile)
-	if err != nil {
-		log.Printf("open file history err: %v", err)
-		return
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = json.Unmarshal(data, &history)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("history: %v", history)
+	sources.Restore()
 }
 
 func Store() {
-	his, err := json.Marshal(history)
-	if err != nil {
-		log.Fatal("marshal err ", err)
-	}
-	if err := os.MkdirAll(dataPath, 0755); err != nil {
-		log.Fatal("make dir err", err)
-	}
-	f, err := os.Create(historyFile)
-	if err != nil {
-		log.Fatal("create file err", err)
-	}
-
-	defer f.Close()
-
-	_, err = f.Write(his)
-
-	if err != nil {
-		log.Fatal("write file err", err)
-	}
+	sources.Store()
 }
