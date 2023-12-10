@@ -36,6 +36,9 @@ var colour = flag.Bool("color", false, "This flags controls whether to use color
 var render = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 
+// TODO: prev work, for better source abstractions
+var g sources.Source = &sources.GlobalDict
+
 func main() {
 	flag.Parse()
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
@@ -64,7 +67,7 @@ func main() {
 	}
 
 	if *interactive {
-		sources.GlobalDict.Load() // TODO(ch): lazy loading for performance?
+		g.Register() // TODO(ch): lazy loading for performance?
 		startLoop()
 		return
 	}
@@ -89,7 +92,7 @@ func main() {
 			}
 		}
 		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *render, *engine)
-		sources.GlobalDict.Load()
+		g.Register()
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -191,7 +194,7 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		sources.GlobalDict.Load()
+		g.Register()
 		fmt.Println(sources.QueryMDX(*word, *render))
 		return
 	}

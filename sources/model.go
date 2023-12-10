@@ -52,7 +52,7 @@ func (o output) GetDefinition() string {
 	return o.def
 }
 
-func (d *MdxDict) Load() error {
+func (d *MdxDict) Register() error {
 	d.mdxDict = loadDecodedMdx(filepath.Join(dataPath, "dicts", d.mdxFile))
 	if contents, err := os.ReadFile((filepath.Join(dataPath, "dicts", d.mdxCss))); err == nil {
 		d.mdxCss = string(contents)
