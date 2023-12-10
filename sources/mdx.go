@@ -17,9 +17,9 @@ var Gitalic = "*"
 var GlobalDict MdxDict
 
 func QueryMDX(word string, f string) string {
-	def := GlobalDict.mdxDict[word]
+	def := GlobalDict.Get(word)
+	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
-		// TODO: abstract it
 		return def
 	}
 	fd := strings.NewReader(def) // TODO: find a "close" one when missing?
@@ -113,14 +113,31 @@ type MdxDict struct {
 	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
 	mdxFile string
 	// Only match the mdx with the same mdxFile name
-	mdxCss  string
-	mdxDict map[string]string
+	mdxCss   string
+	mdxDict  map[string]string
+	searcher Searcher
 }
 
 func (d *MdxDict) CSS() string {
 	return d.mdxCss
 }
 
-func (d *MdxDict) Get(word string) []RawOutput {
-	return []RawOutput{output{rawWord: word, def: d.mdxDict[word]}}
+func (d *MdxDict) Get(word string) string {
+	results := d.searcher.GetRawOutputs(word)
+	if len(results) == 0 {
+		return "<p>NO MATCH</p>"
+	}
+	// TODO: Give user the options.
+	// Naive solution: Give user the longest match.
+	// What about same length?
+	var match, def string
+	for _, res := range results {
+		m := res.GetMatch()
+		if len(m) > len(match) {
+			match = m
+			def = res.GetDefinition()
+		}
+
+	}
+	return def
 }

@@ -17,7 +17,7 @@ type AhoCorasick struct {
 	trie    *ahocorasick.Trie
 }
 
-func New(dict map[string]string) *AhoCorasick {
+func New(dict map[string]string) Searcher {
 	input := make([]string, 0, len(dict))
 	// lowercase
 	lowDict := make(map[string][]string, len(dict))
@@ -40,7 +40,7 @@ func New(dict map[string]string) *AhoCorasick {
 	return &AhoCorasick{dict: dict, trie: trie, lowDict: lowDict}
 }
 
-func (ack *AhoCorasick) Get(input string) []RawOutput {
+func (ack *AhoCorasick) GetRawOutputs(input string) []RawOutput {
 	matches := ack.trie.Match([]byte(input))
 	res := make([]RawOutput, 0, len(matches))
 	for i, match := range matches {

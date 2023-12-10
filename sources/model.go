@@ -30,9 +30,13 @@ type RawOutput interface {
 	GetDefinition() string
 }
 
+type Searcher interface {
+	GetRawOutputs(string) []RawOutput
+}
+
 type Source interface {
 	Register() error
-	Get(string) []RawOutput
+	Get(string) string
 }
 
 type output struct {
@@ -56,5 +60,6 @@ func (d *MdxDict) Load() error {
 		d.mdxCss = ""
 		log.Printf("load dicts[%v] css err: %v", d.mdxFile, err)
 	}
+	d.searcher = New(d.mdxDict)
 	return nil
 }
