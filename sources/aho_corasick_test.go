@@ -1,6 +1,8 @@
 package sources
 
-import "testing"
+import (
+	"testing"
+)
 
 func Test_New(t *testing.T) {
 	LoadConfig()

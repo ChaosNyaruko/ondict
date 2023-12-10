@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/html"
 )
 
@@ -53,4 +54,25 @@ func Test_MDXParser(t *testing.T) {
 	}
 	// log.Printf("result: %v", readText(doc))
 	t.Logf("res: %v", format([]string{f(doc, 0, nil, "md")}))
+}
+
+func Test_MultiMatch(t *testing.T) {
+	dataPath = "../testdata/"
+	d := MdxDict{
+		mdxFile: "test_dict.json",
+	}
+	d.Load()
+	assert.Equal(t, 1, len(d.Get("doctor")), "doctor")
+	assert.Equal(t, 1, len(d.Get("jesus")), "jesus")
+	assert.Equal(t, 1, len(d.Get("Doctor")), "Doctor")
+	assert.Equal(t, 1, len(d.Get("Jesus")), "Jesus")
+	assert.Equal(t, 2, len(d.Get("August")), "August")
+	assert.Equal(t, 2, len(d.Get("august")), "august")
+	t.Logf("%v", d.Get("from a to b"))
+	assert.Equal(t, 0, len(d.Get("b")), "b")
+}
+
+func TestMain(m *testing.M) {
+	// log.SetOutput(io.Discard)
+	m.Run()
 }

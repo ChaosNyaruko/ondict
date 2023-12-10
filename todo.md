@@ -22,6 +22,7 @@
 - [x] Use [`aho-corasick`](https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm) algorithm to perform a fuzzy search. 
 - [x] BUG: QueryByURL will get an unexpected EOF error.
 - [ ] See the TODOs in the code.
+- [ ] Give users the option to setup the server in advance, for better first-query user experience. 
 
 ---
 The following are less important things that I want to finish.

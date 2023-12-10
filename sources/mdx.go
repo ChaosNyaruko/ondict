@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"os"
 	"strings"
 
@@ -18,13 +17,18 @@ var Gitalic = "*"
 var GlobalDict MdxDict
 
 func QueryMDX(word string, f string) string {
-	def := GlobalDict.Get(word)
+	defs := GlobalDict.Get(word)
 	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
-		return def
+		return strings.Join(defs, "<br><br>")
 	}
-	fd := strings.NewReader(def) // TODO: find a "close" one when missing?
-	return parseMDX(fd, f)
+
+	var res string
+	for _, def := range defs {
+		fd := strings.NewReader(def) // TODO: find a "close" one when missing?
+		res += "\n---\n" + parseMDX(fd, f)
+	}
+	return res
 }
 
 func parseMDX(info io.Reader, ft string) string {
@@ -123,21 +127,24 @@ func (d *MdxDict) CSS() string {
 	return d.mdxCss
 }
 
-func (d *MdxDict) Get(word string) string {
+func (d *MdxDict) Get(word string) []string {
 	results := d.searcher.GetRawOutputs(strings.ToLower(word))
 	if len(results) == 0 {
-		return "<p>NO MATCH</p>"
+		return []string{}
 	}
 	// TODO: Give user the options.
 	// Naive solution: Give user the longest match.
-	// What about same length? Random for now
-	var match, def string
+	// What about same length? Show all of them.
+	var maxes, defs []string
 	for _, res := range results {
 		m := res.GetMatch()
-		if (len(m) > len(match)) || (len(m) == len(match) && rand.Uint32()%2 == 1) {
-			match = m
-			def = res.GetDefinition()
+		if len(maxes) == 0 || len(m) > len(maxes[0]) {
+			maxes = []string{m}
+			defs = []string{res.GetDefinition()}
+		} else if len(m) == len(maxes[0]) {
+			maxes = append(maxes, m)
+			defs = append(defs, res.GetDefinition())
 		}
 	}
-	return def
+	return defs
 }

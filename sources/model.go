@@ -36,7 +36,7 @@ type Searcher interface {
 
 type Source interface {
 	Register() error
-	Get(string) string
+	Get(string) []string
 }
 
 type output struct {
