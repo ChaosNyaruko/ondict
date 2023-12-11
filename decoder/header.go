@@ -19,9 +19,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"unicode/utf16"
-
-	"github.com/c0mm4nd/go-ripemd"
-	"github.com/cyberdelia/lzo"
 )
 
 type Header struct {
@@ -166,16 +163,11 @@ func decodeRecordSection(fd io.Reader) error {
 	return nil
 }
 
-func ripemd128(message []byte) []byte {
-	return ripemd.New128().Sum(message)
-}
-
 func keywordIndexDecrypt(data []byte) []byte {
-	key := data[4:8]
+	key := make([]byte, 4)
+	copy(key, data[4:8])
 	key = append(key, 0x95, 0x36, 0x00, 0x00)
-	log.Fatalf("key: %v", key)
 	key = ripemd128(key)
-	log.Fatalf("key: %v", key)
 	x := make([]byte, len(data))
 	// The first 8 bytes are **compress type** and **check_sum**
 	copy(x, data)
@@ -188,27 +180,19 @@ func keywordIndexDecrypt(data []byte) []byte {
 		previous = b[i]
 		b[i] = t
 	}
-	log.Printf("x[:8]: %v", x[:8])
 	return x
 }
 
 func decompress(compType []byte, checksum []byte, before []byte) []byte {
 	log.Printf("type: %v, checksum: %v", compType, checksum)
-	res := []byte{}
-	decompressed := bytes.NewBuffer(res)
+	decompressed := bytes.NewBuffer([]byte{})
 	in := bytes.NewReader(before)
 	switch compType[0] {
 	// uncompressed, do nothing
 	case 0:
 		io.Copy(decompressed, in)
-	// lzo compressed
+	// TODO: lzo compressed
 	case 1:
-		if r, err := lzo.NewReader(in); err != nil {
-			log.Fatalf("zlib decompress err: %v", err)
-		} else {
-			io.Copy(decompressed, r)
-			r.Close()
-		}
 	// zlib compressed
 	case 2:
 		if r, err := zlib.NewReader(in); err != nil {
@@ -218,8 +202,9 @@ func decompress(compType []byte, checksum []byte, before []byte) []byte {
 			r.Close()
 		}
 	}
+	res := decompressed.Bytes()
 	if adler32.Checksum(res) != binary.BigEndian.Uint32(checksum) {
-		log.Fatalf("checksum not match for decompress!")
+		log.Fatalf("checksum not match for decompress! expected: %v", binary.BigEndian.Uint32(checksum))
 	}
 	return res
 }
