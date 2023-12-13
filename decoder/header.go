@@ -174,6 +174,12 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	}
 	// Decode the decompressed keyword index part
 	r := bytes.NewReader(keyIndexDecompressed)
+	type size struct {
+		comp   uint64
+		decomp uint64
+	}
+
+	var sizes []size
 	for i := 0; i < int(header.NumBlock); i++ {
 		var numEntries uint64
 		if err := binary.Read(r, binary.BigEndian, &numEntries); err != nil {
@@ -218,10 +224,22 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, &decompSize); err != nil {
 			return err
 		}
-		log.Printf("comp len of key_blocks[%d], %v\n", i, decompSize)
-
+		log.Printf("decomp len of key_blocks[%d], %v\n", i, decompSize)
+		sizes = append(sizes, size{compSize, decompSize})
 	}
 
+	// decode key blocks
+	for i, s := range sizes {
+		log.Printf("decoding [%d]th key block", i)
+		compressed := make([]byte, s.comp)
+		if err := binary.Read(fd, binary.BigEndian, compressed); err != nil {
+			return err
+		}
+		decompressed := decompress(compressed[:4], compressed[4:8], compressed[8:])
+		if len(decompressed) != int(s.decomp) {
+			log.Fatalf("decomp len not as expected!")
+		}
+	}
 	return nil
 }
 
