@@ -29,3 +29,8 @@ install:
 
 localtest:
 	FULLTEST=1 go test -v ./...
+
+test:
+	go test ./... -coverprofile=cover.out  -v
+	go tool cover -func cover.out | tail -1
+	go tool cover -html=cover.out -o cover.html
