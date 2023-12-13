@@ -9,5 +9,6 @@ import (
 )
 
 func Test_Decode(t *testing.T) {
-	assert.Nil(t, decoder.Decode("Longman Dictionary of Contemporary English.mdx"))
+	m := decoder.MDict{}
+	assert.Nil(t, m.Decode("Longman Dictionary of Contemporary English.mdx"))
 }
