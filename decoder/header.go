@@ -11,20 +11,31 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"hash/adler32"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"unicode/utf16"
 )
 
+type keyOffset struct {
+	offset uint64
+	key    string
+}
+
 type MDict struct {
-	Encrypted int8
-	Encoding  string
-	RegCode   string
+	encrypted  int8
+	encoding   string
+	regCode    string
+	numEntries int
+	keys       [][]keyOffset
+	records    []byte
+	dict       map[string]string
 }
 
 type Header struct {
@@ -43,6 +54,10 @@ type Header struct {
 	StyleSheet               string `xml:"StyleSheet,attr"`
 	RegisterBy               string `xml:"RegisterBy,attr"`
 	RegCode                  string `xml:"RegCode,attr"`
+}
+
+func (m *MDict) Dict() map[string]string {
+	return m.dict
 }
 
 // TODO: rename it
@@ -82,7 +97,9 @@ func (m *MDict) Decode(fileName string) error {
 	}
 
 	fmt.Printf("header as structured: %+v\n", header)
-	m.Encoding = header.Encoding
+	m.encoding = header.Encoding
+
+	// num, err := strconv.Atoi(header.NumEntries)
 
 	// TODO: ADLER32 checksum of header, we just read it, remember to check it
 	var checksum uint32
@@ -95,14 +112,62 @@ func (m *MDict) Decode(fileName string) error {
 	if err != nil {
 		return err
 	}
-	m.Encrypted = int8(encrypt)
+	m.encrypted = int8(encrypt)
 	if err := m.decodeKeyWordSection(file); err != nil {
 		return fmt.Errorf("decode keyword section: %v", err)
 	}
 	if err := m.decodeRecordSection(file); err != nil {
 		return fmt.Errorf("decode record section: %v", err)
 	}
+	// The reader should be at EOF now
+	var eof = make([]byte, 1)
+	if n, err := file.Read(eof); err != nil {
+		log.Printf("n: %v, err: %v", n, err)
+		if errors.Is(err, io.EOF) {
+			dict, err := m.dumpDict()
+			m.dict = dict
+			return err
+		}
+	} else {
+		return fmt.Errorf("the reader should be empty now!")
+	}
 	return nil
+}
+
+func (m *MDict) readAtOffset(offset int) string {
+	delimiterWidth := 1
+	delimiter := []byte{0x00}
+	if m.encoding == "UTF-16" {
+		delimiterWidth = 2
+		delimiter = []byte{0x00, 0x00}
+	}
+	p := 0
+	resBytes := make([]byte, 0)
+	b := m.records[offset:]
+	for p < len(b) && (!reflect.DeepEqual(b[p:p+delimiterWidth], delimiter)) { // TODO: performance
+		resBytes = append(resBytes, b[p])
+		p++
+	}
+	p += delimiterWidth
+	res := string(resBytes) // TODO: utf16
+	return res
+}
+
+func (m *MDict) dumpDict() (map[string]string, error) {
+	res := make(map[string]string, m.numEntries)
+	total := 0
+	for _, ks := range m.keys {
+		for _, k := range ks {
+			def := m.readAtOffset(int(k.offset))
+			res[k.key] = def
+			// log.Printf("[%d]th word: %v --> %v", total, k.key, def)
+			total += 1
+		}
+	}
+	if total != m.numEntries {
+		return nil, fmt.Errorf("the keys not suffice")
+	}
+	return res, nil
 }
 
 func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
@@ -128,7 +193,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	if err := binary.Read(fd, binary.BigEndian, &header); err != nil {
 		return err
 	}
-	if m.Encrypted&1 != 0 {
+	if m.encrypted&1 != 0 {
 		// TODO: the first 40 bytes might be encrypted
 	}
 	var keywordHeaderChecksum [4]byte
@@ -137,8 +202,9 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		return err
 	}
 	fmt.Printf("raw keyword section header: %#v, checksum: %v\n", header, keywordHeaderChecksum)
+	m.numEntries = int(header.NumEntries)
 
-	keyIndexEncrypted := (m.Encrypted & 2) != 0
+	keyIndexEncrypted := (m.encrypted & 2) != 0
 	var keyIndexDecompressed []byte
 	// Decrypt keyword Index if encrypted
 	// After this, we will get compressed keyword Index
@@ -159,9 +225,9 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		}
 		compType := keyIndexEncrypted[:4]
 		compressedChecksum := keyIndexEncrypted[4:8]
-		log.Printf("len(keyIndexEncrypted): %v, %v:%v:%v", len(keyIndexEncrypted), keyIndexEncrypted[:4], keyIndexEncrypted[4:8], keyIndexEncrypted[8:])
+		// log.Printf("len(keyIndexEncrypted): %v, %v:%v:%v", len(keyIndexEncrypted), keyIndexEncrypted[:4], keyIndexEncrypted[4:8], keyIndexEncrypted[8:])
 		keyIndexDecrypted := keywordIndexDecrypt(keyIndexEncrypted)
-		log.Printf("len(keyIndexDecrypted): %v, %v:%v:%v", len(keyIndexDecrypted), keyIndexDecrypted[:4], keyIndexDecrypted[4:8], keyIndexDecrypted[8:])
+		// log.Printf("len(keyIndexDecrypted): %v, %v:%v:%v", len(keyIndexDecrypted), keyIndexDecrypted[:4], keyIndexDecrypted[4:8], keyIndexDecrypted[8:])
 		keyIndexDecompressed = decompress(compType, compressedChecksum, keyIndexDecrypted[8:])
 	} else {
 		// TODO: the same decompression as in the encrypted version, just not including the decrypt process.
@@ -174,18 +240,21 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	}
 	// Decode the decompressed keyword index part
 	r := bytes.NewReader(keyIndexDecompressed)
-	type size struct {
-		comp   uint64
-		decomp uint64
+	type keyBlock struct {
+		comp       uint64
+		decomp     uint64
+		numEntries uint64
+		firstWord  string
+		lastWord   string
 	}
 
-	var sizes []size
+	var keyBlocks []keyBlock
 	for i := 0; i < int(header.NumBlock); i++ {
 		var numEntries uint64
 		if err := binary.Read(r, binary.BigEndian, &numEntries); err != nil {
 			return err
 		}
-		if m.Encoding == "UTF-16" {
+		if m.encoding == "UTF-16" {
 			// TODO: the "size"s are halved
 		}
 		var firstSize uint16 // the number of "basic units" for the encoding of the first word
@@ -204,7 +273,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 			return err
 		}
 		log.Printf("the last word size of index[%d], %v\n", i, lastSize)
-		if m.Encoding == "UTF-16" {
+		if m.encoding == "UTF-16" {
 			lastSize *= 2
 		}
 		lastWord := make([]byte, lastSize+1) // TODO: why the "+1"? text_term --> termination? For version >=2
@@ -225,25 +294,105 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 			return err
 		}
 		log.Printf("decomp len of key_blocks[%d], %v\n", i, decompSize)
-		sizes = append(sizes, size{compSize, decompSize})
+		// TODO: utf-16
+		keyBlocks = append(keyBlocks, keyBlock{compSize, decompSize, numEntries, string(firstWord), string(lastWord)})
 	}
 
 	// decode key blocks
-	for i, s := range sizes {
-		log.Printf("decoding [%d]th key block", i)
-		compressed := make([]byte, s.comp)
+	for i, b := range keyBlocks {
+		// log.Printf("decoding [%d]th key block", i)
+		compressed := make([]byte, b.comp)
 		if err := binary.Read(fd, binary.BigEndian, compressed); err != nil {
 			return err
 		}
 		decompressed := decompress(compressed[:4], compressed[4:8], compressed[8:])
-		if len(decompressed) != int(s.decomp) {
+		if len(decompressed) != int(b.decomp) {
 			log.Fatalf("decomp len not as expected!")
 		}
+		m.keys = append(m.keys, make([]keyOffset, 0))
+		m.splitKeyBlock(decompressed, int(b.numEntries), i)
 	}
+
 	return nil
 }
 
+func (m *MDict) splitKeyBlock(b []byte, keyNum int, index int) {
+	// log.Fatalf("block %d, %v", index, b)
+	delimiterWidth := 1
+	delimiter := []byte{0x00}
+	if m.encoding == "UTF-16" {
+		delimiterWidth = 2
+		delimiter = []byte{0x00, 0x00}
+	}
+	p := 0
+	for i := 0; i < keyNum; i++ {
+		p += 8
+		offset := binary.BigEndian.Uint64(b[p-8 : p])
+		keyBytes := make([]byte, 0)
+		for p < len(b) && (!reflect.DeepEqual(b[p:p+delimiterWidth], delimiter)) { // TODO: performance
+			keyBytes = append(keyBytes, b[p])
+			p++
+		}
+		p += delimiterWidth
+		key := string(keyBytes) // TODO: utf16
+		// log.Printf("key %q at offset [%d]\n", key, offset)
+		m.keys[index] = append(m.keys[index], keyOffset{offset, key})
+	}
+}
+
 func (m *MDict) decodeRecordSection(fd io.Reader) error {
+	type recordSection struct {
+		NumBlocks  uint64
+		NumEntries uint64
+		IndexLen   uint64
+		BlocksLen  uint64
+	}
+	var recordHeader recordSection
+	if err := binary.Read(fd, binary.BigEndian, &recordHeader); err != nil {
+		return err
+	}
+	log.Printf("record header: %#v", recordHeader)
+	if int(recordHeader.NumEntries) != m.numEntries {
+		// The number of blocks does NOT need to be equal the number of keyword blocks. Big-endian.
+		// But the number of entries should be EQUAL to keyword_sect.num_entries. Big-endian.
+		log.Fatalf("the num of entries does not match")
+	}
+	if recordHeader.IndexLen != recordHeader.NumBlocks*16 {
+		log.Fatalf("the index len violates its definition, check the MDX file please")
+	}
+
+	type recordBlock struct {
+		CompSize   uint64
+		DecompSize uint64
+	}
+	records := make([]recordBlock, recordHeader.BlocksLen)
+	total := 0
+	totalDecomp := 0
+	for i := uint64(0); i < recordHeader.NumBlocks; i++ {
+		// log.Printf("decoding [%d]th records sizes", i)
+		if err := binary.Read(fd, binary.BigEndian, &records[i]); err != nil {
+			return err
+		}
+		total += int(records[i].CompSize)
+		totalDecomp += int(records[i].DecompSize)
+	}
+	if total != int(recordHeader.BlocksLen) {
+		log.Fatalf("the block len does not match")
+	}
+	m.records = make([]byte, 0, totalDecomp)
+	// decompress record blocks
+	for i := uint64(0); i < recordHeader.NumBlocks; i++ {
+		// log.Printf("decoding [%d]th records sizes", i)
+		compressed := make([]byte, records[i].CompSize)
+		if err := binary.Read(fd, binary.BigEndian, compressed); err != nil {
+			return err
+		}
+		decompressed := decompress(compressed[:4], compressed[4:8], compressed[8:])
+		if len(decompressed) != int(records[i].DecompSize) {
+			log.Fatalf("decompressed length does not equal to expected")
+		}
+		m.records = append(m.records, decompressed...)
+	}
 	return nil
 }
 
@@ -268,7 +417,7 @@ func keywordIndexDecrypt(data []byte) []byte {
 }
 
 func decompress(compType []byte, checksum []byte, before []byte) []byte {
-	log.Printf("type: %v, checksum: %v", compType, checksum)
+	// log.Printf("type: %v, checksum: %v", compType, checksum)
 	decompressed := bytes.NewBuffer([]byte{})
 	in := bytes.NewReader(before)
 	switch compType[0] {

@@ -10,5 +10,7 @@ import (
 
 func Test_Decode(t *testing.T) {
 	m := decoder.MDict{}
-	assert.Nil(t, m.Decode("Longman Dictionary of Contemporary English.mdx"))
+	ldoce5 := "Longman Dictionary of Contemporary English.mdx"
+	assert.Nil(t, m.Decode(ldoce5))
+	t.Logf("dict %v: %v", ldoce5, m.Dict())
 }
