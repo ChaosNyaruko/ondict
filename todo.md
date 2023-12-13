@@ -17,12 +17,13 @@
 - [x] A guessing/fallback algorithm for words missing (especially for offline dicts)
 - [x] Add an en-cn online/offline dictionary for quick enquiry -> oald9.
 - [x] Bind an MDX with a potential CSS file for html mode, for display effects.
-- [ ] Support multiple mdx libs at the same time and provide a user interface
-- [ ] Appropriate module abstraction, and unit testing automation. 
 - [x] Use [`aho-corasick`](https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm) algorithm to perform a fuzzy search. 
 - [x] BUG: QueryByURL will get an unexpected EOF error.
+- [x] Automate the dict generating process, registering
 - [ ] See the TODOs in the code.
-- [ ] Give users the option to setup the server in advance, for better first-query user experience. 
+- [ ] Give editor users the option to setup the server in advance, for better first-query user experience. 
+- [ ] Support multiple mdx libs at the same time and provide a user interface
+- [ ] Appropriate module abstraction, and unit testing automation. 
 
 ---
 The following are less important things that I want to finish.
@@ -31,6 +32,6 @@ The following are less important things that I want to finish.
 - [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
 - [ ] A more decent web page.
 - [ ] Other online dict parsing engines if I have the motivation?
-- [ ] Automate the dict generating process, registering, and lazy-loading.
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] Vim version
+- [ ] Lazy-loading for performance and memory usage?
