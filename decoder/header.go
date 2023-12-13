@@ -60,7 +60,6 @@ func (m *MDict) Dict() map[string]string {
 	return m.dict
 }
 
-// TODO: rename it
 func (m *MDict) Decode(fileName string) error {
 	name, err := filepath.Abs(fileName)
 	if err != nil {
@@ -82,12 +81,27 @@ func (m *MDict) Decode(fileName string) error {
 	if headerLen%2 != 0 {
 		log.Fatalf("headerLen must be even, but got %v", headerLen)
 	}
-	headerSize := headerLen / 2
-	var headerRunes = make([]uint16, headerSize)
+	var headerBytes = make([]uint8, headerLen)
 
-	if err := binary.Read(file, binary.LittleEndian, headerRunes); err != nil {
+	if err := binary.Read(file, binary.LittleEndian, headerBytes); err != nil {
 		return err
 	}
+
+	var checksum uint32
+	if err := binary.Read(file, binary.LittleEndian, &checksum); err != nil {
+		return err
+	}
+	if adler32.Checksum(headerBytes) != checksum {
+		return fmt.Errorf("the checksum of header str does not match")
+	}
+
+	headerSize := headerLen / 2
+	var headerRunes = make([]uint16, headerSize)
+	h := bytes.NewReader(headerBytes)
+	if err := binary.Read(h, binary.LittleEndian, headerRunes); err != nil {
+		return err
+	}
+
 	headerXML := string(utf16.Decode(headerRunes))
 	fmt.Println("header as XML", headerXML)
 
@@ -100,13 +114,6 @@ func (m *MDict) Decode(fileName string) error {
 	m.encoding = header.Encoding
 
 	// num, err := strconv.Atoi(header.NumEntries)
-
-	// TODO: ADLER32 checksum of header, we just read it, remember to check it
-	var checksum uint32
-	if err := binary.Read(file, binary.LittleEndian, &checksum); err != nil {
-		return err
-	}
-	fmt.Printf("header checksum: %+v\n", checksum)
 
 	encrypt, err := strconv.Atoi(header.Encrypted)
 	if err != nil {
@@ -182,6 +189,11 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	// ...	...	...
 	// key_blocks[num_blocks-1]	varying	...
 
+	var rawHeader = make([]byte, 40)
+	if err := binary.Read(fd, binary.BigEndian, rawHeader); err != nil {
+		return err
+	}
+	h := bytes.NewReader(rawHeader)
 	type keywordSectionHeader struct {
 		NumBlock          uint64
 		NumEntries        uint64
@@ -189,8 +201,9 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		KeyIndexCompLen   uint64
 		KeyBlockLen       uint64
 	}
+
 	var header keywordSectionHeader
-	if err := binary.Read(fd, binary.BigEndian, &header); err != nil {
+	if err := binary.Read(h, binary.BigEndian, &header); err != nil {
 		return err
 	}
 	if m.encrypted&1 != 0 {
@@ -201,7 +214,11 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	if err := binary.Read(fd, binary.BigEndian, &keywordHeaderChecksum); err != nil {
 		return err
 	}
-	fmt.Printf("raw keyword section header: %#v, checksum: %v\n", header, keywordHeaderChecksum)
+
+	if adler32.Checksum(rawHeader) != binary.BigEndian.Uint32(keywordHeaderChecksum[:]) {
+		return fmt.Errorf("the checksum of keyword header does not match")
+	}
+
 	m.numEntries = int(header.NumEntries)
 
 	keyIndexEncrypted := (m.encrypted & 2) != 0
