@@ -12,5 +12,5 @@ func Test_Decode(t *testing.T) {
 	m := decoder.MDict{}
 	ldoce5 := "Longman Dictionary of Contemporary English.mdx"
 	assert.Nil(t, m.Decode(ldoce5))
-	t.Logf("dict %v: %v", ldoce5, m.Dict())
+	assert.NotEqual(t, 0, len(m.Dict()))
 }
