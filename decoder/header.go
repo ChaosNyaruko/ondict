@@ -25,7 +25,7 @@ import (
 
 type keyOffset struct {
 	offset uint64
-	key    string
+	key    []byte
 }
 
 type MDict struct {
@@ -145,6 +145,17 @@ func (m *MDict) Decode(fileName string) error {
 	return nil
 }
 
+func (m *MDict) decodeString(b []byte) string {
+	if m.encoding == "UTF-16" {
+		runes := make([]uint16, len(b)/2)
+		if err := binary.Read(bytes.NewBuffer(b), binary.LittleEndian, runes); err != nil {
+			panic(err)
+		}
+		return string(utf16.Decode(runes))
+	}
+	return string(b)
+}
+
 func (m *MDict) readAtOffset(offset int) string {
 	delimiterWidth := 1
 	delimiter := []byte{0x00}
@@ -160,7 +171,7 @@ func (m *MDict) readAtOffset(offset int) string {
 		p++
 	}
 	p += delimiterWidth
-	res := string(resBytes) // TODO: utf16
+	res := m.decodeString(resBytes)
 	return res
 }
 
@@ -170,7 +181,7 @@ func (m *MDict) dumpDict() (map[string]string, error) {
 	for _, ks := range m.keys {
 		for _, k := range ks {
 			def := m.readAtOffset(int(k.offset))
-			res[k.key] = def
+			res[m.decodeString(k.key)] = def
 			// log.Printf("[%d]th word: %v --> %v", total, k.key, def)
 			total += 1
 		}
@@ -219,8 +230,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		KeyBlockLen       uint64
 	}
 	if m.encrypted&1 != 0 {
-		// TODO: the first 40 bytes might be encrypted
-		log.Fatal("keyword header encrypted, salsa20 not supported yet")
+		log.Fatal("TODO: keyword header encrypted, salsa20 not supported yet")
 		rawHeader, err = m.salsaDecrypt(rawHeader, []byte("TODO: userid"), []byte(m.regCode))
 		if err != nil {
 			return err
@@ -243,34 +253,32 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 
 	m.numEntries = int(header.NumEntries)
 
-	keyIndexEncrypted := (m.encrypted & 2) != 0
-	var keyIndexDecompressed []byte
-	// Decrypt keyword Index if encrypted
-	// After this, we will get compressed keyword Index
-	if keyIndexEncrypted {
-		log.Printf("keyword index encrypted, decrypt it")
-		// encrypted by the following C function
-		// #define SWAPNIBBLE(byte) (((byte)>>4) | ((byte)<<4))
-		// void encrypt(unsigned char* buf, size_t buflen, unsigned char* key, size_t keylen) {
-		// 	unsigned char prev=0x36;
-		// 	for(size_t i=0; i < buflen; i++) {
-		// 		buf[i] = SWAPNIBBLE(buf[i] ^ ((unsigned char)i) ^ key[i%keylen] ^ previous);
-		// 		previous = buf[i];
-		// 	}
-		// }
-		keyIndexEncrypted := make([]byte, header.KeyIndexCompLen)
-		if err := binary.Read(fd, binary.BigEndian, keyIndexEncrypted); err != nil {
-			return err
-		}
-		compType := keyIndexEncrypted[:4]
-		compressedChecksum := keyIndexEncrypted[4:8]
-		// log.Printf("len(keyIndexEncrypted): %v, %v:%v:%v", len(keyIndexEncrypted), keyIndexEncrypted[:4], keyIndexEncrypted[4:8], keyIndexEncrypted[8:])
-		keyIndexDecrypted := keywordIndexDecrypt(keyIndexEncrypted)
-		// log.Printf("len(keyIndexDecrypted): %v, %v:%v:%v", len(keyIndexDecrypted), keyIndexDecrypted[:4], keyIndexDecrypted[4:8], keyIndexDecrypted[8:])
-		keyIndexDecompressed = decompress(compType, compressedChecksum, keyIndexDecrypted[8:])
-	} else {
-		// TODO: the same decompression as in the encrypted version, just not including the decrypt process.
+	// encrypted by the following C function
+	// #define SWAPNIBBLE(byte) (((byte)>>4) | ((byte)<<4))
+	// void encrypt(unsigned char* buf, size_t buflen, unsigned char* key, size_t keylen) {
+	// 	unsigned char prev=0x36;
+	// 	for(size_t i=0; i < buflen; i++) {
+	// 		buf[i] = SWAPNIBBLE(buf[i] ^ ((unsigned char)i) ^ key[i%keylen] ^ previous);
+	// 		previous = buf[i];
+	// 	}
+	// }
+	keyIndexEncrypted := make([]byte, header.KeyIndexCompLen)
+	if err := binary.Read(fd, binary.BigEndian, keyIndexEncrypted); err != nil {
+		return err
 	}
+	compType := keyIndexEncrypted[:4]
+	compressedChecksum := keyIndexEncrypted[4:8]
+	// log.Printf("len(keyIndexEncrypted): %v, %v:%v:%v", len(keyIndexEncrypted), keyIndexEncrypted[:4], keyIndexEncrypted[4:8], keyIndexEncrypted[8:])
+	keyIndexDecrypted := keyIndexEncrypted
+	encrypted := (m.encrypted & 2) != 0
+	if encrypted {
+		// Decrypt keyword Index if encrypted
+		// After this, we will get compressed keyword Index
+		log.Printf("keyword index encrypted, decrypt it")
+		keyIndexDecrypted = keywordIndexDecrypt(keyIndexEncrypted)
+	}
+	// log.Printf("len(keyIndexDecrypted): %v, %v:%v:%v", len(keyIndexDecrypted), keyIndexDecrypted[:4], keyIndexDecrypted[4:8], keyIndexDecrypted[8:])
+	keyIndexDecompressed := decompress(compType, compressedChecksum, keyIndexDecrypted[8:])
 
 	log.Printf("keyIndexDecompressed len: %d", len(keyIndexDecompressed))
 	if len(keyIndexDecompressed) != int(header.KeyIndexDecompLen) {
@@ -283,8 +291,8 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		comp       uint64
 		decomp     uint64
 		numEntries uint64
-		firstWord  string
-		lastWord   string
+		firstWord  []byte
+		lastWord   []byte
 	}
 
 	var keyBlocks []keyBlock
@@ -293,48 +301,43 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, &numEntries); err != nil {
 			return err
 		}
-		if m.encoding == "UTF-16" {
-			// TODO: the "size"s are halved
-		}
 		var firstSize uint16 // the number of "basic units" for the encoding of the first word
 		if err := binary.Read(r, binary.BigEndian, &firstSize); err != nil {
 			return err
 		}
-		firstWord := make([]byte, firstSize+1) // TODO: why the "+1"?
+		firstSize += 1 // why the "+1"? text_term --> termination? For version >=2
+		if m.encoding == "UTF-16" {
+			firstSize = firstSize * 2
+		}
+		firstWord := make([]byte, firstSize) // including the terminator
 		if err := binary.Read(r, binary.BigEndian, firstWord); err != nil {
 			return err
 		}
-		// TODO: []byte to utf-16 encoded string
-		fmt.Printf("the first word of index[%d], [len:%d]%v\n", i, firstSize, string(firstWord))
-
 		var lastSize uint16 // the number of "basic units" for the encoding of the first word
 		if err := binary.Read(r, binary.BigEndian, &lastSize); err != nil {
 			return err
 		}
-		log.Printf("the last word size of index[%d], %v\n", i, lastSize)
+		lastSize += 1
 		if m.encoding == "UTF-16" {
-			lastSize *= 2
+			lastSize = lastSize * 2
 		}
-		lastWord := make([]byte, lastSize+1) // TODO: why the "+1"? text_term --> termination? For version >=2
+		lastWord := make([]byte, lastSize)
 		if err := binary.Read(r, binary.BigEndian, lastWord); err != nil {
 			return err
 		}
-		// TODO: []byte to utf-16 encoded string
-		fmt.Printf("the last word of index[%d], %v\n", i, string(lastWord))
 
 		var compSize uint64
 		if err := binary.Read(r, binary.BigEndian, &compSize); err != nil {
 			return err
 		}
-		log.Printf("comp len of key_blocks[%d], %v\n", i, compSize)
+		// log.Printf("comp len of key_blocks[%d], %v\n", i, compSize)
 
 		var decompSize uint64
 		if err := binary.Read(r, binary.BigEndian, &decompSize); err != nil {
 			return err
 		}
-		log.Printf("decomp len of key_blocks[%d], %v\n", i, decompSize)
-		// TODO: utf-16
-		keyBlocks = append(keyBlocks, keyBlock{compSize, decompSize, numEntries, string(firstWord), string(lastWord)})
+		// log.Printf("decomp len of key_blocks[%d], %v\n", i, decompSize)
+		keyBlocks = append(keyBlocks, keyBlock{compSize, decompSize, numEntries, firstWord, lastWord})
 	}
 
 	// decode key blocks
@@ -373,9 +376,8 @@ func (m *MDict) splitKeyBlock(b []byte, keyNum int, index int) {
 			p++
 		}
 		p += delimiterWidth
-		key := string(keyBytes) // TODO: utf16
 		// log.Printf("key %q at offset [%d]\n", key, offset)
-		m.keys[index] = append(m.keys[index], keyOffset{offset, key})
+		m.keys[index] = append(m.keys[index], keyOffset{offset, keyBytes})
 	}
 }
 
