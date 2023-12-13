@@ -2,6 +2,7 @@ package sources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"github.com/ChaosNyaruko/ondict/decoder"
 )
 
 var Gbold = "**"
@@ -97,9 +100,16 @@ func renderMD(s string, id string) string {
 }
 
 func loadDecodedMdx(filePath string) map[string]string {
-	jsonData, err := os.ReadFile(filePath)
-	if err != nil {
+	jsonData, err := os.ReadFile(filePath + ".json")
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
+	} else if errors.Is(err, os.ErrNotExist) {
+		m := decoder.MDict{}
+		err := m.Decode(filePath + ".mdx")
+		if err != nil {
+			log.Fatalf("Failed to load mdx file[%v], err: %v", filePath, err)
+		}
+		return m.Dict()
 	}
 
 	// Define a map to hold the unmarshaled data

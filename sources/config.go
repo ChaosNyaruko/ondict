@@ -26,7 +26,7 @@ func LoadConfig() error {
 	if len(c.Dicts) == 0 {
 		return nil
 	}
-	GlobalDict.mdxFile = c.Dicts[0] + ".json"
+	GlobalDict.mdxFile = c.Dicts[0]
 	GlobalDict.mdxCss = c.Dicts[0] + ".css"
 	log.Printf("get global dicts: %v", GlobalDict)
 	return nil

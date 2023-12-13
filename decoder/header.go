@@ -75,7 +75,7 @@ func (m *MDict) Decode(fileName string) error {
 	if err := binary.Read(file, binary.BigEndian, &headerLen); err != nil {
 		return err
 	}
-	fmt.Printf("headerLen: %v\n", headerLen)
+	// fmt.Printf("headerLen: %v\n", headerLen)
 
 	// It must be even, cuz head_str is UTF-16 encoded
 	if headerLen%2 != 0 {
@@ -103,7 +103,7 @@ func (m *MDict) Decode(fileName string) error {
 	}
 
 	headerXML := string(utf16.Decode(headerRunes))
-	fmt.Println("header as XML", headerXML)
+	// fmt.Println("header as XML", headerXML)
 
 	var header Header
 	if err := xml.Unmarshal([]byte(headerXML), &header); err != nil {
@@ -132,8 +132,8 @@ func (m *MDict) Decode(fileName string) error {
 	}
 	// The reader should be at EOF now
 	var eof = make([]byte, 1)
-	if n, err := file.Read(eof); err != nil {
-		log.Printf("n: %v, err: %v", n, err)
+	if n, err := file.Read(eof); err != nil && n == 0 {
+		// log.Printf("n: %v, err: %v", n, err)
 		if errors.Is(err, io.EOF) {
 			dict, err := m.dumpDict()
 			m.dict = dict
@@ -280,7 +280,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	// log.Printf("len(keyIndexDecrypted): %v, %v:%v:%v", len(keyIndexDecrypted), keyIndexDecrypted[:4], keyIndexDecrypted[4:8], keyIndexDecrypted[8:])
 	keyIndexDecompressed := decompress(compType, compressedChecksum, keyIndexDecrypted[8:])
 
-	log.Printf("keyIndexDecompressed len: %d", len(keyIndexDecompressed))
+	// log.Printf("keyIndexDecompressed len: %d", len(keyIndexDecompressed))
 	if len(keyIndexDecompressed) != int(header.KeyIndexDecompLen) {
 		// TODO: according to the exsited Python implementation, this fields only existed in version >= 2
 		log.Fatalf("the length of decompressed part is wrong: expected: %v, got :%v", header.KeyIndexDecompLen, len(keyIndexDecompressed))
@@ -392,7 +392,7 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 	if err := binary.Read(fd, binary.BigEndian, &recordHeader); err != nil {
 		return err
 	}
-	log.Printf("record header: %#v", recordHeader)
+	// log.Printf("record header: %#v", recordHeader)
 	if int(recordHeader.NumEntries) != m.numEntries {
 		// The number of blocks does NOT need to be equal the number of keyword blocks. Big-endian.
 		// But the number of entries should be EQUAL to keyword_sect.num_entries. Big-endian.

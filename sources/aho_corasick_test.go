@@ -13,7 +13,7 @@ func Test_New(t *testing.T) {
 	} else {
 		dataPath = "../testdata/"
 		d := MdxDict{
-			mdxFile: "test_dict.json",
+			mdxFile: "test_dict",
 		}
 		g = d
 	}

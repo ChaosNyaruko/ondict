@@ -60,7 +60,7 @@ func Test_MDXParser(t *testing.T) {
 func Test_MultiMatch(t *testing.T) {
 	dataPath = "../testdata/"
 	d := MdxDict{
-		mdxFile: "test_dict.json",
+		mdxFile: "test_dict",
 	}
 	d.Register()
 	assert.Equal(t, 1, len(d.Get("doctor")), "doctor")
@@ -81,7 +81,7 @@ func Test_play(t *testing.T) {
 	} else {
 		dataPath = "../testdata/"
 		d := MdxDict{
-			mdxFile: "test_dict.json",
+			mdxFile: "test_dict",
 		}
 		g = d
 	}
