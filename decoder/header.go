@@ -181,6 +181,18 @@ func (m *MDict) dumpDict() (map[string]string, error) {
 	return res, nil
 }
 
+func decryptRegCode(regCode []byte, id []byte) []byte {
+	idDigest := ripemd128(id)
+	s20 := salsa20(regCode, idDigest, [8]byte{}, 8)
+	return s20
+}
+
+func (m *MDict) salsaDecrypt(data []byte, id []byte, regCode []byte) ([]byte, error) {
+	// TODO:
+	key := decryptRegCode(regCode, id) // [32]byte
+	return salsa20(data, key, [8]byte{}, 8), nil
+}
+
 func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	// num_blocks	8 bytes	Number of items in key_blocks. Big-endian. Possibly encrypted, see below.
 	// num_entries	8 bytes	Total number of keywords. Big-endian. Possibly encrypted, see below.
@@ -197,6 +209,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	if err := binary.Read(fd, binary.BigEndian, rawHeader); err != nil {
 		return err
 	}
+	var err error
 	h := bytes.NewReader(rawHeader)
 	type keywordSectionHeader struct {
 		NumBlock          uint64
@@ -205,13 +218,18 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		KeyIndexCompLen   uint64
 		KeyBlockLen       uint64
 	}
+	if m.encrypted&1 != 0 {
+		// TODO: the first 40 bytes might be encrypted
+		log.Fatal("keyword header encrypted, salsa20 not supported yet")
+		rawHeader, err = m.salsaDecrypt(rawHeader, []byte("TODO: userid"), []byte(m.regCode))
+		if err != nil {
+			return err
+		}
+	}
 
 	var header keywordSectionHeader
 	if err := binary.Read(h, binary.BigEndian, &header); err != nil {
 		return err
-	}
-	if m.encrypted&1 != 0 {
-		// TODO: the first 40 bytes might be encrypted
 	}
 	var keywordHeaderChecksum [4]byte
 
