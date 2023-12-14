@@ -24,6 +24,7 @@
 - [ ] Give editor users the option to setup the server in advance, for better first-query user experience. 
 - [ ] Support multiple mdx libs at the same time and provide a user interface
 - [ ] Appropriate module abstraction, and unit testing automation. 
+- [ ] Parse the MDD file, and serve the picture sources when working in HTML mode.
 
 ---
 The following are less important things that I want to finish.

@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/html"
 
 	"github.com/ChaosNyaruko/ondict/decoder"
+	"github.com/ChaosNyaruko/ondict/render"
 )
 
 var Gbold = "**"
@@ -21,9 +22,18 @@ var GlobalDict MdxDict
 
 func QueryMDX(word string, f string) string {
 	defs := GlobalDict.Get(word)
+	log.Printf("def of %v: %q", defs, word)
 	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
-		return strings.Join(defs, "<br><br>")
+		var res []string
+		for _, def := range defs {
+			h := render.HTMLRender{Raw: def}
+			// m1 := regexp.MustCompile(`<img src="(.*?)\.png" style`)
+			// replaceImg := m1.ReplaceAllString(def, `<img src="`+"data/"+`${1}.png" style`)
+			// log.Printf("try to replace %v", replaceImg)
+			res = append(res, h.Render())
+		}
+		return strings.Join(res, "<br><br>")
 	}
 
 	var res string

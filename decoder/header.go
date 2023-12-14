@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"time"
 	"unicode/utf16"
 )
 
@@ -176,6 +177,10 @@ func (m *MDict) readAtOffset(offset int) string {
 }
 
 func (m *MDict) dumpDict() (map[string]string, error) {
+	start := time.Now()
+	defer func() {
+		log.Printf("dump dict cost: %v", time.Since(start))
+	}()
 	res := make(map[string]string, m.numEntries)
 	total := 0
 	for _, ks := range m.keys {
