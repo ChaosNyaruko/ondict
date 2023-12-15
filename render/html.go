@@ -22,7 +22,7 @@ func (h *HTMLRender) Render() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	f(doc, 0, nil, "")
+	dfs(doc, 0, nil, "")
 	var b bytes.Buffer
 	err = html.Render(&b, doc)
 	if err != nil {
@@ -41,10 +41,10 @@ func modifyImgSrc(n *html.Node) {
 			n.Attr[i].Val = "data/" + a.Val
 		}
 	}
-	log.Printf("modifyImgSrc %#v", n)
+	// log.Printf("modifyImgSrc %#v", n)
 }
 
-func f(n *html.Node, level int, parent *html.Node, ft string) string {
+func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	if n.Type == html.TextNode {
 		// t.Logf("text: [%s] level %d", n.Data, level)
 		return ""
@@ -56,7 +56,7 @@ func f(n *html.Node, level int, parent *html.Node, ft string) string {
 
 	var s string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += f(c, level+1, n, ft)
+		s += dfs(c, level+1, n, ft)
 	}
 	return s
 }

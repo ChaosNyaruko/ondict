@@ -11,22 +11,29 @@ import (
 	ahocorasick "github.com/BobuSumisu/aho-corasick"
 )
 
+type Dict interface {
+	Keys() []string
+	Get(string) string
+}
+
 type AhoCorasick struct {
-	dict    map[string]string
+	dict    Dict
 	lowDict map[string][]string
 	trie    *ahocorasick.Trie
 }
 
-func New(dict map[string]string) Searcher {
-	input := make([]string, 0, len(dict))
+func New(dict Dict) Searcher {
+	keys := dict.Keys()
+	log.Printf("new aho_corasick: %v", keys)
 	// lowercase
-	lowDict := make(map[string][]string, len(dict))
-	for k, _ := range dict {
+	lowDict := make(map[string][]string, len(keys))
+	for _, k := range keys {
 		lk := strings.ToLower(k)
 		lowDict[lk] = append(lowDict[lk], k)
 	}
 
-	for k, _ := range lowDict {
+	input := make([]string, 0, len(keys))
+	for k := range lowDict {
 		input = append(input, k)
 	}
 	log.Printf("raw dict %d items, "+
@@ -34,7 +41,7 @@ func New(dict map[string]string) Searcher {
 		"because different item in the raw dictionary "+
 		"like 'August' and 'august' will be "+
 		"combined into a string slice\n",
-		len(dict), len(lowDict))
+		len(keys), len(lowDict))
 	trie := ahocorasick.NewTrieBuilder().AddStrings(input).Build()
 
 	return &AhoCorasick{dict: dict, trie: trie, lowDict: lowDict}
@@ -46,7 +53,7 @@ func (ack *AhoCorasick) GetRawOutputs(input string) []RawOutput {
 	for i, match := range matches {
 		log.Printf("%d th match: pos[%v], pattern[%v], string[%v]\n", i, match.Pos(), match.Pattern(), match.MatchString())
 		for _, v := range ack.lowDict[match.MatchString()] {
-			res = append(res, output{v, ack.dict[v]})
+			res = append(res, output{v, ack.dict.Get(v)})
 		}
 	}
 	return res

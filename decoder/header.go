@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 	"unicode/utf16"
 )
@@ -36,7 +37,9 @@ type MDict struct {
 	numEntries int
 	keys       [][]keyOffset
 	records    []byte
-	dict       map[string]string
+
+	once   sync.Once
+	keymap map[string]uint64 // key:->offset
 }
 
 type Header struct {
@@ -57,8 +60,32 @@ type Header struct {
 	RegCode                  string `xml:"RegCode,attr"`
 }
 
-func (m *MDict) Dict() map[string]string {
-	return m.dict
+func (m *MDict) Get(word string) string {
+	log.Printf("Get %v from MDict", word)
+	return m.readAtOffset(m.keymap[word])
+}
+
+func (m *MDict) dumpKeys() {
+	m.keymap = make(map[string]uint64, m.numEntries)
+	for _, ks := range m.keys {
+		for _, k := range ks {
+			m.keymap[m.decodeString(k.key)] = k.offset
+			// log.Printf("[%d]th word: %v --> %v", total, k.key, def)
+		}
+	}
+	if len(m.keymap) != m.numEntries {
+		log.Fatalf("dumpKeys: num entries number does not match")
+	}
+}
+
+func (m *MDict) Keys() []string {
+	m.once.Do(m.dumpKeys)
+	res := make([]string, 0, len(m.keymap))
+	for k := range m.keymap {
+		log.Printf("Keys: %v", k)
+		res = append(res, k)
+	}
+	return res
 }
 
 func (m *MDict) Decode(fileName string) error {
@@ -136,9 +163,7 @@ func (m *MDict) Decode(fileName string) error {
 	if n, err := file.Read(eof); err != nil && n == 0 {
 		// log.Printf("n: %v, err: %v", n, err)
 		if errors.Is(err, io.EOF) {
-			dict, err := m.dumpDict()
-			m.dict = dict
-			return err
+			return nil
 		}
 	} else {
 		return fmt.Errorf("the reader should be empty now!")
@@ -157,7 +182,7 @@ func (m *MDict) decodeString(b []byte) string {
 	return string(b)
 }
 
-func (m *MDict) readAtOffset(offset int) string {
+func (m *MDict) readAtOffset(offset uint64) string {
 	delimiterWidth := 1
 	delimiter := []byte{0x00}
 	if m.encoding == "UTF-16" {
@@ -176,7 +201,8 @@ func (m *MDict) readAtOffset(offset int) string {
 	return res
 }
 
-func (m *MDict) dumpDict() (map[string]string, error) {
+// DumpDict may cost quite a long time.
+func (m *MDict) DumpDict() (map[string]string, error) {
 	start := time.Now()
 	defer func() {
 		log.Printf("dump dict cost: %v", time.Since(start))
@@ -185,7 +211,7 @@ func (m *MDict) dumpDict() (map[string]string, error) {
 	total := 0
 	for _, ks := range m.keys {
 		for _, k := range ks {
-			def := m.readAtOffset(int(k.offset))
+			def := m.readAtOffset(k.offset)
 			res[m.decodeString(k.key)] = def
 			// log.Printf("[%d]th word: %v --> %v", total, k.key, def)
 			total += 1

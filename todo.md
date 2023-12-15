@@ -35,4 +35,4 @@ The following are less important things that I want to finish.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] Vim version
-- [ ] Lazy-loading for performance and memory usage?
+- [x] Lazy-loading for launch performance and memory usage?

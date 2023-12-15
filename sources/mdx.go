@@ -109,21 +109,21 @@ func renderMD(s string, id string) string {
 	return id + s + id
 }
 
-func loadDecodedMdx(filePath string) map[string]string {
+func loadDecodedMdx(filePath string) Dict {
 	jsonData, err := os.ReadFile(filePath + ".json")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
 	} else if errors.Is(err, os.ErrNotExist) {
-		m := decoder.MDict{}
+		m := &decoder.MDict{}
 		err := m.Decode(filePath + ".mdx")
 		if err != nil {
 			log.Fatalf("Failed to load mdx file[%v], err: %v", filePath, err)
 		}
-		return m.Dict()
+		return m
 	}
 
 	// Define a map to hold the unmarshaled data
-	data := make(map[string]string)
+	data := Map(make(map[string]string))
 
 	// Unmarshal the JSON data into the map
 	err = json.Unmarshal(jsonData, &data)
@@ -139,7 +139,7 @@ type MdxDict struct {
 	mdxFile string
 	// Only match the mdx with the same mdxFile name
 	mdxCss   string
-	mdxDict  map[string]string
+	mdxDict  Dict
 	searcher Searcher
 }
 
