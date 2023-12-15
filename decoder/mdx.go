@@ -82,7 +82,6 @@ func (m *MDict) Keys() []string {
 	m.once.Do(m.dumpKeys)
 	res := make([]string, 0, len(m.keymap))
 	for k := range m.keymap {
-		log.Printf("Keys: %v", k)
 		res = append(res, k)
 	}
 	return res

@@ -24,7 +24,7 @@ type AhoCorasick struct {
 
 func New(dict Dict) Searcher {
 	keys := dict.Keys()
-	log.Printf("new aho_corasick: %v", keys)
+	// log.Printf("new aho_corasick: %v", keys)
 	// lowercase
 	lowDict := make(map[string][]string, len(keys))
 	for _, k := range keys {
