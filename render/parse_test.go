@@ -1,4 +1,4 @@
-package sources
+package render
 
 import (
 	"testing"

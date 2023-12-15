@@ -3,13 +3,9 @@ package sources
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
-
-	"golang.org/x/net/html"
 
 	"github.com/ChaosNyaruko/ondict/decoder"
 	"github.com/ChaosNyaruko/ondict/render"
@@ -39,74 +35,9 @@ func QueryMDX(word string, f string) string {
 	var res string
 	for _, def := range defs {
 		fd := strings.NewReader(def) // TODO: find a "close" one when missing?
-		res += "\n---\n" + parseMDX(fd, f)
+		res += "\n---\n" + render.ParseMDX(fd, f)
 	}
 	return res
-}
-
-func parseMDX(info io.Reader, ft string) string {
-	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return format([]string{f(doc, 0, nil, ft)})
-}
-
-// f -> readText
-func f(n *html.Node, level int, parent *html.Node, ft string) string {
-	var bold, italic string
-	if ft == "md" {
-		bold, italic = "**", "*"
-	}
-	// log.Printf("LEVEL[%d %p <- %p] Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", level, n, parent, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
-	if n.Type == html.TextNode {
-		// t.Logf("text: [%s] level %d", n.Data, level)
-		return compressEmptyLine(n.Data)
-	}
-	if isElement(n, "div", "") {
-		// return "\n" + readS(n) + "\n"
-		return "\n"
-	}
-	// italic
-	if isElement(n, "i", "") {
-		return renderMD(readS(n, ft), italic)
-	}
-	// bold
-	if isElement(n, "b", "") {
-		return renderMD(readS(n, ft), bold)
-	}
-	if isElement(n, "table", "") {
-		return "\n" + readS(n, ft) + "\n"
-	}
-	if isElement(n, "ex", "") {
-		return fmt.Sprintf("> %s <", readS(n, ft))
-	}
-	if n.Type == html.ElementNode && n.DataAtom.String() == "br" {
-		return "\n"
-	}
-	var s string
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += f(c, level+1, n, ft)
-	}
-	return s
-}
-
-func readS(n *html.Node, ft string) string {
-	if n == nil {
-		return ""
-	}
-	if n.Type == html.TextNode {
-		return compressEmptyLine(n.Data)
-	}
-	var s string
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += f(c, 0, n, ft)
-	}
-	return s
-}
-
-func renderMD(s string, id string) string {
-	return id + s + id
 }
 
 func loadDecodedMdx(filePath string) Dict {
@@ -136,15 +67,15 @@ func loadDecodedMdx(filePath string) Dict {
 
 type MdxDict struct {
 	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
-	mdxFile string
+	MdxFile string
 	// Only match the mdx with the same mdxFile name
-	mdxCss   string
-	mdxDict  Dict
+	MdxCss   string
+	MdxDict  Dict
 	searcher Searcher
 }
 
 func (d *MdxDict) CSS() string {
-	return d.mdxCss
+	return d.MdxCss
 }
 
 func (d *MdxDict) Get(word string) []string {

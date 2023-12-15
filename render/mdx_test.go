@@ -1,4 +1,4 @@
-package sources
+package render_test
 
 import (
 	"log"
@@ -8,6 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/html"
+
+	"github.com/ChaosNyaruko/ondict/render"
+	"github.com/ChaosNyaruko/ondict/sources"
 )
 
 func Test_GetWords(t *testing.T) {
@@ -18,7 +21,7 @@ func Test_GetWords(t *testing.T) {
 		if level == 0 {
 			// t.Logf("ROOT: type: %v atom[%s]", n.Type, n.DataAtom)
 		}
-		if n.Type == html.TextNode && n.Parent != nil && isElement(n.Parent, "body", "") {
+		if n.Type == html.TextNode && n.Parent != nil && render.IsElement(n.Parent, "body", "") {
 			t.Logf("LEVEL[%d %p <- %p] Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", level, n, parent, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
 			// words = append(words, n.Data)
 			return
@@ -49,18 +52,14 @@ func Test_MDXParser(t *testing.T) {
 		log.Fatal(err)
 	}
 	defer fd.Close()
-	doc, err := html.ParseWithOptions(fd, html.ParseOptionEnableScripting(false))
-	if err != nil {
-		log.Fatal(err)
-	}
 	// log.Printf("result: %v", readText(doc))
-	t.Logf("res: %v", format([]string{f(doc, 0, nil, "md")}))
+	t.Logf("res: %v", render.ParseHTML(fd))
 }
 
 func Test_MultiMatch(t *testing.T) {
-	dataPath = "../testdata/"
-	d := MdxDict{
-		mdxFile: "test_dict",
+	sources.DataPath = "../testdata/"
+	d := sources.MdxDict{
+		MdxFile: "test_dict",
 	}
 	d.Register()
 	assert.Equal(t, 1, len(d.Get("doctor")), "doctor")
@@ -74,19 +73,19 @@ func Test_MultiMatch(t *testing.T) {
 }
 
 func Test_play(t *testing.T) {
-	var g MdxDict
+	var g sources.MdxDict
 	if os.Getenv("FULLTEST") == "1" {
-		LoadConfig()
-		g = GlobalDict
+		sources.LoadConfig()
+		g = sources.GlobalDict
 	} else {
-		dataPath = "../testdata/"
-		d := MdxDict{
-			mdxFile: "test_dict",
+		sources.DataPath = "../testdata/"
+		d := sources.MdxDict{
+			MdxFile: "test_dict",
 		}
 		g = d
 	}
 	g.Register()
-	dict := g.mdxDict
+	dict := g.MdxDict
 	input := make([]string, 0, len(dict.Keys()))
 	// lowercase
 	lowDict := make(map[string][]string, len(dict.Keys()))

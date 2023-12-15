@@ -49,7 +49,7 @@ func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 		// t.Logf("text: [%s] level %d", n.Data, level)
 		return ""
 	}
-	if isElement(n, "img", "") {
+	if IsElement(n, "img", "") {
 		modifyImgSrc(n)
 		return ""
 	}
@@ -61,7 +61,7 @@ func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	return s
 }
 
-func isElement(n *html.Node, ele string, class string) bool {
+func IsElement(n *html.Node, ele string, class string) bool {
 	if n.Type == html.ElementNode && (n.DataAtom.String() == ele || n.Data == ele) {
 		if class == "" {
 			return true

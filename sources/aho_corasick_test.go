@@ -11,14 +11,14 @@ func Test_New(t *testing.T) {
 		LoadConfig()
 		g = GlobalDict
 	} else {
-		dataPath = "../testdata/"
+		DataPath = "../testdata/"
 		d := MdxDict{
-			mdxFile: "test_dict",
+			MdxFile: "test_dict",
 		}
 		g = d
 	}
 	g.Register()
-	ack := New(g.mdxDict)
+	ack := New(g.MdxDict)
 	res := ack.GetRawOutputs("jesus")
 	t.Logf("%q output: %v", "jesus", res)
 }

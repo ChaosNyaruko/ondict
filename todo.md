@@ -20,14 +20,15 @@
 - [x] Use [`aho-corasick`](https://en.wikipedia.org/wiki/Aho%E2%80%93Corasick_algorithm) algorithm to perform a fuzzy search. 
 - [x] BUG: QueryByURL will get an unexpected EOF error.
 - [x] Automate the dict generating process, registering
-- [ ] See the TODOs in the code.
-- [ ] Give editor users the option to setup the server in advance, for better first-query user experience. 
+- [x] Appropriate module abstraction, and unit testing automation. (sources/decoder/renderer)
+- [x] Lazy-loading for launch performance and memory usage?
 - [ ] Support multiple mdx libs at the same time and provide a user interface
-- [ ] Appropriate module abstraction, and unit testing automation. 
 - [ ] Parse the MDD file, and serve the picture sources when working in HTML mode.
+- [ ] See the TODOs in the code.
 
 ---
 The following are less important things that I want to finish.
+- [ ] Editor plugin: give users the option to setup the server in advance, for better first-query user experience. 
 - [ ] A system for reviewing, e.g. simple ANKI?
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
@@ -35,4 +36,3 @@ The following are less important things that I want to finish.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] Vim version
-- [x] Lazy-loading for launch performance and memory usage?
