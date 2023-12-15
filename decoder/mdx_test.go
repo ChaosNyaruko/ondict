@@ -24,6 +24,6 @@ func Test_DecodeMDD(t *testing.T) {
 	assert.NotEqual(t, 0, len(x))
 	t.Logf("keys num of mdd: %v", len(x))
 	for i, k := range x {
-		t.Logf("key[%d] of mdd: %v", i, k)
+		t.Logf("key[%d] of mdd: %q", i, k)
 	}
 }

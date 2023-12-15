@@ -5,3 +5,4 @@ mdict_parser
 ondict
 cover.html
 cover.out
+*.log

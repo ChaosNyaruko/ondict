@@ -70,8 +70,9 @@ func (m *MDict) dumpKeys() {
 	m.keymap = make(map[string]uint64, m.numEntries)
 	for _, ks := range m.keys {
 		for _, k := range ks {
-			m.keymap[m.decodeString(k.key)] = k.offset
-			// log.Printf("[%d]th word: %v --> %v", total, k.key, def)
+			key := m.decodeString(k.key)
+			m.keymap[key] = k.offset
+			// log.Printf("key: %v [%q] --> %v", k.key, key, k.offset)
 		}
 	}
 	if len(m.keymap) != m.numEntries {
@@ -183,7 +184,7 @@ func (m *MDict) Decode(fileName string) error {
 func (m *MDict) decodeString(b []byte) string {
 	if m.encoding == "UTF-16" {
 		runes := make([]uint16, len(b)/2)
-		if err := binary.Read(bytes.NewBuffer(b), binary.BigEndian, runes); err != nil {
+		if err := binary.Read(bytes.NewBuffer(b), binary.LittleEndian, runes); err != nil {
 			panic(err)
 		}
 		return string(utf16.Decode(runes))
@@ -202,7 +203,7 @@ func (m *MDict) decodeString(b []byte) string {
 	// return string(res)
 }
 
-func (m *MDict) readAtOffset(offset uint64) string {
+func (m *MDict) readAtOffset(offset uint64) string { // TODO: only works for MDX
 	delimiterWidth := 1
 	delimiter := []byte{0x00}
 	if m.encoding == "UTF-16" {
@@ -214,7 +215,7 @@ func (m *MDict) readAtOffset(offset uint64) string {
 	b := m.records[offset:]
 	for p < len(b) && (!reflect.DeepEqual(b[p:p+delimiterWidth], delimiter)) { // TODO: performance
 		resBytes = append(resBytes, b[p])
-		p++
+		p += delimiterWidth
 	}
 	p += delimiterWidth
 	res := m.decodeString(resBytes)
@@ -424,11 +425,11 @@ func (m *MDict) splitKeyBlock(b []byte, keyNum int, index int) {
 		offset := binary.BigEndian.Uint64(b[p-8 : p])
 		keyBytes := make([]byte, 0)
 		for p < len(b) && (!reflect.DeepEqual(b[p:p+delimiterWidth], delimiter)) { // TODO: performance
-			keyBytes = append(keyBytes, b[p])
-			p++
+			keyBytes = append(keyBytes, b[p:p+delimiterWidth]...)
+			p += delimiterWidth
 		}
 		p += delimiterWidth
-		// log.Printf("key %q at offset [%d]\n", m.decodeString(keyBytes), offset)
+		// log.Printf("splitKeyBlock key %v at offset [%d]\n", keyBytes, offset)
 		m.keys[index] = append(m.keys[index], keyOffset{offset, keyBytes})
 	}
 }
