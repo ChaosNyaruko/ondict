@@ -95,6 +95,10 @@ func (m *MDict) Keys() []string {
 }
 
 func (m *MDict) Decode(fileName string) error {
+	start := time.Now()
+	defer func() {
+		log.Printf("decode cost: %v", time.Since(start))
+	}()
 	name, err := filepath.Abs(fileName)
 	if err != nil {
 		return err
@@ -169,10 +173,12 @@ func (m *MDict) Decode(fileName string) error {
 		return fmt.Errorf("decode keyword section: %v", err)
 	}
 	offset, err := file.Seek(0, io.SeekCurrent)
+	x := time.Now()
 	log.Printf("offset of Record start: %v, err: %v", offset, err)
 	if err := m.decodeRecordSection(file); err != nil {
 		return fmt.Errorf("decode record section: %v", err)
 	}
+	log.Printf("decode record cost: %v", time.Since(x))
 	// The reader should be at EOF now
 	var eof = make([]byte, 1)
 	if n, err := file.Read(eof); err != nil && n == 0 {
@@ -536,12 +542,12 @@ func (m *MDict) DumpData() error {
 			fname = fname[size:]
 		}
 		// content := m.readAtOffset(i)
-		pos := filepath.Join(util.TmpDir(), fname)
+		fname = filepath.Join(util.TmpDir(), fname)
 		if file, err := os.Create(fname); err != nil {
 			log.Fatalf("open %v err: %v", fname, err)
 		} else {
 			n, err := file.Write(m.readAtOffset(i))
-			log.Printf("DumpData [%d] to file: %v, n: %v, err: %v", i, pos, n, err)
+			log.Printf("DumpData [%d] to file: %v, n: %v, err: %v", i, fname, n, err)
 			file.Close()
 		}
 

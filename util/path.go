@@ -27,12 +27,11 @@ func ConfigPath() string {
 }
 
 func TmpDir() string {
-	return filepath.Join(".", "tmp") // TODO: write to other directories won't fail, but I can't find the generated files?
-	home, err := os.UserHomeDir()
+	home, err := os.UserCacheDir()
 	if err != nil {
 		log.Fatal(err)
 	}
-	tmpPath := filepath.Join(home, ".config", "ondict", "tmp")
+	tmpPath := filepath.Join(home, "ondict")
 	if err := os.MkdirAll(tmpPath, 0o755); err != nil {
 		log.Fatalf("Mkdir err: %v", err)
 	}
