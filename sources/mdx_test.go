@@ -87,10 +87,10 @@ func Test_play(t *testing.T) {
 	}
 	g.Register()
 	dict := g.mdxDict
-	input := make([]string, 0, len(dict))
+	input := make([]string, 0, len(dict.Keys()))
 	// lowercase
-	lowDict := make(map[string][]string, len(dict))
-	for k, _ := range dict {
+	lowDict := make(map[string][]string, len(dict.Keys()))
+	for _, k := range dict.Keys() {
 		lk := strings.ToLower(k)
 		lowDict[lk] = append(lowDict[lk], k)
 	}
@@ -103,7 +103,7 @@ func Test_play(t *testing.T) {
 		"because different item in the raw dictionary "+
 		"like 'August' and 'august' will be "+
 		"combined into a string slice\n",
-		len(dict), len(lowDict))
+		len(dict.Keys()), len(lowDict))
 
 	word := "want"
 	t.Logf("%q output: %v", word, lowDict[word])
