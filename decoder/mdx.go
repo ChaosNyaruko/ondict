@@ -23,6 +23,9 @@ import (
 	"sync"
 	"time"
 	"unicode/utf16"
+	"unicode/utf8"
+
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 type keyOffset struct {
@@ -36,11 +39,11 @@ type MDict struct {
 	encoding   string
 	regCode    string
 	numEntries int
-	keys       [][]keyOffset
+	keys       []keyOffset
 	records    []byte
 
 	once   sync.Once
-	keymap map[string]uint64 // key:->offset
+	keymap map[string]uint64 // key: key value: the index of the key in MDict.keys
 }
 
 type Header struct {
@@ -62,18 +65,20 @@ type Header struct {
 }
 
 func (m *MDict) Get(word string) string {
+	m.once.Do(m.dumpKeys)
 	log.Printf("Get %v from MDict", word)
-	return m.readAtOffset(m.keymap[word])
+	if index, ok := m.keymap[word]; ok {
+		return m.decodeString(m.readAtOffset(int(index)))
+	}
+	return ""
 }
 
 func (m *MDict) dumpKeys() {
 	m.keymap = make(map[string]uint64, m.numEntries)
-	for _, ks := range m.keys {
-		for _, k := range ks {
-			key := m.decodeString(k.key)
-			m.keymap[key] = k.offset
-			// log.Printf("key: %v [%q] --> %v", k.key, key, k.offset)
-		}
+	for i, k := range m.keys {
+		key := m.decodeString(k.key)
+		m.keymap[key] = uint64(i)
+		// log.Printf("key: %v [%q] --> %v", k.key, key, k.offset)
 	}
 	if len(m.keymap) != m.numEntries {
 		log.Fatalf("dumpKeys: num entries number does not match")
@@ -190,53 +195,31 @@ func (m *MDict) decodeString(b []byte) string {
 		return string(utf16.Decode(runes))
 	}
 	return string(b)
-	// str := string(b)
-
-	// res := make([]rune, 0)
-	// for len(str) > 0 {
-	// 	r, size := utf8.DecodeRuneInString(str)
-
-	// 	res = append(res, r)
-	// 	str = str[size:]
-
-	// }
-	// return string(res)
 }
 
-func (m *MDict) readAtOffset(offset uint64) string { // TODO: only works for MDX
-	delimiterWidth := 1
-	delimiter := []byte{0x00}
-	if m.encoding == "UTF-16" {
-		delimiterWidth = 2
-		delimiter = []byte{0x00, 0x00}
+func (m *MDict) readAtOffset(index int) []byte {
+	offset := m.keys[index].offset
+	start := offset
+	end := len(m.records)
+	if index < len(m.keys)-1 {
+		end = int(m.keys[index+1].offset)
 	}
-	p := 0
-	resBytes := make([]byte, 0)
-	b := m.records[offset:]
-	for p < len(b) && (!reflect.DeepEqual(b[p:p+delimiterWidth], delimiter)) { // TODO: performance
-		resBytes = append(resBytes, b[p])
-		p += delimiterWidth
-	}
-	p += delimiterWidth
-	res := m.decodeString(resBytes)
-	return res
+	return m.records[start:end]
 }
 
-// DumpDict may cost quite a long time.
+// DumpDict may cost quite a long time, use it when you actually need the whole data
 func (m *MDict) DumpDict() (map[string]string, error) {
+	if m.t != ".mdx" {
+		return nil, fmt.Errorf("The dict should be the MDX file, not %v", m.t)
+	}
 	start := time.Now()
 	defer func() {
 		log.Printf("dump dict cost: %v", time.Since(start))
 	}()
 	res := make(map[string]string, m.numEntries)
 	total := 0
-	for _, ks := range m.keys {
-		for _, k := range ks {
-			def := m.readAtOffset(k.offset)
-			res[m.decodeString(k.key)] = def
-			// log.Printf("[%d]th word: %v --> %v", total, k.key, def)
-			total += 1
-		}
+	for i, k := range m.keys {
+		res[m.decodeString(k.key)] = m.decodeString((m.readAtOffset(i)))
 	}
 	if total != m.numEntries {
 		return nil, fmt.Errorf("the keys not suffice")
@@ -394,7 +377,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	}
 
 	// decode key blocks
-	for i, b := range keyBlocks {
+	for _, b := range keyBlocks {
 		// log.Printf("decoding [%d]th key block", i)
 		compressed := make([]byte, b.comp)
 		if err := binary.Read(fd, binary.BigEndian, compressed); err != nil {
@@ -404,14 +387,13 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if len(decompressed) != int(b.decomp) {
 			log.Fatalf("decomp len not as expected!")
 		}
-		m.keys = append(m.keys, make([]keyOffset, 0))
-		m.splitKeyBlock(decompressed, int(b.numEntries), i)
+		m.splitKeyBlock(decompressed, int(b.numEntries))
 	}
 
 	return nil
 }
 
-func (m *MDict) splitKeyBlock(b []byte, keyNum int, index int) {
+func (m *MDict) splitKeyBlock(b []byte, keyNum int) {
 	// log.Printf("block %d, num: %d, %v", index, keyNum, b)
 	delimiterWidth := 1
 	delimiter := []byte{0x00}
@@ -430,7 +412,7 @@ func (m *MDict) splitKeyBlock(b []byte, keyNum int, index int) {
 		}
 		p += delimiterWidth
 		// log.Printf("splitKeyBlock key %v at offset [%d]\n", keyBytes, offset)
-		m.keys[index] = append(m.keys[index], keyOffset{offset, keyBytes})
+		m.keys = append(m.keys, keyOffset{offset, keyBytes})
 	}
 }
 
@@ -531,4 +513,42 @@ func decompress(compType []byte, checksum []byte, before []byte) []byte {
 		log.Fatalf("checksum not match for decompress! expected: %v", binary.BigEndian.Uint32(checksum))
 	}
 	return res
+}
+
+func (m *MDict) DumpData() error {
+	if m.t != ".mdd" {
+		return fmt.Errorf("The dict should be the MDX file, not %v", m.t)
+	}
+	start := time.Now()
+	defer func() {
+		log.Printf("dump data cost: %v", time.Since(start))
+	}()
+	total := 0
+	for i, k := range m.keys {
+		fname := m.decodeString(k.key)
+		if len(fname) > 0 {
+			// strip the leading "\"
+			r, size := utf8.DecodeRuneInString(fname)
+			if r != '\\' {
+				log.Printf("illegal fname: %q", fname)
+				continue
+			}
+			fname = fname[size:]
+		}
+		// content := m.readAtOffset(i)
+		pos := filepath.Join(util.TmpDir(), fname)
+		if file, err := os.Create(fname); err != nil {
+			log.Fatalf("open %v err: %v", fname, err)
+		} else {
+			n, err := file.Write(m.readAtOffset(i))
+			log.Printf("DumpData [%d] to file: %v, n: %v, err: %v", i, pos, n, err)
+			file.Close()
+		}
+
+		total += 1
+	}
+	if total != m.numEntries {
+		return fmt.Errorf("the keys not suffice")
+	}
+	return nil
 }

@@ -81,9 +81,6 @@ func Store() {
 	if err != nil {
 		log.Fatal("marshal err ", err)
 	}
-	if err := os.MkdirAll(DataPath, 0755); err != nil {
-		log.Fatal("make dir err", err)
-	}
 	f, err := os.Create(historyFile)
 	if err != nil {
 		log.Fatal("create file err", err)

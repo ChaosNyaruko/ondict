@@ -26,4 +26,8 @@ func Test_DecodeMDD(t *testing.T) {
 	for i, k := range x {
 		t.Logf("key[%d] of mdd: %q", i, k)
 	}
+	dict, err := n.DumpDict()
+	assert.NotNil(t, err)
+	assert.Nil(t, dict)
+	assert.Nil(t, n.DumpData())
 }

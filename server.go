@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ChaosNyaruko/ondict/sources"
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 type proxy struct {
@@ -47,7 +48,7 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 	http.FileServer(http.Dir("./static")).ServeHTTP(w, r)
 	// 	return
 	// }
-	http.FileServer(http.Dir(".")).ServeHTTP(w, r)
+	http.FileServer(http.Dir(util.TmpDir())).ServeHTTP(w, r)
 }
 
 func ParseAddr(listen string) (network string, address string) {

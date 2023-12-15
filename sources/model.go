@@ -5,24 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 var mu sync.Mutex // owns history
 var history map[string]string = make(map[string]string)
-var DataPath string
 var historyFile string
 
 func init() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	configPath := filepath.Join(home, ".config")
-	DataPath = filepath.Join(configPath, "ondict")
-	historyFile = filepath.Join(DataPath, "history.json")
-	if DataPath == "" || historyFile == "" {
-		log.Fatalf("empty datapath/historyfile: %v||%v", DataPath, historyFile)
-	}
+	historyFile = util.HistoryFile()
 }
 
 type RawOutput interface {
@@ -53,8 +45,8 @@ func (o output) GetDefinition() string {
 }
 
 func (d *MdxDict) Register() error {
-	d.MdxDict = loadDecodedMdx(filepath.Join(DataPath, "dicts", d.MdxFile))
-	if contents, err := os.ReadFile((filepath.Join(DataPath, "dicts", d.MdxCss))); err == nil {
+	d.MdxDict = loadDecodedMdx(filepath.Join(util.DictsPath(), d.MdxFile))
+	if contents, err := os.ReadFile((filepath.Join(util.DictsPath(), d.MdxCss))); err == nil {
 		d.MdxCss = string(contents)
 	} else {
 		d.MdxCss = ""

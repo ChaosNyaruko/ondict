@@ -17,6 +17,7 @@ type HTMLRender struct {
 }
 
 func (h *HTMLRender) Render() string {
+	return h.Raw
 	info := strings.NewReader(h.Raw)
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {

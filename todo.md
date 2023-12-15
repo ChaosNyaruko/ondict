@@ -23,7 +23,7 @@
 - [x] Appropriate module abstraction, and unit testing automation. (sources/decoder/renderer)
 - [x] Lazy-loading for launch performance and memory usage?
 - [ ] Support multiple mdx libs at the same time and provide a user interface
-- [ ] Parse the MDD file, and serve the picture sources when working in HTML mode.
+- [x] Parse the MDD file, and serve the picture sources when working in HTML mode.
 - [ ] See the TODOs in the code.
 
 ---
