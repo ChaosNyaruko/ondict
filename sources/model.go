@@ -3,7 +3,6 @@ package sources
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/ChaosNyaruko/ondict/util"
@@ -46,7 +45,7 @@ func (o output) GetDefinition() string {
 
 func (d *MdxDict) Register() error {
 	d.MdxDict = loadDecodedMdx(d.MdxFile)
-	if contents, err := os.ReadFile((filepath.Join(util.DictsPath(), d.MdxCss))); err == nil {
+	if contents, err := os.ReadFile(d.MdxCss); err == nil {
 		d.MdxCss = string(contents)
 	} else {
 		d.MdxCss = ""

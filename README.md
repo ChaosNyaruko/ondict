@@ -1,10 +1,24 @@
 # Introduction
-It's a really simple dictionary CLI app, relying on Longman online dictionary, with simple cache and history functionality.
+Yet another simple dictionary application. Support multiple sources, including Longman online dictionary, and user-loaded MDX/MDD dictionary files.
 
 ![Gif](./assets/ondict_example1.gif)
+
+# Other choices
+- [Golden](http://www.goldendict.org/)
+- [Eudic](https://www.eudic.net/v4/en/app/eudic)
+- [深蓝](https://www.ssdlsoft.com)
+- ...
+
+There are some similar products. They are all mature products, but may not suit me(or you) in some cases. Compared to these, this application is not yet so well polished, but it has its own advantages.
+- It's a CLI application, conforming to the UNIX stdout convention. So you can further process the output, or embed it into any UNIX-like CLI tools.
+- The output can be plain text(such as Markdown format), so feel free to render it with any renderer. You can also embed it into your extensible editor. I provide [neovim](https://neovim.io) integration out of the box.
+- The output can also be internally rendered as HTML, and your can just use it to build a server, which you can access anywhere by your browser, without having to install any other apps.
+- Easy to cross platform. The core is written in Go. 
+- It's free and open source, just fork/PR/issue it if you like!
+
 # Prerequisites
 - Go version >=1.16, and add $GOBIN in your $PATH
-- Neovim version >= 0.9.1 [recommended, cause I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) is required. So it can also be ported to Vim, but I am not quite familiar with vim's popup feature]
+- Neovim version >= 0.9.1 [recommended, because I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) is required. So it can also be ported to Vim, but I am not quite familiar with vim's popup feature yet]
 # Installation
 ```console
 go install github.com/ChaosNyaruko/ondict@latest
@@ -94,3 +108,6 @@ Put the decoded JSON files in $HOME/.config/ondict/dicts
 - Online query support based on [Longman online dictionary](https://ldoceonline.com)
 - Integrated with (n)vim, feel free to use it in whatever editor you are using!
 - Offline engine/mode is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time.
+
+# LICENSE
+[](LICENSE)

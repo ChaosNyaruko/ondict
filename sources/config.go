@@ -29,7 +29,7 @@ func LoadConfig() error {
 		return nil
 	}
 	GlobalDict.MdxFile = filepath.Join(util.DictsPath(), c.Dicts[0])
-	GlobalDict.MdxCss = filepath.Join(util.DictsPath(), c.Dicts[0], ".css")
+	GlobalDict.MdxCss = filepath.Join(util.DictsPath(), c.Dicts[0]+".css")
 	log.Printf("get global dicts: %v", GlobalDict)
 	return nil
 }

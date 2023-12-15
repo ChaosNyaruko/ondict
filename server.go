@@ -1,6 +1,7 @@
 package main
 
 import (
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
@@ -26,6 +27,18 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.timeout.Reset(*idleTimeout)
 	}
 	log.Printf("query HTTP path: %v", r.URL.Path)
+	if r.URL.Path == "/" {
+		tmplt := template.New("portal")
+		tmplt, err := tmplt.Parse(portal)
+		if err != nil {
+			log.Fatalf("parse portal html err: %v", err)
+		}
+
+		if err := tmplt.Execute(w, nil); err != nil {
+			return
+		}
+		return
+	}
 	if strings.HasSuffix(r.URL.Path, "/dict") {
 		q := r.URL.Query()
 		word := q.Get("query")

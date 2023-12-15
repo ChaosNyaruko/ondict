@@ -43,5 +43,5 @@ func Test_DecodeMDD(t *testing.T) {
 	dict, err := n.DumpDict()
 	assert.NotNil(t, err)
 	assert.Nil(t, dict)
-	// assert.Nil(t, n.DumpData())
+	assert.Nil(t, n.DumpData())
 }
