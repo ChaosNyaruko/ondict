@@ -110,4 +110,4 @@ Put the decoded JSON files in $HOME/.config/ondict/dicts
 - Offline engine/mode is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time.
 
 # LICENSE
-[](LICENSE)
+[LICENSE](./LICENSE)
