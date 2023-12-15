@@ -31,6 +31,7 @@ type keyOffset struct {
 }
 
 type MDict struct {
+	t          string
 	encrypted  int8
 	encoding   string
 	regCode    string
@@ -92,6 +93,9 @@ func (m *MDict) Decode(fileName string) error {
 	if err != nil {
 		return err
 	}
+	if m.t = filepath.Ext(name); m.t != ".mdx" && m.t != ".mdd" {
+		return fmt.Errorf("unexpected file ext %v", m.t)
+	}
 	file, err := os.Open(name)
 	if err != nil {
 		return err
@@ -143,6 +147,9 @@ func (m *MDict) Decode(fileName string) error {
 			header.GeneratedByEngineVersion)
 	}
 	m.encoding = header.Encoding
+	if m.t == ".mdd" {
+		m.encoding = "UTF-16"
+	}
 
 	// num, err := strconv.Atoi(header.NumEntries)
 
@@ -151,9 +158,12 @@ func (m *MDict) Decode(fileName string) error {
 		return err
 	}
 	m.encrypted = int8(encrypt)
+
 	if err := m.decodeKeyWordSection(file); err != nil {
 		return fmt.Errorf("decode keyword section: %v", err)
 	}
+	offset, err := file.Seek(0, io.SeekCurrent)
+	log.Printf("offset of Record start: %v, err: %v", offset, err)
 	if err := m.decodeRecordSection(file); err != nil {
 		return fmt.Errorf("decode record section: %v", err)
 	}
@@ -173,12 +183,23 @@ func (m *MDict) Decode(fileName string) error {
 func (m *MDict) decodeString(b []byte) string {
 	if m.encoding == "UTF-16" {
 		runes := make([]uint16, len(b)/2)
-		if err := binary.Read(bytes.NewBuffer(b), binary.LittleEndian, runes); err != nil {
+		if err := binary.Read(bytes.NewBuffer(b), binary.BigEndian, runes); err != nil {
 			panic(err)
 		}
 		return string(utf16.Decode(runes))
 	}
 	return string(b)
+	// str := string(b)
+
+	// res := make([]rune, 0)
+	// for len(str) > 0 {
+	// 	r, size := utf8.DecodeRuneInString(str)
+
+	// 	res = append(res, r)
+	// 	str = str[size:]
+
+	// }
+	// return string(res)
 }
 
 func (m *MDict) readAtOffset(offset uint64) string {
@@ -282,6 +303,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	}
 
 	m.numEntries = int(header.NumEntries)
+	log.Printf("key header %#v", header)
 
 	// encrypted by the following C function
 	// #define SWAPNIBBLE(byte) (((byte)>>4) | ((byte)<<4))
@@ -389,7 +411,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 }
 
 func (m *MDict) splitKeyBlock(b []byte, keyNum int, index int) {
-	// log.Fatalf("block %d, %v", index, b)
+	// log.Printf("block %d, num: %d, %v", index, keyNum, b)
 	delimiterWidth := 1
 	delimiter := []byte{0x00}
 	if m.encoding == "UTF-16" {
@@ -406,7 +428,7 @@ func (m *MDict) splitKeyBlock(b []byte, keyNum int, index int) {
 			p++
 		}
 		p += delimiterWidth
-		// log.Printf("key %q at offset [%d]\n", key, offset)
+		// log.Printf("key %q at offset [%d]\n", m.decodeString(keyBytes), offset)
 		m.keys[index] = append(m.keys[index], keyOffset{offset, keyBytes})
 	}
 }

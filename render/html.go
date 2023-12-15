@@ -38,7 +38,7 @@ func modifyImgSrc(n *html.Node) {
 	}
 	for i, a := range n.Attr {
 		if a.Key == "src" {
-			n.Attr[i].Val = "data/" + a.Val
+			n.Attr[i].Val = "tmp/" + a.Val
 		}
 	}
 	// log.Printf("modifyImgSrc %#v", n)
