@@ -11,7 +11,6 @@ import (
 
 	"github.com/ChaosNyaruko/ondict/render"
 	"github.com/ChaosNyaruko/ondict/sources"
-	"github.com/ChaosNyaruko/ondict/util"
 )
 
 func Test_GetWords(t *testing.T) {
@@ -78,9 +77,8 @@ func Test_play(t *testing.T) {
 		sources.LoadConfig()
 		g = sources.GlobalDict
 	} else {
-		sources.DataPath = "../testdata/"
 		d := sources.MdxDict{
-			MdxFile: "test_dict",
+			MdxFile: "../testdata/test_dict",
 		}
 		g = d
 	}

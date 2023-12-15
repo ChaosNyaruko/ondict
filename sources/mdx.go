@@ -45,6 +45,7 @@ func loadDecodedMdx(filePath string) Dict {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
 	} else if errors.Is(err, os.ErrNotExist) {
+		log.Printf("JSON file not exist: %v", filePath+".json")
 		m := &decoder.MDict{}
 		err := m.Decode(filePath + ".mdx")
 		if err != nil {

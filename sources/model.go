@@ -45,7 +45,7 @@ func (o output) GetDefinition() string {
 }
 
 func (d *MdxDict) Register() error {
-	d.MdxDict = loadDecodedMdx(filepath.Join(util.DictsPath(), d.MdxFile))
+	d.MdxDict = loadDecodedMdx(d.MdxFile)
 	if contents, err := os.ReadFile((filepath.Join(util.DictsPath(), d.MdxCss))); err == nil {
 		d.MdxCss = string(contents)
 	} else {
