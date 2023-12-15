@@ -77,11 +77,17 @@ func (m *MDict) dumpKeys() {
 	m.keymap = make(map[string]uint64, m.numEntries)
 	for i, k := range m.keys {
 		key := m.decodeString(k.key)
+		if e, ok := m.keymap[key]; ok {
+			log.Printf("key existed: %v, %v->[%v], now: %v->%v",
+				key, m.keys[e].key, m.decodeString(m.readAtOffset(int(e))),
+				k, m.decodeString(m.readAtOffset(i)),
+			)
+			continue
+		}
 		m.keymap[key] = uint64(i)
-		// log.Printf("key: %v [%q] --> %v", k.key, key, k.offset)
 	}
 	if len(m.keymap) != m.numEntries {
-		log.Fatalf("dumpKeys: num entries number does not match")
+		log.Printf("dumpKeys: num entries number does not match: map[%d], numEntries:%v", len(m.keymap), m.numEntries)
 	}
 }
 
@@ -342,11 +348,13 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	}
 
 	var keyBlocks []keyBlock
+	totalEntries := 0
 	for i := 0; i < int(header.NumBlock); i++ {
 		var numEntries uint64
 		if err := binary.Read(r, binary.BigEndian, &numEntries); err != nil {
 			return err
 		}
+		totalEntries += int(numEntries)
 		var firstSize uint16 // the number of "basic units" for the encoding of the first word
 		if err := binary.Read(r, binary.BigEndian, &firstSize); err != nil {
 			return err
@@ -386,6 +394,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		keyBlocks = append(keyBlocks, keyBlock{compSize, decompSize, numEntries, firstWord, lastWord})
 	}
 
+	log.Printf("total entries: %v", totalEntries)
 	// decode key blocks
 	for _, b := range keyBlocks {
 		// log.Printf("decoding [%d]th key block", i)
