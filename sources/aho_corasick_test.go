@@ -11,9 +11,8 @@ func Test_New(t *testing.T) {
 		LoadConfig()
 		g = GlobalDict
 	} else {
-		DataPath = "../testdata/"
 		d := MdxDict{
-			MdxFile: "test_dict",
+			MdxFile: "../testdata/test_dict",
 		}
 		g = d
 	}
