@@ -172,9 +172,9 @@ func (m *MDict) Decode(fileName string) error {
 	if err := m.decodeKeyWordSection(file); err != nil {
 		return fmt.Errorf("decode keyword section: %v", err)
 	}
-	offset, err := file.Seek(0, io.SeekCurrent)
+	// offset, err := file.Seek(0, io.SeekCurrent)
+	// log.Printf("offset of Record start: %v, err: %v", offset, err)
 	x := time.Now()
-	log.Printf("offset of Record start: %v, err: %v", offset, err)
 	if err := m.decodeRecordSection(file); err != nil {
 		return fmt.Errorf("decode record section: %v", err)
 	}
@@ -210,6 +210,8 @@ func (m *MDict) readAtOffset(index int) []byte {
 	if index < len(m.keys)-1 {
 		end = int(m.keys[index+1].offset)
 	}
+	// log.Printf("len(m.keys)=%d, len(m.records)=%d, index: %d, start: %v, end: %v",
+	// len(m.keys), len(m.records), index, start, end)
 	return m.records[start:end]
 }
 
@@ -258,6 +260,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	// ...	...	...
 	// key_blocks[num_blocks-1]	varying	...
 
+	log.Printf("decoding keyword section")
 	var rawHeader = make([]byte, 40)
 	if err := binary.Read(fd, binary.BigEndian, rawHeader); err != nil {
 		return err
@@ -418,7 +421,7 @@ func (m *MDict) splitKeyBlock(b []byte, keyNum int) {
 			p += delimiterWidth
 		}
 		p += delimiterWidth
-		// log.Printf("splitKeyBlock key %v at offset [%d]\n", keyBytes, offset)
+		// log.Printf("splitKeyBlock key[%v][%v] at offset [%d]\n", len(m.keys), m.decodeString(keyBytes), offset)
 		m.keys = append(m.keys, keyOffset{offset, keyBytes})
 	}
 }
@@ -530,6 +533,7 @@ func (m *MDict) DumpData() error {
 	defer func() {
 		log.Printf("dump data cost: %v", time.Since(start))
 	}()
+	m.once.Do(m.dumpKeys)
 	total := 0
 	for i, k := range m.keys {
 		fname := m.decodeString(k.key)

@@ -32,7 +32,7 @@ func Test_DecodeMDD(t *testing.T) {
 	if errors.Is(err, os.ErrNotExist) {
 		return
 	}
-	assert.Nil(t, n.Decode(ldoce5))
+	assert.Nil(t, err)
 
 	x := n.Keys()
 	assert.NotEqual(t, 0, len(x))
