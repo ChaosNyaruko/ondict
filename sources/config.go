@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 type Config struct {
@@ -13,7 +15,7 @@ type Config struct {
 }
 
 func LoadConfig() error {
-	data, err := os.ReadFile(filepath.Join(dataPath, "config.json"))
+	data, err := os.ReadFile(filepath.Join(util.ConfigPath(), "config.json"))
 	if err != nil && errors.Is(err, os.ErrNotExist) {
 		log.Printf("load config file err: %v, default settings are used.", err)
 		return err
@@ -26,8 +28,8 @@ func LoadConfig() error {
 	if len(c.Dicts) == 0 {
 		return nil
 	}
-	GlobalDict.mdxFile = c.Dicts[0] + ".json"
-	GlobalDict.mdxCss = c.Dicts[0] + ".css"
+	GlobalDict.MdxFile = filepath.Join(util.DictsPath(), c.Dicts[0])
+	GlobalDict.MdxCss = filepath.Join(util.DictsPath(), c.Dicts[0]+".css")
 	log.Printf("get global dicts: %v", GlobalDict)
 	return nil
 }

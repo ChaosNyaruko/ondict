@@ -13,6 +13,7 @@ import (
 
 	"github.com/fatih/color"
 
+	"github.com/ChaosNyaruko/ondict/render"
 	"github.com/ChaosNyaruko/ondict/sources"
 )
 
@@ -33,7 +34,7 @@ var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
 var remote = flag.String("remote", "", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 1 min.")
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
-var render = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
+var renderFormat = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 
 // TODO: prev work, for better source abstractions
@@ -48,12 +49,12 @@ func main() {
 	if !*verbose {
 		log.SetOutput(io.Discard)
 		// TODO: they should be bound with a renderer?
-		sources.SeparatorOpen, sources.SeparatorClose = "", ""
+		render.SeparatorOpen, render.SeparatorClose = "", ""
 	}
 	// TODO: put it in a better place.
 	sources.LoadConfig()
 
-	if *render != "md" {
+	if *renderFormat != "md" {
 		sources.Gbold, sources.Gitalic = "", ""
 	}
 
@@ -91,7 +92,7 @@ func main() {
 				}
 			}
 		}
-		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *render, *engine)
+		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
 		g.Register()
 		l, err := net.Listen(network, addr)
 		if err != nil {
@@ -129,7 +130,7 @@ func main() {
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
-			if err := request(netConn, *engine, *render); err != nil {
+			if err := request(netConn, *engine, *renderFormat); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -151,7 +152,7 @@ func main() {
 			"-serve=true",
 			"-listen.timeout=2m",
 			"-e=" + *engine,
-			"-f=" + *render,
+			"-f=" + *renderFormat,
 		}
 		log.Printf("starting remote: %v", args)
 		if err := startRemote(dp, args...); err != nil {
@@ -167,7 +168,7 @@ func main() {
 		startDial := time.Now()
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 		if err == nil {
-			if err := request(netConn, *engine, *render); err != nil {
+			if err := request(netConn, *engine, *renderFormat); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -188,14 +189,14 @@ func main() {
 			log.Fatal(err)
 		}
 		defer fd.Close()
-		fmt.Println(sources.ParseHTML(fd))
+		fmt.Println(render.ParseHTML(fd))
 		return
 	}
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
 		g.Register()
-		fmt.Println(sources.QueryMDX(*word, *render))
+		fmt.Println(sources.QueryMDX(*word, *renderFormat))
 		return
 	}
 	fmt.Println(sources.QueryByURL(*word))
@@ -206,7 +207,7 @@ func query(word string, e string, f string) string {
 		e = *engine
 	}
 	if f == "" {
-		f = *render
+		f = *renderFormat
 	}
 	if e == "mdx" {
 		return sources.QueryMDX(word, f)

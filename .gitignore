@@ -3,3 +3,6 @@ mdict_parser
 .DS_Store
 .luarc.json
 ondict
+cover.html
+cover.out
+*.log
