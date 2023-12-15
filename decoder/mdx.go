@@ -226,9 +226,10 @@ func (m *MDict) DumpDict() (map[string]string, error) {
 	total := 0
 	for i, k := range m.keys {
 		res[m.decodeString(k.key)] = m.decodeString((m.readAtOffset(i)))
+		total += 1
 	}
 	if total != m.numEntries {
-		return nil, fmt.Errorf("the keys not suffice")
+		return nil, fmt.Errorf("the keys not suffice, got: %v, expected: %v", total, m.numEntries)
 	}
 	return res, nil
 }
