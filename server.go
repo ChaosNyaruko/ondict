@@ -50,7 +50,9 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(res))
 		if f == "html" {
-			w.Write([]byte("<style>" + sources.GlobalDict.CSS() + "</style>"))
+			for _, dict := range *sources.G {
+				w.Write([]byte("<style>" + dict.CSS() + "</style>"))
+			}
 		}
 		// w.Write([]byte("<style>" + odecss + "</style>"))
 		// w.Write([]byte(fmt.Sprintf(`<link ref="stylesheet" type="text/css", href=/d/static/oald9.css />`)))

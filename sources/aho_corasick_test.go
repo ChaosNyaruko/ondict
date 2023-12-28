@@ -9,7 +9,7 @@ func Test_New(t *testing.T) {
 	var g MdxDict
 	if os.Getenv("FULLTEST") == "1" {
 		LoadConfig()
-		g = GlobalDict
+		g = (*G)[0]
 	} else {
 		d := MdxDict{
 			MdxFile: "../testdata/test_dict",

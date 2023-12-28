@@ -14,11 +14,24 @@ import (
 var Gbold = "**"
 var Gitalic = "*"
 
-var GlobalDict MdxDict
+type Dicts []*MdxDict
+
+var G = &Dicts{}
+
+func (g *Dicts) Load() error {
+	for _, d := range *g {
+		d.Register()
+	}
+	log.Printf("loading g")
+	return nil
+}
 
 func QueryMDX(word string, f string) string {
-	defs := GlobalDict.Get(word)
-	log.Printf("def of %v: %q", defs, word)
+	var defs []string
+	for _, dict := range *G {
+		defs = append(defs, dict.Get(word)...)
+		log.Printf("def of %q, %v: %q", dict.MdxFile, defs, word)
+	}
 	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
 		var res []string

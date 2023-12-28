@@ -38,7 +38,7 @@ var renderFormat = flag.String("f", "", "render format, 'md' (for markdown, only
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 
 // TODO: prev work, for better source abstractions
-var g sources.Source = &sources.GlobalDict
+var g = sources.G
 
 func main() {
 	flag.Parse()
@@ -68,7 +68,7 @@ func main() {
 	}
 
 	if *interactive {
-		g.Register() // TODO(ch): lazy loading for performance?
+		g.Load()
 		startLoop()
 		return
 	}
@@ -93,7 +93,7 @@ func main() {
 			}
 		}
 		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
-		g.Register()
+		g.Load()
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -195,7 +195,7 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		g.Register()
+		g.Load()
 		fmt.Println(sources.QueryMDX(*word, *renderFormat))
 		return
 	}
