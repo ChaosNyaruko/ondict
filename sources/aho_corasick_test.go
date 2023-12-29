@@ -6,7 +6,7 @@ import (
 )
 
 func Test_New(t *testing.T) {
-	var g MdxDict
+	var g *MdxDict
 	if os.Getenv("FULLTEST") == "1" {
 		LoadConfig()
 		g = (*G)[0]
@@ -14,7 +14,7 @@ func Test_New(t *testing.T) {
 		d := MdxDict{
 			MdxFile: "../testdata/test_dict",
 		}
-		g = d
+		g = &d
 	}
 	g.Register()
 	ack := New(g.MdxDict)
