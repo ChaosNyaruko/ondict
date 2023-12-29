@@ -89,14 +89,14 @@ You can run `make serve` locally for an easy example. My front-end skill is poor
 There are still a lot of [TODOs](./todo.md), feel free to give me PRs and contribute to the immature project, thanks in advance.
 
 #### Work with Neovim
-See [Integrated with Neovim](#Integrated with Neovim)
+See [Integrated with Neovim](#neovim)
 ![Gif](./assets/e1_mdx_nvim.gif)
 
 #### For MacOS, work with [hammerspoon](https://www.hammerspoon.org)
 ![Gif](./assets/e1_mdx_hammerspoon.gif)
 
 
-## Integrated with Neovim
+## <a name="neovim"> </a>Integrated with Neovim
 1. Install the plugin with a plugin manager or manually. 
 2. Use `:lua require("ondict").query()` to query \<cword\>.
 3. Define a mapping for yourself to call it easier. NOTE: in visual mode, use "\<cmd\>lua require("ondict").query()\<cr\>" instead. It will capture the "SELECTED" word. Otherwise, the "mode" will be changed and only "\<cword\>" can be queried.
@@ -129,7 +129,7 @@ vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
 vim.keymap.set("n", "<leader>d", require("ondict").query)
 vim.keymap.set("v", "<leader>d", require("ondict").query)
 ```
-# Offline dictionary files
+# <a name="offline"></a>Offline dictionary files
 Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 - "key-value" organized pairs JSON files.
 - MDX files, refer to [mdict](https://mdict.org) or [pdawiki](https://pdawiki.com/forum/).
@@ -157,7 +157,7 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 # Features
 - **Online** query support based on [Longman online dictionary](https://ldoceonline.com)
 - Integrated with (n)vim, feel free to use it in whatever editor you are using!
-- In the offline mode, MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#Offline dictionary files) are needed.
+- In the offline mode, MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
 
 # LICENSE
 [LICENSE](./LICENSE)
