@@ -7,7 +7,6 @@ require (
 	github.com/C0MM4ND/go-ripemd v0.0.0-20200326052756-bd1759ad7d10
 	github.com/fatih/color v1.15.0
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/crypto v0.16.0
 	golang.org/x/net v0.15.0
 )
 

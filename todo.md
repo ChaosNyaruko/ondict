@@ -23,9 +23,10 @@
 - [x] Appropriate module abstraction, and unit testing automation. (sources/decoder/renderer)
 - [x] Lazy-loading for launch performance and memory usage?
 - [x] Parse the MDD file, and serve the picture sources when working in HTML mode.
-- [ ] A independent MDD parser command.
+- [x] Support multiple mdx libs at the same time and provide a user interface (no UI yet)
+- [ ] Auto history.
+- [ ] A independent parser cmd.
 - [ ] See the TODOs in the code.
-- [ ] Support multiple mdx libs at the same time and provide a user interface
 
 ---
 The following are less important things that I want to finish.
