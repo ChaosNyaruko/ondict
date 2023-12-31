@@ -28,8 +28,13 @@ func LoadConfig() error {
 	if len(c.Dicts) == 0 {
 		return nil
 	}
-	GlobalDict.MdxFile = filepath.Join(util.DictsPath(), c.Dicts[0])
-	GlobalDict.MdxCss = filepath.Join(util.DictsPath(), c.Dicts[0]+".css")
-	log.Printf("get global dicts: %v", GlobalDict)
+	for _, name := range c.Dicts {
+		dict := &MdxDict{}
+		dict.MdxFile = filepath.Join(util.DictsPath(), name)
+		dict.MdxCss = filepath.Join(util.DictsPath(), name+".css")
+		log.Printf("get global dict: %v", dict.MdxFile)
+		*G = append(*G, dict)
+	}
+	log.Printf("get global dicts: %v", G)
 	return nil
 }

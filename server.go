@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
@@ -49,9 +48,6 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		res := query(word, e, f)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(res))
-		if f == "html" {
-			w.Write([]byte("<style>" + sources.GlobalDict.CSS() + "</style>"))
-		}
 		// w.Write([]byte("<style>" + odecss + "</style>"))
 		// w.Write([]byte(fmt.Sprintf(`<link ref="stylesheet" type="text/css", href=/d/static/oald9.css />`)))
 		return

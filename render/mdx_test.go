@@ -72,15 +72,15 @@ func Test_MultiMatch(t *testing.T) {
 }
 
 func Test_play(t *testing.T) {
-	var g sources.MdxDict
+	var g *sources.MdxDict
 	if os.Getenv("FULLTEST") == "1" {
 		sources.LoadConfig()
-		g = sources.GlobalDict
+		g = (*sources.G)[0]
 	} else {
 		d := sources.MdxDict{
 			MdxFile: "../testdata/test_dict",
 		}
-		g = d
+		g = &d
 	}
 	g.Register()
 	dict := g.MdxDict

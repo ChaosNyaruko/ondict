@@ -32,13 +32,13 @@ var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
-var remote = flag.String("remote", "", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 1 min.")
+var remote = flag.String("remote", "auto", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 1 min.")
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
 var renderFormat = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 
 // TODO: prev work, for better source abstractions
-var g sources.Source = &sources.GlobalDict
+var g = sources.G
 
 func main() {
 	flag.Parse()
@@ -68,7 +68,7 @@ func main() {
 	}
 
 	if *interactive {
-		g.Register() // TODO(ch): lazy loading for performance?
+		g.Load()
 		startLoop()
 		return
 	}
@@ -93,7 +93,7 @@ func main() {
 			}
 		}
 		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
-		g.Register()
+		g.Load()
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -195,7 +195,7 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		g.Register()
+		g.Load()
 		fmt.Println(sources.QueryMDX(*word, *renderFormat))
 		return
 	}

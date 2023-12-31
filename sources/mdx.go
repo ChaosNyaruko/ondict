@@ -3,6 +3,7 @@ package sources
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -14,28 +15,55 @@ import (
 var Gbold = "**"
 var Gitalic = "*"
 
-var GlobalDict MdxDict
+type Dicts []*MdxDict
+
+var G = &Dicts{}
+
+func (g *Dicts) Load() error {
+	for _, d := range *g {
+		d.Register()
+	}
+	log.Printf("loading g")
+	return nil
+}
 
 func QueryMDX(word string, f string) string {
-	defs := GlobalDict.Get(word)
-	log.Printf("def of %v: %q", defs, word)
+	type mdxResult struct {
+		defs []string
+		css  string
+	}
+	var defs []mdxResult
+	for _, dict := range *G {
+		defs = append(defs, mdxResult{dict.Get(word), dict.CSS()})
+		log.Printf("def of %q, %v: %q", dict.MdxFile, defs, word)
+	}
 	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
 		var res []string
-		for _, def := range defs {
-			h := render.HTMLRender{Raw: def}
-			// m1 := regexp.MustCompile(`<img src="(.*?)\.png" style`)
-			// replaceImg := m1.ReplaceAllString(def, `<img src="`+"data/"+`${1}.png" style`)
-			// log.Printf("try to replace %v", replaceImg)
-			res = append(res, h.Render())
+		for _, dict := range defs {
+			for _, def := range dict.defs {
+				h := render.HTMLRender{Raw: def}
+				// m1 := regexp.MustCompile(`<img src="(.*?)\.png" style`)
+				// replaceImg := m1.ReplaceAllString(def, `<img src="`+"data/"+`${1}.png" style`)
+				// log.Printf("try to replace %v", replaceImg)
+				// TODO: it might be overriden
+				rs := fmt.Sprintf("<div>%s<style>%s</style></div> ", h.Render(), dict.css)
+				res = append(res, rs)
+			}
 		}
 		return strings.Join(res, "<br><br>")
 	}
 
 	var res string
-	for _, def := range defs {
-		fd := strings.NewReader(def) // TODO: find a "close" one when missing?
-		res += "\n---\n" + render.ParseMDX(fd, f)
+	for i, dict := range defs {
+		// TODO: different markdown parser here
+		for _, def := range dict.defs {
+			if i > 0 {
+				break
+			}
+			fd := strings.NewReader(def) // TODO: find a "close" one when missing?
+			res += "\n---\n" + render.ParseMDX(fd, f)
+		}
 	}
 	return res
 }
@@ -48,6 +76,13 @@ func loadDecodedMdx(filePath string) Dict {
 		log.Printf("JSON file not exist: %v", filePath+".json")
 		m := &decoder.MDict{}
 		err := m.Decode(filePath + ".mdx")
+		go func() {
+			if err := m.Decode(filePath + ".mdd"); err != nil {
+				log.Printf("[WARN] parse %v.mdd err: %v", filePath, err)
+			} else {
+				log.Printf("[INFO] successfully decode %v.mdd", filePath)
+			}
+		}()
 		if err != nil {
 			log.Fatalf("Failed to load mdx file[%v], err: %v", filePath, err)
 		}
