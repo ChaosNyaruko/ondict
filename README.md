@@ -73,7 +73,7 @@ input `.help` for commands that can be used.
 #### Work as a server
 This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
 ```console
-ondict -server -listen=localhost:1345 -engine=mdx
+ondict -serve -listen=localhost:1345 -e=mdx
 ```
 Launch a http request
 ```console
