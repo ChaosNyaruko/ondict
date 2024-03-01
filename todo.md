@@ -37,4 +37,5 @@ The following are less important things that I want to finish.
 - [ ] A more decent web page.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
-- [ ] Vim version
+- [ ] Vim plugin
+- [ ] Integrated with FZF? or https://github.com/lithammer/fuzzysearch?
