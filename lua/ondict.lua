@@ -18,7 +18,11 @@ end
 --   })
 -- end
 
-local last_f_bufnr
+local remote = "auto"
+function M.setup(remote_addr)
+    remote = remote_addr
+end
+
 function M.query()
     -- notify("dev version!")
     -- copy something from telescope.nvim's grep_string
@@ -45,7 +49,7 @@ function M.query()
     -- doctor
     local output = {}
     local info = ""
-    local job = { "ondict", "-q", word, "-remote", "auto", "-f=md", "-e=mdx" }
+    local job = { "ondict", "-q", word, "-remote", remote, "-f=md", "-e=mdx" }
     -- job = { "ondict", "-remote=auto", "-q", word, "-f=x", "-e=mdx" }
     -- notify(string.format("start query: [[ %s ]]", word))
     vim.fn.jobstart(job, {
@@ -65,7 +69,7 @@ function M.query()
                 info = vim.fn.join(output, "\n")
                 -- notify(info)
                 if info and info:len() ~= 0 then
-                    notify(string.format("query [[ %s ]] finished: %d", word, status))
+                    notify(string.format("query [[ %s ]] from %s finished: %d", word, remote, status))
                     -- notify(vim.inspect(vim.fn.exists("w:ondict_window")))
                     if vim.fn.exists("w:ondict_window") ~= 0 and vim.api.nvim_win_get_var(0, "ondict_window") == true then
                         vim.api.nvim_win_close(0, { force = false })

@@ -54,6 +54,7 @@ func QueryMDX(word string, f string) string {
 		return strings.Join(res, "<br><br>")
 	}
 
+	log.Printf("query: %v, format: %v", word, f)
 	var res string
 	for i, dict := range defs {
 		// TODO: different markdown parser here
