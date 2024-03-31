@@ -27,11 +27,12 @@
 - [ ] Auto history.
 - [ ] A independent parser cmd.
 - [ ] See the TODOs in the code.
+- [ ] `entry://` protocol and "auto"jump, such as `versatility` to `versatile`
 
 ---
 The following are less important things that I want to finish.
 - [ ] Editor plugin: give users the option to setup the server in advance, for better first-query user experience. 
-- [ ] A system for reviewing, e.g. simple ANKI?
+- [ ] A system for reviewing, e.g. simple ANKI? --> related to the history functionality?
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
 - [ ] A more decent web page.
