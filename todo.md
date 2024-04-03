@@ -39,4 +39,4 @@ The following are less important things that I want to finish.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] Vim plugin
-- [ ] Integrated with FZF? or https://github.com/lithammer/fuzzysearch?
+- [ ] Integrated with FZF? or https://github.com/lithammer/fuzzysearch? https://github.com/junegunn/fzf/wiki/Language-bindings#go?

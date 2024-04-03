@@ -13,6 +13,7 @@ import (
 
 	"github.com/fatih/color"
 
+	"github.com/ChaosNyaruko/ondict/fzf"
 	"github.com/ChaosNyaruko/ondict/render"
 	"github.com/ChaosNyaruko/ondict/sources"
 )
@@ -41,6 +42,10 @@ var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 var g = sources.G
 
 func main() {
+	sources.LoadConfig()
+	g.Load()
+	fzf.ListAllWord()
+	return
 	flag.Parse()
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
 		flag.PrintDefaults()
