@@ -16,7 +16,7 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 	if len(shell) == 0 {
 		shell = "sh"
 	}
-	command = strings.Join([]string{command, "--preview=\"ondict -q {} -remote localhost:1345 -f=md -e=mdx\" | bat --file-name=ondict-tmp12345.md"}, " ")
+	command = strings.Join([]string{command, "--bind=\"enter:execute(ondict -q {} -remote localhost:1345 -e mdx -f html > /tmp/ondictfzfoutput1345.html && open /tmp/ondictfzfoutput1345.html)\"", "--preview=\"ondict -q {} -remote localhost:1345 -f=md -e=mdx\" | bat --file-name=tmpondicttmp12345.md"}, " ")
 	cmd := exec.Command(shell, "-c", command)
 	cmd.Stderr = os.Stderr
 	in, _ := cmd.StdinPipe()
