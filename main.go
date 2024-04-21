@@ -14,6 +14,7 @@ import (
 	"github.com/fatih/color"
 
 	"github.com/ChaosNyaruko/ondict/fzf"
+	"github.com/ChaosNyaruko/ondict/history"
 	"github.com/ChaosNyaruko/ondict/render"
 	"github.com/ChaosNyaruko/ondict/sources"
 )
@@ -211,6 +212,9 @@ func main() {
 }
 
 func query(word string, e string, f string) string {
+	if err := history.Append(word); err != nil {
+		log.Printf("record %v err: %v", word, err)
+	}
 	if e == "" {
 		e = *engine
 	}

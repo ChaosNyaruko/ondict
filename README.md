@@ -95,6 +95,11 @@ See [Integrated with Neovim](#neovim)
 #### For MacOS, work with [hammerspoon](https://www.hammerspoon.org)
 ![Gif](./assets/e1_mdx_hammerspoon.gif)
 
+##### KNOWN BUGS:
+Some word queries will block the process, and can't see the result, such as "test". But no such problems in real web mode, it only happens with hammerspoon. 
+
+Don't know why yet, the same word queries also works normally in [Neovim integration](#neovim), which also uses Lua as its async runtime. So I guess maybe it has something to do with the implementation, and it might be a bug of hammerspoon.
+
 
 ## <a name="neovim"> </a>Integrated with Neovim
 1. Install the plugin with a plugin manager or manually. 
@@ -120,10 +125,6 @@ cd ondict
 go install .
 ```
 
-## Integrated with FZF (experimental and MacOS only)
-You should have [FZF](https://github.com/junegunn/fzf) installed and have your ondict server listening on localhost:1345 (for now, developing)
-
-
 ### Mapping examples
 ```vimscript
 nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
@@ -134,6 +135,15 @@ vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
 vim.keymap.set("n", "<leader>d", require("ondict").query)
 vim.keymap.set("v", "<leader>d", require("ondict").query)
 ```
+
+## Integrated with FZF (experimental and MacOS only)
+```console
+ondict -fzf
+```
+You should have [FZF](https://github.com/junegunn/fzf) installed and have your ondict server listening on localhost:1345 (for now, developing)
+![Gif](./assets/ondict_fzf.gif)
+
+
 # <a name="offline"></a>Offline dictionary files
 Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 - "key-value" organized pairs JSON files.
