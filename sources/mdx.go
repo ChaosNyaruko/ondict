@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ChaosNyaruko/ondict/decoder"
 	"github.com/ChaosNyaruko/ondict/render"
@@ -18,12 +19,15 @@ var Gitalic = "*"
 type Dicts []*MdxDict
 
 var G = &Dicts{}
+var once sync.Once
 
 func (g *Dicts) Load() error {
-	for _, d := range *g {
-		d.Register()
-	}
-	log.Printf("loading g")
+	once.Do(func() {
+		for _, d := range *g {
+			d.Register()
+		}
+		log.Printf("loading g")
+	})
 	return nil
 }
 

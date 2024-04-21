@@ -16,7 +16,20 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 	if len(shell) == 0 {
 		shell = "sh"
 	}
-	command = strings.Join([]string{command, "--bind=\"enter:execute(ondict -q {} -remote localhost:1345 -e mdx -f html > /tmp/ondictfzfoutput1345.html && open /tmp/ondictfzfoutput1345.html)\"", "--preview=\"ondict -q {} -remote localhost:1345 -f=md -e=mdx\" | bat --file-name=tmpondicttmp12345.md"}, " ")
+	cat := "cat"
+	if isCommandAvailable("bat") {
+		cat = "bat --file-name=tmpondicttmp12345.md"
+	}
+
+	tmpFileName := "/tmp/ondictfzfoutput12345.html"
+	// TODO: "open" according to sysytem, now just for my macOS.
+	// TODO: performance, and maybe "auto" mode for easy usage.
+	// TODO: the temp html file opened by browser will not automatically find the static resources, e.g. pictures, but I don't know how to replace the whitespaces in fzf placeholder {}, which will cause failure when constructing the HTTP GET request.
+	bind := fmt.Sprintf(`--bind="enter:execute(ondict -q {} -remote localhost:1345 -e mdx -f html > %s && open %s)"`, tmpFileName, tmpFileName)
+	preview := fmt.Sprintf(`--preview="ondict -q {} -remote localhost:1345 -f=md -e=mdx" | %s`, cat)
+	header := "--header='[press ENTER to display the result in your browser, which might have a fancier display]'"
+
+	command = strings.Join([]string{command, header, bind, preview}, " ")
 	cmd := exec.Command(shell, "-c", command)
 	cmd.Stderr = os.Stderr
 	in, _ := cmd.StdinPipe()
@@ -29,13 +42,30 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 }
 
 func ListAllWord() {
-	log.SetOutput(io.Discard)
+	if !isCommandAvailable("fzf") {
+		log.Fatal("Cannot find fzf executable, check https://github.com/junegunn/fzf?tab=readme-ov-file#installation to install")
+	}
+	// log.SetOutput(io.Discard)
 	_ = withFilter("fzf ", func(in io.WriteCloser) {
 		for _, g := range *sources.G {
 			for _, k := range g.MdxDict.Keys() {
-				fmt.Fprintln(in, k)
+				// TODO: tell where the word is from
+				// fmt.Fprintln(in, fmt.Sprintf("%s in[%s]", k, g.MdxFile))
+				fmt.Fprintln(in, fmt.Sprintf("%s", k))
 			}
 		}
 	})
 	// fmt.Println(filtered)
+}
+
+func isCommandAvailable(name string) bool {
+	shell := os.Getenv("SHELL")
+	if len(shell) == 0 {
+		shell = "sh"
+	}
+	cmd := exec.Command(shell, "-c", "command -v "+name)
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+	return true
 }

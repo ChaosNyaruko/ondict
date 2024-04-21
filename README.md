@@ -119,6 +119,11 @@ git clone https://github.com/ChaosNyaruko/ondict.git
 cd ondict
 go install .
 ```
+
+## Integrated with FZF (experimental and MacOS only)
+You should have [FZF](https://github.com/junegunn/fzf) installed and have your ondict server listening on localhost:1345 (for now, developing)
+
+
 ### Mapping examples
 ```vimscript
 nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
