@@ -24,18 +24,19 @@
 - [x] Lazy-loading for launch performance and memory usage?
 - [x] Parse the MDD file, and serve the picture sources when working in HTML mode.
 - [x] Support multiple mdx libs at the same time and provide a user interface (no UI yet)
-- [ ] Auto history.
+- [x] Integrated with FZF? or https://github.com/lithammer/fuzzysearch? https://github.com/junegunn/fzf/wiki/Language-bindings#go?
+- [ ] Auto history. 
 - [ ] A independent parser cmd.
 - [ ] See the TODOs in the code.
+- [ ] `entry://` protocol and "auto"jump, such as `versatility` to `versatile`
 
 ---
 The following are less important things that I want to finish.
 - [ ] Editor plugin: give users the option to setup the server in advance, for better first-query user experience. 
-- [ ] A system for reviewing, e.g. simple ANKI?
+- [ ] A system for reviewing, e.g. simple ANKI? --> related to the history functionality?
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
 - [ ] A more decent web page.
 - [ ] Other online dict parsing engines if I have the motivation?
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] Vim plugin
-- [ ] Integrated with FZF? or https://github.com/lithammer/fuzzysearch?

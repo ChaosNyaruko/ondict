@@ -13,6 +13,8 @@ import (
 
 	"github.com/fatih/color"
 
+	"github.com/ChaosNyaruko/ondict/fzf"
+	"github.com/ChaosNyaruko/ondict/history"
 	"github.com/ChaosNyaruko/ondict/render"
 	"github.com/ChaosNyaruko/ondict/sources"
 )
@@ -29,6 +31,7 @@ var word = flag.String("q", "", "Specify the word that you want to query")
 var dev = flag.Bool("d", false, "If specified, a static html file will be parsed, instead of an online query, just for dev debugging")
 var verbose = flag.Bool("v", false, "Show debug logs")
 var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
+var useFzf = flag.Bool("fzf", false, "EXPERIMENTAL: whether to use fzf as the fuzzy search tool")
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
@@ -65,6 +68,12 @@ func main() {
 
 	if !*colour {
 		color.NoColor = true
+	}
+
+	if *useFzf {
+		g.Load()
+		fzf.ListAllWord()
+		return
 	}
 
 	if *interactive {
@@ -203,6 +212,9 @@ func main() {
 }
 
 func query(word string, e string, f string) string {
+	if err := history.Append(word); err != nil {
+		log.Printf("record %v err: %v", word, err)
+	}
 	if e == "" {
 		e = *engine
 	}

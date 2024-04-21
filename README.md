@@ -1,3 +1,30 @@
+Table of Contents
+=================
+
+* [Introduction](#introduction)
+* [Disclaimer](#disclaimer)
+* [Other choices](#other-choices)
+* [Prerequisites](#prerequisites)
+* [Features](#features)
+* [Installation](#installation)
+* [Usage](#usage)
+   * [Help](#help)
+   * [Examples](#examples)
+      * [One-shot query](#one-shot-query)
+      * [One-shot query, but from remote server](#one-shot-query-but-from-remote-server)
+      * [A "repl" querier](#a-repl-querier)
+      * [Work as a server](#work-as-a-server)
+      * [Work with Neovim](#work-with-neovim)
+      * [For MacOS, work with hammerspoon](#work-with-hammerspoon)
+      * [Integrated with FZF (experimental and MacOS only)](#integrated-with-fzf-experimental-and-macos-only)
+* [How to use it in Neovim](#neovim)
+* [Configuration](#configuration)
+* [LICENSE](#license)
+* [Table of Contents](#table-of-contents)
+
+<!-- Created by https://github.com/ekalinin/github-markdown-toc -->
+-----
+
 # Introduction
 Yet another simple dictionary application. Support multiple sources, including Longman online dictionary, and user-loaded MDX/MDD dictionary files.
 
@@ -26,13 +53,18 @@ There are some similar products. They are all mature products, but may not suit 
 # Prerequisites
 - Go version >=1.16, and add $GOBIN in your $PATH
 - Neovim version >= 0.9.1 [recommended, because I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) is required. So it can also be ported to Vim, but I am not quite familiar with vim's popup feature yet]
+
+# Features
+- **Online** query support based on [Longman online dictionary](https://ldoceonline.com)
+- Integrated with (n)vim, feel free to use it in whatever editor you are using!
+- In the offline mode, MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
+
 # Installation
 ```console
 go install github.com/ChaosNyaruko/ondict@latest
 ```
 # Usage
-## CLI
-### Help
+## Help
 ```console
 ondict 
 ```
@@ -40,37 +72,37 @@ ondict
 ondict -h
 ```
 
-### Examples
-#### One-shot query
+## Examples
+### One-shot query
 A one-shot query, it will take some time when you call it the first time, it needs some loading work.
 It will launch an local server using unix domain socket.
 
-##### online engine (you don't have to specify the -e option):
+#### online engine (you don't have to specify the -e option):
 ```console
 ondict -q <word> [-e anything]
 ```
 ![Gif](./assets/e1_online.gif)
-##### mdx engine (ldoce5):
+#### mdx engine (ldoce5):
 ```console
 ondict -q <word> -e mdx
 ```
 ![Gif](./assets/e1_mdx.gif)
 
 
-#### One-shot query, but from remote server
+### One-shot query, but from remote server
 ```console
 ondict -q <word> -remote localhost:1345
 ```
 ![Gif](./assets/e1_mdx_remote.gif)
 
-#### A "repl" querier
+### A "repl" querier
 ```console
 ondict -i -e mdx
 ```
 input `.help` for commands that can be used.
 ![Gif](./assets/e1_mdx_interactive.gif)
 
-#### Work as a server
+### Work as a server
 This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
 ```console
 ondict -serve -listen=localhost:1345 -e=mdx
@@ -88,15 +120,27 @@ You can run `make serve` locally for an easy example. My front-end skill is poor
 
 There are still a lot of [TODOs](./todo.md), feel free to give me PRs and contribute to the immature project, thanks in advance.
 
-#### Work with Neovim
+### Work with Neovim
 See [Integrated with Neovim](#neovim)
 ![Gif](./assets/e1_mdx_nvim.gif)
 
-#### For MacOS, work with [hammerspoon](https://www.hammerspoon.org)
+### For MacOS, work with [hammerspoon](https://www.hammerspoon.org)
 ![Gif](./assets/e1_mdx_hammerspoon.gif)
 
+##### KNOWN BUGS:
+Some word queries will block the process, and can't see the result, such as "test". But no such problems in real web mode, it only happens with hammerspoon. 
 
-## <a name="neovim"> </a>Integrated with Neovim
+Don't know why yet, the same word queries also works normally in [Neovim integration](#neovim), which also uses Lua as its async runtime. So I guess maybe it has something to do with the implementation, and it might be a bug of hammerspoon.
+
+## Integrated with FZF (experimental and MacOS only)
+```console
+ondict -fzf
+```
+You should have [FZF](https://github.com/junegunn/fzf) installed and have your ondict server listening on localhost:1345 (for now, developing)
+![Gif](./assets/ondict_fzf.gif)
+
+
+## <a name="neovim"> </a>How to use it in Neovim
 1. Install the plugin with a plugin manager or manually. 
 2. Use `:lua require("ondict").query()` to query \<cword\>.
 3. Define a mapping for yourself to call it easier. NOTE: in visual mode, use "\<cmd\>lua require("ondict").query()\<cr\>" instead. It will capture the "SELECTED" word. Otherwise, the "mode" will be changed and only "\<cword\>" can be queried.
@@ -119,6 +163,7 @@ git clone https://github.com/ChaosNyaruko/ondict.git
 cd ondict
 go install .
 ```
+
 ### Mapping examples
 ```vimscript
 nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
@@ -129,14 +174,16 @@ vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
 vim.keymap.set("n", "<leader>d", require("ondict").query)
 vim.keymap.set("v", "<leader>d", require("ondict").query)
 ```
+
+
 # <a name="offline"></a>Offline dictionary files
 Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 - "key-value" organized pairs JSON files.
 - MDX files, refer to [mdict](https://mdict.org) or [pdawiki](https://pdawiki.com/forum/).
 
-## Configuration
+# Configuration
 
-### file tree
+# file tree
 ```
 // cd ~/.config/ondict
 .
@@ -144,7 +191,7 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 └── dicts
     └── Longman\ Dictionary\ of\ Contemporary\ English.mdx
 ```
-### config.json
+## config.json
 ```json
 {
     "dicts": [
@@ -154,10 +201,7 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
     ]
 }
 ```
-# Features
-- **Online** query support based on [Longman online dictionary](https://ldoceonline.com)
-- Integrated with (n)vim, feel free to use it in whatever editor you are using!
-- In the offline mode, MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
-
 # LICENSE
 [LICENSE](./LICENSE)
+
+
