@@ -28,7 +28,7 @@
 - [ ] Auto history. 
 - [ ] A independent parser cmd.
 - [ ] See the TODOs in the code.
-- [ ] `entry://` protocol and "auto"jump, such as `versatility` to `versatile`
+- [x] `entry://` protocol and "auto"jump, such as `versatility` to `versatile` [node demo](./play.txt)
 
 ---
 The following are less important things that I want to finish.

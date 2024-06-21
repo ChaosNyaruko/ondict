@@ -2,7 +2,9 @@ package render
 
 import (
 	"bytes"
+	"fmt"
 	"log"
+	"net/url"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -17,7 +19,7 @@ type HTMLRender struct {
 }
 
 func (h *HTMLRender) Render() string {
-	return h.Raw
+	// return h.Raw
 	info := strings.NewReader(h.Raw)
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {
@@ -45,13 +47,33 @@ func modifyImgSrc(n *html.Node) {
 	// log.Printf("modifyImgSrc %#v", n)
 }
 
+func modifyHref(n *html.Node) {
+	for i, a := range n.Attr {
+		if a.Key == "href" {
+			if strings.HasPrefix(a.Val, "entry://") {
+				new := fmt.Sprintf("/dict?query=%s&engine=mdx&format=html", url.QueryEscape(strings.TrimPrefix(a.Val, "entry://")))
+				log.Printf("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
+				n.Attr[i].Val = new
+			} else if strings.HasPrefix(a.Val, "sound://") {
+				new := strings.Replace(a.Val, "sound://", "/", 1)
+				log.Printf("href sound: %v, new: %q", strings.TrimPrefix(a.Val, "sound://"), new)
+				n.Attr[i].Val = new
+			}
+		}
+	}
+}
+
 func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	if n.Type == html.TextNode {
-		// t.Logf("text: [%s] level %d", n.Data, level)
+		return ""
+	}
+	if IsElement(n, "a", "") {
+		log.Printf("<a> %v", n)
+		modifyHref(n)
 		return ""
 	}
 	if IsElement(n, "img", "") {
-		modifyImgSrc(n)
+		// modifyImgSrc(n)
 		return ""
 	}
 
