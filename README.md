@@ -128,9 +128,12 @@ See [Integrated with Neovim](#neovim)
 ![Gif](./assets/e1_mdx_hammerspoon.gif)
 
 ##### KNOWN BUGS:
-Some word queries will block the process, and can't see the result, such as "test". But no such problems in real web mode, it only happens with hammerspoon. 
+If you use hammerspoon's "task" feature, i.e. "hs.task.new" and then "xx::start", some word queries will block the process, and can't see the result(because it hasn't returned yet), such as "test". But no such problems in real web mode, it only happens with hammerspoon. 
 
 Don't know why yet, the same word queries also works normally in [Neovim integration](#neovim), which also uses Lua as its async runtime. So I guess maybe it has something to do with the implementation, and it might be a bug of hammerspoon.
+
+##### WORKAROUND
+Using hs.execute instead of hs.task(Be careful with the shell-escaping), which is a "synchronous" method of executing a task. Normal query is fast enough and you won't notice the difference and will see the result "immediately". See [](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90) for example
 
 ## Integrated with FZF (experimental and MacOS only)
 ```console
