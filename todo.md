@@ -29,6 +29,7 @@
 - [ ] A independent parser cmd.
 - [ ] See the TODOs in the code.
 - [x] `entry://` protocol and "auto"jump, such as `versatility` to `versatile` [node demo](./play.txt)
+- [ ] Integrated with [mdcat](https://github.com/swsnr/mdcat)
 
 ---
 The following are less important things that I want to finish.

@@ -46,8 +46,10 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("query dict: %v, engine: %v, format: %v", word, e, f)
 
 		res := query(word, e, f)
+		w.WriteHeader(200)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(res))
+		w.(http.Flusher).Flush()
 		// w.Write([]byte("<style>" + odecss + "</style>"))
 		// w.Write([]byte(fmt.Sprintf(`<link ref="stylesheet" type="text/css", href=/d/static/oald9.css />`)))
 		return

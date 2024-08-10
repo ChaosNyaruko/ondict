@@ -14,12 +14,23 @@ type Renderer interface {
 	Render() string
 }
 
+type DictType string
+
+const (
+	Longman5Online = "LONGMAN5/Online"
+	LongmanEasy    = "LONGMAN/Easy"
+	OLD9           = "OLD9"
+)
+
 type HTMLRender struct {
-	Raw string
+	Raw        string
+	SourceType DictType
 }
 
 func (h *HTMLRender) Render() string {
-	// return h.Raw
+	if h.SourceType != LongmanEasy {
+		return h.Raw
+	}
 	info := strings.NewReader(h.Raw)
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {

@@ -17,7 +17,9 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 		shell = "sh"
 	}
 	cat := "cat"
-	if isCommandAvailable("bat") {
+	if isCommandAvailable("mdcat") {
+		cat = "mdcat --file-name=tmpondicttmp12345.md"
+	} else if isCommandAvailable("bat") {
 		cat = "bat --file-name=tmpondicttmp12345.md"
 	}
 

@@ -10,8 +10,14 @@ import (
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
+type DictConfig struct {
+	Name string
+	Css  string
+	Type string
+}
+
 type Config struct {
-	Dicts []string `json:"dicts"`
+	Dicts []DictConfig `json:"dicts"`
 }
 
 func LoadConfig() error {
@@ -28,10 +34,11 @@ func LoadConfig() error {
 	if len(c.Dicts) == 0 {
 		return nil
 	}
-	for _, name := range c.Dicts {
+	for _, d := range c.Dicts {
 		dict := &MdxDict{}
-		dict.MdxFile = filepath.Join(util.DictsPath(), name)
-		dict.MdxCss = filepath.Join(util.DictsPath(), name+".css")
+		dict.MdxFile = filepath.Join(util.DictsPath(), d.Name)
+		dict.MdxCss = filepath.Join(util.DictsPath(), d.Css+".css")
+		dict.Type = d.Type
 		log.Printf("get global dict: %v", dict.MdxFile)
 		*G = append(*G, dict)
 	}

@@ -35,10 +35,11 @@ func QueryMDX(word string, f string) string {
 	type mdxResult struct {
 		defs []string
 		css  string
+		t    string // SourceType
 	}
 	var defs []mdxResult
 	for _, dict := range *G {
-		defs = append(defs, mdxResult{dict.Get(word), dict.CSS()})
+		defs = append(defs, mdxResult{dict.Get(word), dict.CSS(), dict.Type})
 		log.Printf("def of %q, %v: %q", dict.MdxFile, defs, word)
 	}
 	// TODO: put the render abstraction here?
@@ -46,12 +47,13 @@ func QueryMDX(word string, f string) string {
 		var res []string
 		for _, dict := range defs {
 			for _, def := range dict.defs {
-				h := render.HTMLRender{Raw: def}
+				h := render.HTMLRender{Raw: def, SourceType: render.DictType(dict.t)}
 				// m1 := regexp.MustCompile(`<img src="(.*?)\.png" style`)
 				// replaceImg := m1.ReplaceAllString(def, `<img src="`+"data/"+`${1}.png" style`)
 				// log.Printf("try to replace %v", replaceImg)
 				// TODO: it might be overriden
 				rs := fmt.Sprintf("<div>%s<style>%s</style></div> ", h.Render(), dict.css)
+				// rs := fmt.Sprintf("%s", h.Render())
 				res = append(res, rs)
 			}
 		}
@@ -61,13 +63,16 @@ func QueryMDX(word string, f string) string {
 	log.Printf("query: %v, format: %v", word, f)
 	var res string
 	for i, dict := range defs {
-		// TODO: different markdown parser here
 		for _, def := range dict.defs {
-			if i > 0 {
-				break
+			if dict.t == render.LongmanEasy {
+				fd := strings.NewReader(def)
+				res += "\n---\n" + render.ParseMDX(fd, f)
+			} else if dict.t == render.Longman5Online {
+				fd := strings.NewReader(def)
+				res += "\n--\n" + render.ParseHTML(fd)
+			} else {
+				log.Printf("undefined markdown render for %dth dict, whose type is %v", i, dict.t)
 			}
-			fd := strings.NewReader(def) // TODO: find a "close" one when missing?
-			res += "\n---\n" + render.ParseMDX(fd, f)
 		}
 	}
 	return res
@@ -111,6 +116,8 @@ func loadDecodedMdx(filePath string) Dict {
 }
 
 type MdxDict struct {
+	// SourceType
+	Type string
 	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
 	MdxFile string
 	// Only match the mdx with the same mdxFile name
