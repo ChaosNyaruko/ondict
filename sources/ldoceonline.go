@@ -33,7 +33,7 @@ func QueryByURL(word string) string {
 	}
 
 	req.Header.Set("Accept-Encoding", "identity") // NOTE THIS LINE
-	req.Header.Set("User-Agent", "curl/8.1.2")
+	req.Header.Set("User-Agent", "Firefox")
 
 	resp, err := client.Do(req)
 
