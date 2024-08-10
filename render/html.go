@@ -14,8 +14,6 @@ type Renderer interface {
 	Render() string
 }
 
-type DictType string
-
 const (
 	Longman5Online = "LONGMAN5/Online"
 	LongmanEasy    = "LONGMAN/Easy"
@@ -24,11 +22,11 @@ const (
 
 type HTMLRender struct {
 	Raw        string
-	SourceType DictType
+	SourceType string
 }
 
 func (h *HTMLRender) Render() string {
-	if h.SourceType != LongmanEasy {
+	if strings.HasPrefix(h.SourceType, LongmanEasy) {
 		return h.Raw
 	}
 	info := strings.NewReader(h.Raw)

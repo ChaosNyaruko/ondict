@@ -249,7 +249,6 @@ func decryptRegCode(regCode []byte, id []byte) []byte {
 }
 
 func (m *MDict) salsaDecrypt(data []byte, id []byte, regCode []byte) ([]byte, error) {
-	// TODO:
 	key := decryptRegCode(regCode, id) // [32]byte
 	return salsa20(data, key, [8]byte{}, 8), nil
 }

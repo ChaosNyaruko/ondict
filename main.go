@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"time"
@@ -83,6 +84,7 @@ func main() {
 	}
 
 	if *server {
+		go http.ListenAndServe("localhost:8083", nil)
 		stop := make(chan error)
 		p := new(proxy)
 		if *idleTimeout > 0 {

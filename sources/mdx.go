@@ -47,7 +47,7 @@ func QueryMDX(word string, f string) string {
 		var res []string
 		for _, dict := range defs {
 			for _, def := range dict.defs {
-				h := render.HTMLRender{Raw: def, SourceType: render.DictType(dict.t)}
+				h := render.HTMLRender{Raw: def, SourceType: dict.t}
 				// m1 := regexp.MustCompile(`<img src="(.*?)\.png" style`)
 				// replaceImg := m1.ReplaceAllString(def, `<img src="`+"data/"+`${1}.png" style`)
 				// log.Printf("try to replace %v", replaceImg)

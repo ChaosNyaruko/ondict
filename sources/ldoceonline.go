@@ -21,6 +21,7 @@ func QueryByURL(word string) string {
 	// https://bugz.pythonanywhere.com/golang/Unexpected-EOF-golang-http-client-error --> not working either
 	// Maybe not my problem? It's work when I developed the first demo version. https://www.appsloveworld.com/go/2/golang-http-request-results-in-eof-errors-when-making-multiple-requests-successiv
 	// I change my User-Agent to curl, it works then. 🥲
+	// Update on 20240810, even a "curl" request is not working, I changed it to "Firefox"
 	client := &http.Client{}
 	req, err := http.NewRequest(
 		"GET",
