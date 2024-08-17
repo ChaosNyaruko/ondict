@@ -2,9 +2,11 @@ package render
 
 import (
 	"bytes"
-	"log"
+	"fmt"
+	"net/url"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 )
 
@@ -12,12 +14,21 @@ type Renderer interface {
 	Render() string
 }
 
+const (
+	Longman5Online = "LONGMAN5/Online"
+	LongmanEasy    = "LONGMAN/Easy"
+	OLD9           = "OLD9"
+)
+
 type HTMLRender struct {
-	Raw string
+	Raw        string
+	SourceType string
 }
 
 func (h *HTMLRender) Render() string {
-	return h.Raw
+	if !strings.HasPrefix(h.SourceType, "LONGMAN") {
+		return h.Raw
+	}
 	info := strings.NewReader(h.Raw)
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {
@@ -27,7 +38,7 @@ func (h *HTMLRender) Render() string {
 	var b bytes.Buffer
 	err = html.Render(&b, doc)
 	if err != nil {
-		log.Printf("html.Render err: %v", err)
+		log.Debugf("html.Render err: %v", err)
 		return h.Raw
 	}
 	return b.String()
@@ -42,16 +53,40 @@ func modifyImgSrc(n *html.Node) {
 			n.Attr[i].Val = "tmp/" + a.Val
 		}
 	}
-	// log.Printf("modifyImgSrc %#v", n)
+	// log.Debugf("modifyImgSrc %#v", n)
+}
+
+func replaceMp3(n *html.Node, val string, i int) {
+	new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(val, "sound://")))
+	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
+	n.Attr[i].Val = new
+}
+
+func modifyHref(n *html.Node) {
+	for i, a := range n.Attr {
+		if a.Key == "href" {
+			if strings.HasPrefix(a.Val, "entry://") {
+				new := fmt.Sprintf("/dict?query=%s&engine=mdx&format=html", url.QueryEscape(strings.TrimPrefix(a.Val, "entry://")))
+				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
+				n.Attr[i].Val = new
+			} else if strings.HasPrefix(a.Val, "sound://") {
+				replaceMp3(n, a.Val, i)
+			}
+		}
+	}
 }
 
 func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	if n.Type == html.TextNode {
-		// t.Logf("text: [%s] level %d", n.Data, level)
+		return ""
+	}
+	if IsElement(n, "a", "") {
+		log.Debugf("<a> %v", n)
+		modifyHref(n)
 		return ""
 	}
 	if IsElement(n, "img", "") {
-		modifyImgSrc(n)
+		// modifyImgSrc(n)
 		return ""
 	}
 
@@ -69,7 +104,7 @@ func IsElement(n *html.Node, ele string, class string) bool {
 		}
 		for _, a := range n.Attr {
 			if a.Key == "class" && a.Val == class {
-				log.Printf("[wft] readElement good %v, %v, %#v", ele, class, n.Data)
+				log.Debugf("[wft] readElement good %v, %v, %#v", ele, class, n.Data)
 				return true
 			}
 		}

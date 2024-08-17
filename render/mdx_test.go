@@ -40,7 +40,7 @@ func Test_GetWords(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Printf("result: %v", readText(doc))
+	// log.Debugf("result: %v", readText(doc))
 	dfs(doc, 0, nil)
 	t.Logf("len: %d, %v", len(words), words)
 }
@@ -52,7 +52,7 @@ func Test_MDXParser(t *testing.T) {
 		log.Fatal(err)
 	}
 	defer fd.Close()
-	// log.Printf("result: %v", readText(doc))
+	// log.Debugf("result: %v", readText(doc))
 	t.Logf("res: %v", render.ParseHTML(fd))
 }
 
@@ -95,7 +95,7 @@ func Test_play(t *testing.T) {
 	for k, _ := range lowDict {
 		input = append(input, k)
 	}
-	log.Printf("raw dict %d items, "+
+	t.Logf("raw dict %d items, "+
 		"lowercase dict %d items, "+
 		"because different item in the raw dictionary "+
 		"like 'August' and 'august' will be "+

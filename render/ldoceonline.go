@@ -3,11 +3,11 @@ package render
 import (
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"unicode"
 
 	"github.com/fatih/color"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 )
 
@@ -24,7 +24,7 @@ func ParseHTML(info io.Reader) string {
 	var res []string
 	var f func(*html.Node)
 	f = func(n *html.Node) {
-		// log.Printf("Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
+		// log.Debugf("Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
 		if IsElement(n, "div", "dictionary") {
 			res = ldoceOnline(n)
 			return
@@ -33,7 +33,7 @@ func ParseHTML(info io.Reader) string {
 			f(c)
 		}
 	}
-	// log.Printf("result: %v", readText(doc))
+	// log.Debugf("result: %v", readText(doc))
 	f(doc)
 	return format(res)
 }
@@ -90,7 +90,7 @@ func format(input []string) string {
 }
 
 func findFirstSubSpan(n *html.Node, class string) *html.Node {
-	log.Printf("find class: %q, Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", class, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
+	log.Debugf("find class: %q, Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", class, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
 	if IsElement(n, "span", class) {
 		return n
 	}
@@ -116,13 +116,13 @@ func readLongmanEntry(n *html.Node) []string {
 		red := color.New(color.FgRed).SprintfFunc()
 		sense := fmt.Sprintf("%sSense%s", strings.Repeat("\t", 0), separate(readText(n)))
 		sense = strings.TrimLeft(sense, " ")
-		log.Printf("Sense: %q", sense)
+		log.Debugf("Sense: %q", sense)
 		return []string{red("%s", sense)}
 	}
 	if IsElement(n, "span", "PhrVbEntry") {
 		pvb := fmt.Sprintf("%sPhrVbEntry:%s", "", separate(readText(n)))
 		pvb = strings.TrimLeft(pvb, " ")
-		log.Printf("PhrVbEntry: %q", pvb)
+		log.Debugf("PhrVbEntry: %q", pvb)
 		return []string{pvb}
 	}
 	if IsElement(n, "span", "Head") {
@@ -163,7 +163,7 @@ func ldoceOnline(n *html.Node) []string {
 func readAllText(n *html.Node) string {
 	var s string
 	defer func() {
-		log.Printf("alltext[%q]:", s)
+		log.Debugf("alltext[%q]:", s)
 	}()
 	if n.Type == html.TextNode {
 		return compressEmptyLine(n.Data)
@@ -176,7 +176,7 @@ func readAllText(n *html.Node) string {
 
 func readText(n *html.Node) string {
 	if n.Type == html.TextNode {
-		log.Printf("text: [%q]", n.Data)
+		log.Debugf("text: [%q]", n.Data)
 		return compressEmptyLine(n.Data)
 	}
 	if IsElement(n, "script", "") {

@@ -5,10 +5,10 @@
 package sources
 
 import (
-	"log"
 	"strings"
 
 	ahocorasick "github.com/BobuSumisu/aho-corasick"
+	log "github.com/sirupsen/logrus"
 )
 
 type Dict interface {
@@ -24,7 +24,7 @@ type AhoCorasick struct {
 
 func New(dict Dict) Searcher {
 	keys := dict.Keys()
-	// log.Printf("new aho_corasick: %v", keys)
+	// log.Debugf("new aho_corasick: %v", keys)
 	// lowercase
 	lowDict := make(map[string][]string, len(keys))
 	for _, k := range keys {
@@ -36,7 +36,7 @@ func New(dict Dict) Searcher {
 	for k := range lowDict {
 		input = append(input, k)
 	}
-	log.Printf("raw dict %d items, "+
+	log.Debugf("raw dict %d items, "+
 		"lowercase dict %d items, "+
 		"because different item in the raw dictionary "+
 		"like 'August' and 'august' will be "+
@@ -51,7 +51,7 @@ func (ack *AhoCorasick) GetRawOutputs(input string) []RawOutput {
 	matches := ack.trie.Match([]byte(input))
 	res := make([]RawOutput, 0, len(matches))
 	for i, match := range matches {
-		log.Printf("%d th match: pos[%v], pattern[%v], string[%v]\n", i, match.Pos(), match.Pattern(), match.MatchString())
+		log.Debugf("%d th match: pos[%v], pattern[%v], string[%v]\n", i, match.Pos(), match.Pattern(), match.MatchString())
 		for _, v := range ack.lowDict[match.MatchString()] {
 			res = append(res, output{v, ack.dict.Get(v)})
 		}

@@ -3,11 +3,12 @@ package sources
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/render"
 )
@@ -21,6 +22,7 @@ func QueryByURL(word string) string {
 	// https://bugz.pythonanywhere.com/golang/Unexpected-EOF-golang-http-client-error --> not working either
 	// Maybe not my problem? It's work when I developed the first demo version. https://www.appsloveworld.com/go/2/golang-http-request-results-in-eof-errors-when-making-multiple-requests-successiv
 	// I change my User-Agent to curl, it works then. 🥲
+	// Update on 20240810, even a "curl" request is not working, I changed it to "Firefox"
 	client := &http.Client{}
 	req, err := http.NewRequest(
 		"GET",
@@ -33,13 +35,13 @@ func QueryByURL(word string) string {
 	}
 
 	req.Header.Set("Accept-Encoding", "identity") // NOTE THIS LINE
-	req.Header.Set("User-Agent", "curl/8.1.2")
+	req.Header.Set("User-Agent", "Firefox")
 
 	resp, err := client.Do(req)
 
-	log.Printf("query %q cost: %v", queryURL, time.Since(start))
+	log.Debugf("query %q cost: %v", queryURL, time.Since(start))
 	if err != nil {
-		log.Printf("Get url %v err: %v", queryURL, err)
+		log.Debugf("Get url %v err: %v", queryURL, err)
 		return fmt.Sprintf("ERROR: %v", err)
 	}
 	defer resp.Body.Close()
@@ -50,7 +52,7 @@ func GetFromLDOCE(word string) string {
 	var res string
 	mu.Lock()
 	if ex, ok := history[word]; ok {
-		log.Printf("cache hit!")
+		log.Debugf("cache hit!")
 		res = ex
 	} else {
 		res = QueryByURL(word)
@@ -63,7 +65,7 @@ func GetFromLDOCE(word string) string {
 func Restore() {
 	data, err := os.ReadFile(historyFile)
 	if err != nil {
-		log.Printf("open file history err: %v", err)
+		log.Debugf("open file history err: %v", err)
 		return
 	}
 	if err != nil {

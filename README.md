@@ -128,9 +128,12 @@ See [Integrated with Neovim](#neovim)
 ![Gif](./assets/e1_mdx_hammerspoon.gif)
 
 ##### KNOWN BUGS:
-Some word queries will block the process, and can't see the result, such as "test". But no such problems in real web mode, it only happens with hammerspoon. 
+If you use hammerspoon's "task" feature, i.e. "hs.task.new" and then "xx::start", some word queries will block the process, and can't see the result(because it hasn't returned yet), such as "test". But no such problems in real web mode, it only happens with hammerspoon. 
 
 Don't know why yet, the same word queries also works normally in [Neovim integration](#neovim), which also uses Lua as its async runtime. So I guess maybe it has something to do with the implementation, and it might be a bug of hammerspoon.
+
+##### WORKAROUND
+Using hs.execute instead of hs.task(Be careful with the shell-escaping), which is a "synchronous" method of executing a task. Normal query is fast enough and you won't notice the difference and will see the result "immediately". See [](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90) for example
 
 ## Integrated with FZF (experimental and MacOS only)
 ```console
@@ -183,22 +186,41 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 
 # Configuration
 
-# file tree
+## XDG_CONFIG_HOME convention
 ```
 // cd ~/.config/ondict
 .
 ├── config.json
-└── dicts
-    └── Longman\ Dictionary\ of\ Contemporary\ English.mdx
+├── dicts
+│   ├── LDOCE5++ V 1-35.mdd
+│   ├── LDOCE5++ V 1-35.mdx
+│   ├── LM5style.css
+│   ├── LM5style_vanilla.css
+│   ├── Longman Dictionary of Contemporary English.css
+│   ├── Longman Dictionary of Contemporary English.mdx
+│   ├── ODE_Zh.css
+│   ├── ahd3af.css
+│   ├── oald9.css
+│   ├── oald9.mddx
+│   └── oald9.mdx
+└── history.table
 ```
-## config.json
+## An example of config.json 
 ```json
 {
-    "dicts": [
-        "Longman Dictionary of Contemporary English",
-        "xxx",
-        "yyy"
-    ]
+  "dicts": [
+    {
+      "name": "LDOCE5++ V 1-35",
+      "type": "LONGMAN5/Online"
+    },
+    {
+      "name": "Longman Dictionary of Contemporary English",
+      "type": "LONGMAN/Easy"
+    },
+    {
+      "name": "oald9"
+    }
+  ]
 }
 ```
 # LICENSE
