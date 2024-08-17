@@ -1,9 +1,10 @@
 package util
 
 import (
-	"log"
 	"os"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func HistoryFile() string {

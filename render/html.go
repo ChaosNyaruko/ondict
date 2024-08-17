@@ -3,10 +3,10 @@ package render
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 )
 
@@ -67,6 +67,14 @@ func modifyHref(n *html.Node) {
 				new := strings.Replace(a.Val, "sound://", "/", 1)
 				log.Printf("href sound: %v, new: %q", strings.TrimPrefix(a.Val, "sound://"), new)
 				n.Attr[i].Val = new
+			} else if strings.HasSuffix(a.Val, ".mp3") {
+				m := strings.Split(a.Val, "/")
+				if len(m) > 0 {
+					mp3Name := m[len(m)-1]
+					new := "/" + mp3Name
+					log.Printf("href sound-mp3: %v, new: %q", a.Val, new)
+					n.Attr[i].Val = new
+				}
 			}
 		}
 	}

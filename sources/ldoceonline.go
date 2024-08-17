@@ -3,11 +3,12 @@ package sources
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/render"
 )

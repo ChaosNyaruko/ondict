@@ -5,10 +5,10 @@
 package sources
 
 import (
-	"log"
 	"strings"
 
 	ahocorasick "github.com/BobuSumisu/aho-corasick"
+	log "github.com/sirupsen/logrus"
 )
 
 type Dict interface {

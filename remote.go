@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -13,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // autoNetworkAddressPosix resolves an id on the 'auto' pseduo-network to a

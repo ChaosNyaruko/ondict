@@ -3,8 +3,8 @@ package render
 import (
 	"fmt"
 	"io"
-	"log"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 )
 

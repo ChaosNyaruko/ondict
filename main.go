@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
-	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,6 +11,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/fzf"
 	"github.com/ChaosNyaruko/ondict/history"
@@ -51,9 +50,11 @@ func main() {
 		return
 	}
 	if !*verbose {
-		log.SetOutput(io.Discard)
+		log.SetLevel(log.InfoLevel)
 		// TODO: they should be bound with a renderer?
 		render.SeparatorOpen, render.SeparatorClose = "", ""
+	} else {
+		log.SetLevel(log.DebugLevel)
 	}
 	// TODO: put it in a better place.
 	sources.LoadConfig()

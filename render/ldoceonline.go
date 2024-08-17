@@ -3,11 +3,11 @@ package render
 import (
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"unicode"
 
 	"github.com/fatih/color"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 )
 

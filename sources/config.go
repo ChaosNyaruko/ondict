@@ -3,9 +3,10 @@ package sources
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/util"
 )

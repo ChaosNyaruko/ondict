@@ -3,11 +3,12 @@ package sources
 import (
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/util"
 )
@@ -69,15 +70,15 @@ func loadAllCss() (string, error) {
 
 func (d *MdxDict) Register() error {
 	d.MdxDict = loadDecodedMdx(d.MdxFile)
-	if contents, err := os.ReadFile(d.MdxCss); err == nil {
-		d.MdxCss = string(contents)
+	// if contents, err := os.ReadFile(d.MdxCss); err == nil {
+	// 	d.MdxCss = string(contents)
+	// } else {
+	if css, err := loadAllCss(); err != nil {
+		log.Printf("load dicts[%v] css err: %v", d.MdxFile, err)
 	} else {
-		if css, err := loadAllCss(); err != nil {
-			log.Printf("load dicts[%v] css err: %v", d.MdxFile, err)
-		} else {
-			d.MdxCss = string(css)
-		}
+		d.MdxCss = string(css)
 	}
+	// }
 	d.searcher = New(d.MdxDict)
 	return nil
 }

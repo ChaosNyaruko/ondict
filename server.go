@@ -2,10 +2,11 @@ package main
 
 import (
 	"html/template"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/util"
 )

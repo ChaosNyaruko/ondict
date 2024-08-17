@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"hash/adler32"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -24,6 +23,8 @@ import (
 	"time"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/util"
 )
