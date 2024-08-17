@@ -31,6 +31,7 @@
 - [ ] A better history/record system, to make the history.table less "polluted" by ongoing fzf-based queries. 
 - [ ] An independent parser cmd.
 - [ ] See the TODOs in the code.
+- [ ] The progress bar while decoding?
 
 ---
 The following are less important things that I want to finish.

@@ -26,7 +26,7 @@ type HTMLRender struct {
 }
 
 func (h *HTMLRender) Render() string {
-	if strings.HasPrefix(h.SourceType, LongmanEasy) {
+	if !strings.HasPrefix(h.SourceType, "LONGMAN") {
 		return h.Raw
 	}
 	info := strings.NewReader(h.Raw)
@@ -38,7 +38,7 @@ func (h *HTMLRender) Render() string {
 	var b bytes.Buffer
 	err = html.Render(&b, doc)
 	if err != nil {
-		log.Printf("html.Render err: %v", err)
+		log.Debugf("html.Render err: %v", err)
 		return h.Raw
 	}
 	return b.String()
@@ -53,7 +53,13 @@ func modifyImgSrc(n *html.Node) {
 			n.Attr[i].Val = "tmp/" + a.Val
 		}
 	}
-	// log.Printf("modifyImgSrc %#v", n)
+	// log.Debugf("modifyImgSrc %#v", n)
+}
+
+func replaceMp3(n *html.Node, val string, i int) {
+	new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(val, "sound://")))
+	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
+	n.Attr[i].Val = new
 }
 
 func modifyHref(n *html.Node) {
@@ -61,20 +67,10 @@ func modifyHref(n *html.Node) {
 		if a.Key == "href" {
 			if strings.HasPrefix(a.Val, "entry://") {
 				new := fmt.Sprintf("/dict?query=%s&engine=mdx&format=html", url.QueryEscape(strings.TrimPrefix(a.Val, "entry://")))
-				log.Printf("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
+				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
 				n.Attr[i].Val = new
 			} else if strings.HasPrefix(a.Val, "sound://") {
-				new := strings.Replace(a.Val, "sound://", "/", 1)
-				log.Printf("href sound: %v, new: %q", strings.TrimPrefix(a.Val, "sound://"), new)
-				n.Attr[i].Val = new
-			} else if strings.HasSuffix(a.Val, ".mp3") {
-				m := strings.Split(a.Val, "/")
-				if len(m) > 0 {
-					mp3Name := m[len(m)-1]
-					new := "/" + mp3Name
-					log.Printf("href sound-mp3: %v, new: %q", a.Val, new)
-					n.Attr[i].Val = new
-				}
+				replaceMp3(n, a.Val, i)
 			}
 		}
 	}
@@ -85,7 +81,7 @@ func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 		return ""
 	}
 	if IsElement(n, "a", "") {
-		log.Printf("<a> %v", n)
+		log.Debugf("<a> %v", n)
 		modifyHref(n)
 		return ""
 	}
@@ -108,7 +104,7 @@ func IsElement(n *html.Node, ele string, class string) bool {
 		}
 		for _, a := range n.Attr {
 			if a.Key == "class" && a.Val == class {
-				log.Printf("[wft] readElement good %v, %v, %#v", ele, class, n.Data)
+				log.Debugf("[wft] readElement good %v, %v, %#v", ele, class, n.Data)
 				return true
 			}
 		}

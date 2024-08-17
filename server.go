@@ -19,14 +19,14 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.timeout.Stop() {
 		select {
 		case t := <-s.timeout.C: // try to drain from the channel
-			log.Printf("drained from timer: %v", t)
+			log.Debugf("drained from timer: %v", t)
 		default:
 		}
 	}
 	if *idleTimeout > 0 {
 		s.timeout.Reset(*idleTimeout)
 	}
-	log.Printf("query HTTP path: %v", r.URL.Path)
+	log.Debugf("query HTTP path: %v", r.URL.Path)
 	if r.URL.Path == "/" {
 		tmplt := template.New("portal")
 		tmplt, err := tmplt.Parse(portal)
@@ -44,7 +44,7 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		word := q.Get("query")
 		e := q.Get("engine")
 		f := q.Get("format")
-		log.Printf("query dict: %v, engine: %v, format: %v", word, e, f)
+		log.Debugf("query dict: %v, engine: %v, format: %v", word, e, f)
 
 		res := query(word, e, f)
 		w.WriteHeader(200)
@@ -56,10 +56,11 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// if strings.HasSuffix(r.URL.Path, ".css") {
-	// 	log.Printf("static info: %v", r.URL.Path)
+	// 	log.Debugf("static info: %v", r.URL.Path)
 	// 	http.FileServer(http.Dir("./static")).ServeHTTP(w, r)
 	// 	return
 	// }
+	log.Infof("URL: %v, Scheme: %v", r.URL, r.URL.Scheme)
 	http.FileServer(http.Dir(util.TmpDir())).ServeHTTP(w, r)
 }
 

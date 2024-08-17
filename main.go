@@ -43,6 +43,11 @@ var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 // TODO: prev work, for better source abstractions
 var g = sources.G
 
+func init() {
+	log.SetOutput(os.Stderr)
+	log.SetLevel(log.InfoLevel)
+}
+
 func main() {
 	flag.Parse()
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
@@ -104,7 +109,7 @@ func main() {
 				}
 			}
 		}
-		log.Printf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
+		log.Debugf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
 		g.Load()
 		l, err := net.Listen(network, addr)
 		if err != nil {
@@ -138,7 +143,7 @@ func main() {
 			log.Fatalf("getting ondict path error: %v", err)
 		}
 		network, address = autoNetworkAddressPosix(dp, "")
-		log.Printf("auto mode dp: %v, network: %v, address: %v", dp, network, address)
+		log.Debugf("auto mode dp: %v, network: %v, address: %v", dp, network, address)
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
@@ -166,7 +171,7 @@ func main() {
 			"-e=" + *engine,
 			"-f=" + *renderFormat,
 		}
-		log.Printf("starting remote: %v", args)
+		log.Debugf("starting remote: %v", args)
 		if err := startRemote(dp, args...); err != nil {
 			log.Fatal(err)
 		}
@@ -185,7 +190,7 @@ func main() {
 			}
 			return
 		}
-		log.Printf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
+		log.Debugf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
 		// In case our failure was a fast-failure, ensure we wait at least
 		// f.dialTimeout before trying again.
 		if retry != retries-1 {
@@ -216,7 +221,7 @@ func main() {
 
 func query(word string, e string, f string) string {
 	if err := history.Append(word); err != nil {
-		log.Printf("record %v err: %v", word, err)
+		log.Debugf("record %v err: %v", word, err)
 	}
 	if e == "" {
 		e = *engine

@@ -27,7 +27,7 @@ func (g *Dicts) Load() error {
 		for _, d := range *g {
 			d.Register()
 		}
-		log.Printf("loading g")
+		log.Debugf("loading g")
 	})
 	return nil
 }
@@ -41,7 +41,7 @@ func QueryMDX(word string, f string) string {
 	var defs []mdxResult
 	for _, dict := range *G {
 		defs = append(defs, mdxResult{dict.Get(word), dict.CSS(), dict.Type})
-		log.Printf("def of %q, %v: %q", dict.MdxFile, defs, word)
+		log.Debugf("def of %q, %v: %q", dict.MdxFile, defs, word)
 	}
 	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
@@ -51,7 +51,7 @@ func QueryMDX(word string, f string) string {
 				h := render.HTMLRender{Raw: def, SourceType: dict.t}
 				// m1 := regexp.MustCompile(`<img src="(.*?)\.png" style`)
 				// replaceImg := m1.ReplaceAllString(def, `<img src="`+"data/"+`${1}.png" style`)
-				// log.Printf("try to replace %v", replaceImg)
+				// log.Debugf("try to replace %v", replaceImg)
 				// TODO: it might be overriden
 				rs := fmt.Sprintf("<div>%s<style>%s</style></div> ", h.Render(), dict.css)
 				// rs := fmt.Sprintf("%s", h.Render())
@@ -61,7 +61,7 @@ func QueryMDX(word string, f string) string {
 		return strings.Join(res, "<br><br>")
 	}
 
-	log.Printf("query: %v, format: %v", word, f)
+	log.Debugf("query: %v, format: %v", word, f)
 	var res string
 	for i, dict := range defs {
 		for _, def := range dict.defs {
@@ -72,7 +72,7 @@ func QueryMDX(word string, f string) string {
 				fd := strings.NewReader(def)
 				res += "\n--\n" + render.ParseHTML(fd)
 			} else {
-				log.Printf("undefined markdown render for %dth dict, whose type is %v", i, dict.t)
+				log.Debugf("undefined markdown render for %dth dict, whose type is %v", i, dict.t)
 			}
 		}
 	}
@@ -84,15 +84,15 @@ func loadDecodedMdx(filePath string) Dict {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
 	} else if errors.Is(err, os.ErrNotExist) {
-		log.Printf("JSON file not exist: %v", filePath+".json")
+		log.Debugf("JSON file not exist: %v", filePath+".json")
 		m := &decoder.MDict{}
 		err := m.Decode(filePath + ".mdx")
 		go func() {
 			mdd := decoder.MDict{}
 			if err := mdd.Decode(filePath + ".mdd"); err != nil {
-				log.Printf("[WARN] parse %v.mdd err: %v", filePath, err)
+				log.Debugf("[WARN] parse %v.mdd err: %v", filePath, err)
 			} else {
-				log.Printf("[INFO] successfully decode %v.mdd", filePath)
+				log.Debugf("[INFO] successfully decode %v.mdd", filePath)
 				if err := mdd.DumpData(); err != nil {
 					log.Fatalf("dump mdd err: %v", err)
 				}

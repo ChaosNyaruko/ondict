@@ -22,7 +22,7 @@ func f(n *html.Node, level int, parent *html.Node, ft string) string {
 	if ft == "md" {
 		bold, italic = "**", "*"
 	}
-	// log.Printf("LEVEL[%d %p <- %p] Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", level, n, parent, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
+	// log.Debugf("LEVEL[%d %p <- %p] Type: [%#v], DataAtom: [%s], Data: [%#v], Namespace: [%#v], Attr: [%#v]", level, n, parent, n.Type, n.DataAtom, n.Data, n.Namespace, n.Attr)
 	if n.Type == html.TextNode {
 		// t.Logf("text: [%s] level %d", n.Data, level)
 		return compressEmptyLine(n.Data)

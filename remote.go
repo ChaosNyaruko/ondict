@@ -33,7 +33,7 @@ func autoNetworkAddressPosix(goplsPath, id string) (network string, address stri
 	if err := cmd.Run(); err == nil {
 		pathHash = h.Sum(nil)
 	} else {
-		log.Printf("error getting current buildid: %v", err)
+		log.Debugf("error getting current buildid: %v", err)
 		sum := sha256.Sum256([]byte(goplsPath))
 		pathHash = sum[:]
 	}

@@ -1,7 +1,6 @@
 package sources
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -55,7 +54,7 @@ func loadAllCss() (string, error) {
 			return e
 		}
 		if filepath.Ext(d.Name()) == ".css" {
-			fmt.Printf("name: %v\n", filepath.Join(s, d.Name()))
+			log.Infof("name: %v\n", filepath.Join(s, d.Name()))
 			if content, err := os.ReadFile(s); err == nil {
 				a = append(a, string(content))
 			} else {
@@ -74,7 +73,7 @@ func (d *MdxDict) Register() error {
 	// 	d.MdxCss = string(contents)
 	// } else {
 	if css, err := loadAllCss(); err != nil {
-		log.Printf("load dicts[%v] css err: %v", d.MdxFile, err)
+		log.Debugf("load dicts[%v] css err: %v", d.MdxFile, err)
 	} else {
 		d.MdxCss = string(css)
 	}

@@ -39,9 +39,9 @@ func QueryByURL(word string) string {
 
 	resp, err := client.Do(req)
 
-	log.Printf("query %q cost: %v", queryURL, time.Since(start))
+	log.Debugf("query %q cost: %v", queryURL, time.Since(start))
 	if err != nil {
-		log.Printf("Get url %v err: %v", queryURL, err)
+		log.Debugf("Get url %v err: %v", queryURL, err)
 		return fmt.Sprintf("ERROR: %v", err)
 	}
 	defer resp.Body.Close()
@@ -52,7 +52,7 @@ func GetFromLDOCE(word string) string {
 	var res string
 	mu.Lock()
 	if ex, ok := history[word]; ok {
-		log.Printf("cache hit!")
+		log.Debugf("cache hit!")
 		res = ex
 	} else {
 		res = QueryByURL(word)
@@ -65,7 +65,7 @@ func GetFromLDOCE(word string) string {
 func Restore() {
 	data, err := os.ReadFile(historyFile)
 	if err != nil {
-		log.Printf("open file history err: %v", err)
+		log.Debugf("open file history err: %v", err)
 		return
 	}
 	if err != nil {
