@@ -186,22 +186,41 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 
 # Configuration
 
-# file tree
+## XDG_CONFIG_HOME convention
 ```
 // cd ~/.config/ondict
 .
 ├── config.json
-└── dicts
-    └── Longman\ Dictionary\ of\ Contemporary\ English.mdx
+├── dicts
+│   ├── LDOCE5++ V 1-35.mdd
+│   ├── LDOCE5++ V 1-35.mdx
+│   ├── LM5style.css
+│   ├── LM5style_vanilla.css
+│   ├── Longman Dictionary of Contemporary English.css
+│   ├── Longman Dictionary of Contemporary English.mdx
+│   ├── ODE_Zh.css
+│   ├── ahd3af.css
+│   ├── oald9.css
+│   ├── oald9.mddx
+│   └── oald9.mdx
+└── history.table
 ```
-## config.json
+## An example of config.json 
 ```json
 {
-    "dicts": [
-        "Longman Dictionary of Contemporary English",
-        "xxx",
-        "yyy"
-    ]
+  "dicts": [
+    {
+      "name": "LDOCE5++ V 1-35",
+      "type": "LONGMAN5/Online"
+    },
+    {
+      "name": "Longman Dictionary of Contemporary English",
+      "type": "LONGMAN/Easy"
+    },
+    {
+      "name": "oald9"
+    }
+  ]
 }
 ```
 # LICENSE

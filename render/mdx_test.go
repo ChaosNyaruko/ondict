@@ -95,7 +95,7 @@ func Test_play(t *testing.T) {
 	for k, _ := range lowDict {
 		input = append(input, k)
 	}
-	log.Debugf("raw dict %d items, "+
+	t.Logf("raw dict %d items, "+
 		"lowercase dict %d items, "+
 		"because different item in the raw dictionary "+
 		"like 'August' and 'august' will be "+

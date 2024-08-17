@@ -12,6 +12,7 @@ import (
 
 	"github.com/ChaosNyaruko/ondict/decoder"
 	"github.com/ChaosNyaruko/ondict/render"
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 var Gbold = "**"
@@ -54,6 +55,9 @@ func QueryMDX(word string, f string) string {
 				// log.Debugf("try to replace %v", replaceImg)
 				// TODO: it might be overriden
 				rs := fmt.Sprintf("<div>%s<style>%s</style></div> ", h.Render(), dict.css)
+				if strings.Contains(dict.t, "Online") {
+					rs = fmt.Sprintf("<script>%s</script>%v", util.CommonJS, rs)
+				}
 				// rs := fmt.Sprintf("%s", h.Render())
 				res = append(res, rs)
 			}

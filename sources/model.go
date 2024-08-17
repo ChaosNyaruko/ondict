@@ -69,15 +69,15 @@ func loadAllCss() (string, error) {
 
 func (d *MdxDict) Register() error {
 	d.MdxDict = loadDecodedMdx(d.MdxFile)
-	// if contents, err := os.ReadFile(d.MdxCss); err == nil {
-	// 	d.MdxCss = string(contents)
-	// } else {
-	if css, err := loadAllCss(); err != nil {
-		log.Debugf("load dicts[%v] css err: %v", d.MdxFile, err)
+	if contents, err := os.ReadFile(d.MdxCss); err == nil {
+		d.MdxCss = string(contents)
 	} else {
-		d.MdxCss = string(css)
+		if css, err := loadAllCss(); err != nil {
+			log.Debugf("load dicts[%v] css err: %v", d.MdxFile, err)
+		} else {
+			d.MdxCss = string(css)
+		}
 	}
-	// }
 	d.searcher = New(d.MdxDict)
 	return nil
 }
