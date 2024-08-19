@@ -62,7 +62,9 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 	// TODO: put it in a better place.
-	sources.LoadConfig()
+	if err := sources.LoadConfig(); err != nil {
+		log.Fatalf("load config err: %v", err)
+	}
 
 	if *renderFormat != "md" {
 		sources.Gbold, sources.Gitalic = "", ""
