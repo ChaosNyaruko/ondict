@@ -19,7 +19,7 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 	}
 	cat := "cat"
 	if isCommandAvailable("mdcat") {
-		cat = "mdcat --file-name=tmpondicttmp12345.md"
+		cat = "mdcat"
 	} else if isCommandAvailable("bat") {
 		cat = "bat --file-name=tmpondicttmp12345.md"
 	}
