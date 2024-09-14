@@ -83,7 +83,7 @@ func startLoop() {
 			// Pass the command to the parser
 			handleCmd(text)
 		} else {
-			fmt.Println(query(text, *engine, *renderFormat))
+			fmt.Println(query(text, *engine, *renderFormat, true))
 		}
 		printPrompt()
 	}

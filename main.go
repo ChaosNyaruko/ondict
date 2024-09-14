@@ -27,6 +27,8 @@ var help = flag.Bool("h", false, "Show this help doc")
 var ver = flag.Bool("version", false, "Show current version of ondict")
 var word = flag.String("q", "", "Specify the word that you want to query")
 
+var record = flag.Int("r", 0, "Specify this query should be recorded in the log, only take effect with -q. \n0: Not recording\n1: Record it locally \n2: Tell the remote server to record it\n3: Record on both sides (If there is a -remote specified)")
+
 // var easyMode = flag.Bool("e", false, "True to show only 'frequent' meaning")
 var dev = flag.Bool("d", false, "If specified, a static html file will be parsed, instead of an online query, just for dev debugging")
 var verbose = flag.Bool("v", false, "Show debug logs")
@@ -136,6 +138,7 @@ func main() {
 		}
 	}
 
+	// one shot mode (-q word)
 	var netConn net.Conn
 	var err error
 	var network, address string
@@ -149,7 +152,7 @@ func main() {
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
-			if err := request(netConn, *engine, *renderFormat); err != nil {
+			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -187,7 +190,7 @@ func main() {
 		startDial := time.Now()
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 		if err == nil {
-			if err := request(netConn, *engine, *renderFormat); err != nil {
+			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -215,15 +218,15 @@ func main() {
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
 		g.Load()
-		fmt.Println(sources.QueryMDX(*word, *renderFormat))
-		return
 	}
-	fmt.Println(sources.QueryByURL(*word))
+	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
 }
 
-func query(word string, e string, f string) string {
-	if err := history.Append(word); err != nil {
-		log.Debugf("record %v err: %v", word, err)
+func query(word string, e string, f string, r bool) string {
+	if r {
+		if err := history.Append(word); err != nil {
+			log.Debugf("record %v err: %v", word, err)
+		}
 	}
 	if e == "" {
 		e = *engine

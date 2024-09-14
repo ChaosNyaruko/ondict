@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/ChaosNyaruko/ondict/history"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -68,7 +69,7 @@ func startRemote(dp string, args ...string) error {
 	return nil
 }
 
-func request(netConn net.Conn, e, f string) error {
+func request(netConn net.Conn, e, f string, r int) error {
 	httpc := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -76,7 +77,12 @@ func request(netConn net.Conn, e, f string) error {
 			},
 		},
 	}
-	res, err := httpc.Get(fmt.Sprintf("http://fakedomain/dict?query=%s&engine=%s&format=%s", url.QueryEscape(*word), e, f))
+	if r&0x1 != 0 {
+		if err := history.Append(*word); err != nil {
+			log.Warnf("append %s to history err: %v", *word, err)
+		}
+	}
+	res, err := httpc.Get(fmt.Sprintf("http://fakedomain/dict?query=%s&engine=%s&format=%s&record=%d", url.QueryEscape(*word), e, f, r&0x2))
 	if err != nil {
 		log.SetOutput(os.Stderr)
 		log.Fatalf("new request error %v", err)
