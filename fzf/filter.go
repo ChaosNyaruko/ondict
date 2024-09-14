@@ -28,7 +28,7 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 	// TODO: "open" according to sysytem, now just for my macOS.
 	// TODO: performance, and maybe "auto" mode for easy usage.
 	// TODO: the temp html file opened by browser will not automatically find the static resources, e.g. pictures, but I don't know how to replace the whitespaces in fzf placeholder {}, which will cause failure when constructing the HTTP GET request.
-	bind := fmt.Sprintf(`--bind="enter:execute(ondict -q {} -r 1 -remote localhost:1345 -e mdx -f html -r > %s && open %s)"`, tmpFileName, tmpFileName)
+	bind := fmt.Sprintf(`--bind="enter:execute(ondict -q {} -r 1 -remote localhost:1345 -e mdx -f html> %s && open %s)"`, tmpFileName, tmpFileName)
 	preview := fmt.Sprintf(`--preview="ondict -q {} -remote localhost:1345 -f=md -e=mdx" | %s`, cat)
 	header := "--header='[press ENTER to display the result in your browser, which might have a fancier display]'"
 
