@@ -29,7 +29,7 @@
 - [ ] `@@@LINK=norm` for some items.
 - [x] Integrated with [mdcat](https://github.com/swsnr/mdcat)
 - [x] Auto history. 
-- [ ] A better history/record system, to make the history.table less "polluted" by ongoing fzf-based queries. 
+- [x] A better history/record system, to make the history.table less "polluted" by ongoing fzf-based queries. 
 - [ ] An independent parser cmd.
 - [ ] See the TODOs in the code.
 - [ ] The progress bar while decoding?

@@ -25,6 +25,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/util"
@@ -539,6 +540,7 @@ func (m *MDict) DumpData() error {
 	if m.t != ".mdd" {
 		return fmt.Errorf("The dict should be the MDX file, not %v", m.t)
 	}
+	bar := progressbar.Default(int64(m.numEntries), "dumping mdd entries")
 	start := time.Now()
 	defer func() {
 		log.Debugf("dump data cost: %v", time.Since(start))
@@ -572,6 +574,7 @@ func (m *MDict) DumpData() error {
 		}
 
 		total += 1
+		bar.Add(1)
 	}
 	if total != m.numEntries {
 		return fmt.Errorf("the keys not suffice")
