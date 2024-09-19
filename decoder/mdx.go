@@ -113,7 +113,7 @@ func (m *MDict) Keys() []string {
 	return res
 }
 
-func (m *MDict) Decode(fileName string) error {
+func (m *MDict) Decode(fileName string, fzf bool) error {
 	start := time.Now()
 	defer func() {
 		log.Debugf("decode cost: %v", time.Since(start))
@@ -191,20 +191,22 @@ func (m *MDict) Decode(fileName string) error {
 	}
 	// offset, err := file.Seek(0, io.SeekCurrent)
 	// log.Debugf("offset of Record start: %v, err: %v", offset, err)
-	x := time.Now()
-	if err := m.decodeRecordSection(file); err != nil {
-		return fmt.Errorf("decode record section: %v", err)
-	}
-	log.Debugf("decode record cost: %v", time.Since(x))
-	// The reader should be at EOF now
-	var eof = make([]byte, 1)
-	if n, err := file.Read(eof); err != nil && n == 0 {
-		// log.Debugf("n: %v, err: %v", n, err)
-		if errors.Is(err, io.EOF) {
-			return nil
+	if !fzf {
+		x := time.Now()
+		if err := m.decodeRecordSection(file); err != nil {
+			return fmt.Errorf("decode record section: %v", err)
 		}
-	} else {
-		return fmt.Errorf("the reader should be empty now!")
+		log.Debugf("decode record cost: %v", time.Since(x))
+		// The reader should be at EOF now
+		var eof = make([]byte, 1)
+		if n, err := file.Read(eof); err != nil && n == 0 {
+			// log.Debugf("n: %v, err: %v", n, err)
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+		} else {
+			return fmt.Errorf("the reader should be empty now!")
+		}
 	}
 	return nil
 }

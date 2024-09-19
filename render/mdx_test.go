@@ -60,7 +60,7 @@ func Test_MultiMatch(t *testing.T) {
 	d := sources.MdxDict{
 		MdxFile: "../testdata/test_dict",
 	}
-	d.Register()
+	d.Register(false)
 	assert.Equal(t, 1, len(d.Get("doctor")), "doctor")
 	assert.Equal(t, 1, len(d.Get("jesus")), "jesus")
 	assert.Equal(t, 1, len(d.Get("Doctor")), "Doctor")
@@ -82,7 +82,7 @@ func Test_play(t *testing.T) {
 		}
 		g = &d
 	}
-	g.Register()
+	g.Register(false)
 	dict := g.MdxDict
 	input := make([]string, 0, len(dict.Keys()))
 	// lowercase

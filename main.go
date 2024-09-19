@@ -82,13 +82,13 @@ func main() {
 	}
 
 	if *useFzf {
-		g.Load(false)
+		g.Load(true)
 		fzf.ListAllWord()
 		return
 	}
 
 	if *interactive {
-		g.Load(true)
+		g.Load(false)
 		startLoop()
 		return
 	}
@@ -114,7 +114,7 @@ func main() {
 			}
 		}
 		log.Debugf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
-		g.Load(true)
+		g.Load(false)
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -217,7 +217,7 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		g.Load(true)
+		g.Load(false)
 	}
 	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
 }
