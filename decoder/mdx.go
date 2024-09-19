@@ -47,9 +47,14 @@ type MDict struct {
 	numEntries int
 	keys       []keyOffset
 	records    []byte
+	lazyOffset int
 
 	once   sync.Once
 	keymap map[string]uint64 // key: key value: the index of the key in MDict.keys
+
+	file             *os.File // the raw fd, to avoid store all "records" bytes, they are memory-head
+	recordHeader     recordSection
+	recordBlockSizes []recordBlock
 }
 
 type Header struct {
@@ -113,6 +118,10 @@ func (m *MDict) Keys() []string {
 	return res
 }
 
+func (m *MDict) Close(fileName string, fzf bool) error {
+	return m.file.Close()
+}
+
 func (m *MDict) Decode(fileName string, fzf bool) error {
 	start := time.Now()
 	defer func() {
@@ -129,12 +138,13 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	m.file = file
 
 	var headerLen uint32
 	if err := binary.Read(file, binary.BigEndian, &headerLen); err != nil {
 		return err
 	}
+	m.lazyOffset += 4
 	// fmt.Printf("headerLen: %v\n", headerLen)
 
 	// It must be even, cuz head_str is UTF-16 encoded
@@ -146,11 +156,13 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 	if err := binary.Read(file, binary.LittleEndian, headerBytes); err != nil {
 		return err
 	}
+	m.lazyOffset += int(headerLen)
 
 	var checksum uint32
 	if err := binary.Read(file, binary.LittleEndian, &checksum); err != nil {
 		return err
 	}
+	m.lazyOffset += 4
 	if adler32.Checksum(headerBytes) != checksum {
 		return fmt.Errorf("the checksum of header str does not match")
 	}
@@ -161,6 +173,7 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 	if err := binary.Read(h, binary.LittleEndian, headerRunes); err != nil {
 		return err
 	}
+	m.lazyOffset += int(headerSize)
 
 	headerXML := string(utf16.Decode(headerRunes))
 
@@ -205,7 +218,8 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 				return nil
 			}
 		} else {
-			return fmt.Errorf("the reader should be empty now!")
+			// return fmt.Errorf("the reader should be empty now!")
+			log.Infof("m.lazyOffset: %v", m.lazyOffset)
 		}
 	}
 	return nil
@@ -224,14 +238,58 @@ func (m *MDict) decodeString(b []byte) string {
 
 func (m *MDict) readAtOffset(index int) []byte {
 	offset := m.keys[index].offset
-	start := offset
-	end := len(m.records)
-	if index < len(m.keys)-1 {
-		end = int(m.keys[index+1].offset)
+	offset1 := m.keys[index+1].offset
+	total := uint64(0)
+	totalDecomp := uint64(0)
+	pre := -1
+	preDecomp := -1
+	iBlock := -1
+	i1Block := -1
+	for i := uint64(0); i < m.recordHeader.NumBlocks; i++ {
+		// log.Debugf("decoding [%d]th records sizes", i)
+		pre = int(total)
+		preDecomp = int(totalDecomp)
+		total += m.recordBlockSizes[i].CompSize
+		totalDecomp += m.recordBlockSizes[i].DecompSize
+		if offset < totalDecomp {
+			iBlock = int(i)
+			if offset1 < totalDecomp {
+				i1Block = iBlock
+			} else {
+				i1Block = iBlock + 1
+			}
+			break
+		}
 	}
-	// log.Debugf("len(m.keys)=%d, len(m.records)=%d, index: %d, start: %v, end: %v",
-	// len(m.keys), len(m.records), index, start, end)
-	return m.records[start:end]
+	log.Infof("index: %v, iBlock: %d, i1Block: %d", index, iBlock, i1Block)
+	if iBlock < 0 {
+		log.Fatalf("doesn't find a valid block for offset %d", iBlock)
+	}
+	compressed := make([]byte, m.recordBlockSizes[iBlock].CompSize)
+	n, err := m.file.ReadAt(compressed, int64(m.lazyOffset+pre))
+	if err != nil {
+		log.Fatalf("read at err %v", err)
+	}
+	log.Infof("pre: %v, preDecomp: %v", pre, preDecomp)
+	if n != int(m.recordBlockSizes[iBlock].CompSize) {
+		log.Fatalf("read %v bytes, but expected %v bytes", n, m.recordBlockSizes[iBlock].CompSize)
+	}
+	decompressed := decompress(compressed[:4], compressed[4:8], compressed[8:])
+	if len(decompressed) != int(m.recordBlockSizes[iBlock].DecompSize) {
+		log.Fatalf("decompressed length does not equal to expected")
+	}
+	offset = offset - uint64(pre)
+	offset1 = offset1 - uint64(pre)
+	return decompressed[offset:offset1] // TODO: offset1 is in the next block
+	// offset := m.keys[index].offset
+	// start := offset
+	// end := len(m.records)
+	// if index < len(m.keys)-1 {
+	// 	end = int(m.keys[index+1].offset)
+	// }
+	// // log.Debugf("len(m.keys)=%d, len(m.records)=%d, index: %d, start: %v, end: %v",
+	// // len(m.keys), len(m.records), index, start, end)
+	// return m.records[start:end]
 }
 
 // DumpDict may cost quite a long time, use it when you actually need the whole data
@@ -283,6 +341,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	if err := binary.Read(fd, binary.BigEndian, rawHeader); err != nil {
 		return err
 	}
+	m.lazyOffset += 40
 	var err error
 	h := bytes.NewReader(rawHeader)
 	type keywordSectionHeader struct {
@@ -304,11 +363,13 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	if err := binary.Read(h, binary.BigEndian, &header); err != nil {
 		return err
 	}
+	m.lazyOffset += 8 * 5
 	var keywordHeaderChecksum [4]byte
 
 	if err := binary.Read(fd, binary.BigEndian, &keywordHeaderChecksum); err != nil {
 		return err
 	}
+	m.lazyOffset += 4
 
 	if adler32.Checksum(rawHeader) != binary.BigEndian.Uint32(keywordHeaderChecksum[:]) {
 		return fmt.Errorf("the checksum of keyword header does not match")
@@ -330,6 +391,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	if err := binary.Read(fd, binary.BigEndian, keyIndexEncrypted); err != nil {
 		return err
 	}
+	m.lazyOffset += int(header.KeyIndexCompLen)
 	compType := keyIndexEncrypted[:4]
 	compressedChecksum := keyIndexEncrypted[4:8]
 	// log.Debugf("len(keyIndexEncrypted): %v, %v:%v:%v", len(keyIndexEncrypted), keyIndexEncrypted[:4], keyIndexEncrypted[4:8], keyIndexEncrypted[8:])
@@ -366,11 +428,13 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, &numEntries); err != nil {
 			return err
 		}
+		m.lazyOffset += 8
 		totalEntries += int(numEntries)
 		var firstSize uint16 // the number of "basic units" for the encoding of the first word
 		if err := binary.Read(r, binary.BigEndian, &firstSize); err != nil {
 			return err
 		}
+		m.lazyOffset += 2
 		firstSize += 1 // why the "+1"? text_term --> termination? For version >=2
 		if m.encoding == "UTF-16" {
 			firstSize = firstSize * 2
@@ -379,10 +443,12 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, firstWord); err != nil {
 			return err
 		}
+		m.lazyOffset += int(firstSize)
 		var lastSize uint16 // the number of "basic units" for the encoding of the first word
 		if err := binary.Read(r, binary.BigEndian, &lastSize); err != nil {
 			return err
 		}
+		m.lazyOffset += 2
 		lastSize += 1
 		if m.encoding == "UTF-16" {
 			lastSize = lastSize * 2
@@ -391,17 +457,20 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, lastWord); err != nil {
 			return err
 		}
+		m.lazyOffset += int(lastSize)
 
 		var compSize uint64
 		if err := binary.Read(r, binary.BigEndian, &compSize); err != nil {
 			return err
 		}
+		m.lazyOffset += 8
 		// log.Debugf("comp len of key_blocks[%d], %v\n", i, compSize)
 
 		var decompSize uint64
 		if err := binary.Read(r, binary.BigEndian, &decompSize); err != nil {
 			return err
 		}
+		m.lazyOffset += 8
 		// log.Debugf("decomp len of key_blocks[%d], %v\n", i, decompSize)
 		keyBlocks = append(keyBlocks, keyBlock{compSize, decompSize, numEntries, firstWord, lastWord})
 	}
@@ -414,6 +483,7 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(fd, binary.BigEndian, compressed); err != nil {
 			return err
 		}
+		m.lazyOffset += int(b.comp)
 		decompressed := decompress(compressed[:4], compressed[4:8], compressed[8:])
 		if len(decompressed) != int(b.decomp) {
 			log.Fatalf("decomp len not as expected!")
@@ -447,17 +517,24 @@ func (m *MDict) splitKeyBlock(b []byte, keyNum int) {
 	}
 }
 
+type recordSection struct {
+	NumBlocks  uint64
+	NumEntries uint64
+	IndexLen   uint64
+	BlocksLen  uint64
+}
+
+type recordBlock struct {
+	CompSize   uint64
+	DecompSize uint64
+}
+
 func (m *MDict) decodeRecordSection(fd io.Reader) error {
-	type recordSection struct {
-		NumBlocks  uint64
-		NumEntries uint64
-		IndexLen   uint64
-		BlocksLen  uint64
-	}
 	var recordHeader recordSection
 	if err := binary.Read(fd, binary.BigEndian, &recordHeader); err != nil {
 		return err
 	}
+	m.lazyOffset += 8 * 4
 	// log.Debugf("record header: %#v", recordHeader)
 	if int(recordHeader.NumEntries) != m.numEntries {
 		// The number of blocks does NOT need to be equal the number of keyword blocks. Big-endian.
@@ -467,17 +544,15 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 	if recordHeader.IndexLen != recordHeader.NumBlocks*16 {
 		log.Fatalf("the index len violates its definition, check the MDX file please")
 	}
+	m.recordHeader = recordHeader
 
-	type recordBlock struct {
-		CompSize   uint64
-		DecompSize uint64
-	}
 	records := make([]recordBlock, recordHeader.BlocksLen)
 	total := 0
 	totalDecomp := 0
 	for i := uint64(0); i < recordHeader.NumBlocks; i++ {
 		// log.Debugf("decoding [%d]th records sizes", i)
 		if err := binary.Read(fd, binary.BigEndian, &records[i]); err != nil {
+			m.lazyOffset += 8 * 2
 			return err
 		}
 		total += int(records[i].CompSize)
@@ -486,7 +561,11 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 	if total != int(recordHeader.BlocksLen) {
 		log.Fatalf("the block len does not match")
 	}
+	m.recordBlockSizes = records
 	m.records = make([]byte, 0, totalDecomp)
+	if true && m.t == ".mdx" { // FIXME: xx
+		return nil
+	}
 	// decompress record blocks
 	for i := uint64(0); i < recordHeader.NumBlocks; i++ {
 		// log.Debugf("decoding [%d]th records sizes", i)
