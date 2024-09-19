@@ -79,7 +79,7 @@ func (d *MdxDict) Register(fzf bool) error {
 		}
 	}
 	if !fzf {
-		d.searcher = NewExact(d.MdxDict)
+		d.searcher = NewAho(d.MdxDict)
 	} else {
 		d.searcher = NewExact(d.MdxDict)
 	}

@@ -278,10 +278,11 @@ func (m *MDict) readAtOffset(index int) []byte {
 	if len(decompressed) != int(m.recordBlockSizes[iBlock].DecompSize) {
 		log.Fatalf("decompressed length does not equal to expected")
 	}
+	// FIXME: remove/abstract dup codes
 	if iBlock == i1Block {
 		offset = offset - uint64(preDecomp)
 		offset1 = offset1 - uint64(preDecomp)
-		return decompressed[offset:offset1] // FIXME: offset1 is in the next block
+		return decompressed[offset:offset1]
 	} else if i1Block == len(m.recordBlockSizes) {
 		return decompressed[offset:]
 	} else {
@@ -300,7 +301,7 @@ func (m *MDict) readAtOffset(index int) []byte {
 		decompressed = append(decompressed, decompressed...)
 		offset = offset - uint64(preDecomp)
 		offset1 = offset1 - uint64(preDecomp)
-		return decompressed[offset:offset1] // FIXME: offset1 is in the next block
+		return decompressed[offset:offset1]
 	}
 	// offset := m.keys[index].offset
 	// start := offset
@@ -641,7 +642,7 @@ func (m *MDict) DumpData() error {
 	if m.t != ".mdd" {
 		return fmt.Errorf("The dict should be the MDX file, not %v", m.t)
 	}
-	bar := progressbar.Default(int64(m.numEntries), "dumping mdd entries")
+	bar := progressbar.Default(int64(m.numEntries), fmt.Sprintf("dumping mdd entries [%s%s]", m.header.Title, m.t))
 	start := time.Now()
 	defer func() {
 		log.Debugf("dump data cost: %v", time.Since(start))

@@ -92,8 +92,9 @@ func loadDecodedMdx(filePath string, fzf bool) Dict {
 		m := &decoder.MDict{}
 		err := m.Decode(filePath+".mdx", fzf)
 		if !fzf {
+			// FIXME: dump on demand
 			go func() {
-				return // FIXME
+				return
 				mdd := decoder.MDict{}
 				if err := mdd.Decode(filePath+".mdd", false); err != nil {
 					log.Debugf("[WARN] parse %v.mdd err: %v", filePath, err)
