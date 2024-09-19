@@ -173,7 +173,6 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 	if err := binary.Read(h, binary.LittleEndian, headerRunes); err != nil {
 		return err
 	}
-	m.lazyOffset += int(headerSize)
 
 	headerXML := string(utf16.Decode(headerRunes))
 
@@ -246,6 +245,7 @@ func (m *MDict) readAtOffset(index int) []byte {
 	iBlock := -1
 	i1Block := -1
 	for i := uint64(0); i < m.recordHeader.NumBlocks; i++ {
+		log.Debugf("%d block: %v->%v", i, m.recordBlockSizes[i].CompSize, m.recordBlockSizes[i].DecompSize)
 		// log.Debugf("decoding [%d]th records sizes", i)
 		pre = int(total)
 		preDecomp = int(totalDecomp)
@@ -261,7 +261,7 @@ func (m *MDict) readAtOffset(index int) []byte {
 			break
 		}
 	}
-	log.Infof("index: %v, iBlock: %d, i1Block: %d", index, iBlock, i1Block)
+	log.Debugf("index: %v, iBlock: %d, i1Block: %d", index, iBlock, i1Block)
 	if iBlock < 0 {
 		log.Fatalf("doesn't find a valid block for offset %d", iBlock)
 	}
@@ -270,7 +270,7 @@ func (m *MDict) readAtOffset(index int) []byte {
 	if err != nil {
 		log.Fatalf("read at err %v", err)
 	}
-	log.Infof("pre: %v, preDecomp: %v", pre, preDecomp)
+	log.Debugf("pre: %v, preDecomp: %v", pre, preDecomp)
 	if n != int(m.recordBlockSizes[iBlock].CompSize) {
 		log.Fatalf("read %v bytes, but expected %v bytes", n, m.recordBlockSizes[iBlock].CompSize)
 	}
@@ -278,9 +278,30 @@ func (m *MDict) readAtOffset(index int) []byte {
 	if len(decompressed) != int(m.recordBlockSizes[iBlock].DecompSize) {
 		log.Fatalf("decompressed length does not equal to expected")
 	}
-	offset = offset - uint64(pre)
-	offset1 = offset1 - uint64(pre)
-	return decompressed[offset:offset1] // TODO: offset1 is in the next block
+	if iBlock == i1Block {
+		offset = offset - uint64(preDecomp)
+		offset1 = offset1 - uint64(preDecomp)
+		return decompressed[offset:offset1] // FIXME: offset1 is in the next block
+	} else if i1Block == len(m.recordBlockSizes) {
+		return decompressed[offset:]
+	} else {
+		compressed1 := make([]byte, m.recordBlockSizes[i1Block].CompSize)
+		n, err := m.file.ReadAt(compressed1, int64(m.lazyOffset+int(total)))
+		if err != nil {
+			log.Fatalf("read at err %v", err)
+		}
+		if n != int(m.recordBlockSizes[i1Block].CompSize) {
+			log.Fatalf("read %v bytes, but expected %v bytes", n, m.recordBlockSizes[i1Block].CompSize)
+		}
+		decompressed1 := decompress(compressed1[:4], compressed1[4:8], compressed1[8:])
+		if len(decompressed1) != int(m.recordBlockSizes[i1Block].DecompSize) {
+			log.Fatalf("decompressed length does not equal to expected")
+		}
+		decompressed = append(decompressed, decompressed...)
+		offset = offset - uint64(preDecomp)
+		offset1 = offset1 - uint64(preDecomp)
+		return decompressed[offset:offset1] // FIXME: offset1 is in the next block
+	}
 	// offset := m.keys[index].offset
 	// start := offset
 	// end := len(m.records)
@@ -363,7 +384,6 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 	if err := binary.Read(h, binary.BigEndian, &header); err != nil {
 		return err
 	}
-	m.lazyOffset += 8 * 5
 	var keywordHeaderChecksum [4]byte
 
 	if err := binary.Read(fd, binary.BigEndian, &keywordHeaderChecksum); err != nil {
@@ -428,13 +448,11 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, &numEntries); err != nil {
 			return err
 		}
-		m.lazyOffset += 8
 		totalEntries += int(numEntries)
 		var firstSize uint16 // the number of "basic units" for the encoding of the first word
 		if err := binary.Read(r, binary.BigEndian, &firstSize); err != nil {
 			return err
 		}
-		m.lazyOffset += 2
 		firstSize += 1 // why the "+1"? text_term --> termination? For version >=2
 		if m.encoding == "UTF-16" {
 			firstSize = firstSize * 2
@@ -443,12 +461,10 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, firstWord); err != nil {
 			return err
 		}
-		m.lazyOffset += int(firstSize)
 		var lastSize uint16 // the number of "basic units" for the encoding of the first word
 		if err := binary.Read(r, binary.BigEndian, &lastSize); err != nil {
 			return err
 		}
-		m.lazyOffset += 2
 		lastSize += 1
 		if m.encoding == "UTF-16" {
 			lastSize = lastSize * 2
@@ -457,20 +473,17 @@ func (m *MDict) decodeKeyWordSection(fd io.Reader) error {
 		if err := binary.Read(r, binary.BigEndian, lastWord); err != nil {
 			return err
 		}
-		m.lazyOffset += int(lastSize)
 
 		var compSize uint64
 		if err := binary.Read(r, binary.BigEndian, &compSize); err != nil {
 			return err
 		}
-		m.lazyOffset += 8
 		// log.Debugf("comp len of key_blocks[%d], %v\n", i, compSize)
 
 		var decompSize uint64
 		if err := binary.Read(r, binary.BigEndian, &decompSize); err != nil {
 			return err
 		}
-		m.lazyOffset += 8
 		// log.Debugf("decomp len of key_blocks[%d], %v\n", i, decompSize)
 		keyBlocks = append(keyBlocks, keyBlock{compSize, decompSize, numEntries, firstWord, lastWord})
 	}
@@ -552,9 +565,9 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 	for i := uint64(0); i < recordHeader.NumBlocks; i++ {
 		// log.Debugf("decoding [%d]th records sizes", i)
 		if err := binary.Read(fd, binary.BigEndian, &records[i]); err != nil {
-			m.lazyOffset += 8 * 2
 			return err
 		}
+		m.lazyOffset += 8 * 2
 		total += int(records[i].CompSize)
 		totalDecomp += int(records[i].DecompSize)
 	}
@@ -568,7 +581,6 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 	}
 	// decompress record blocks
 	for i := uint64(0); i < recordHeader.NumBlocks; i++ {
-		// log.Debugf("decoding [%d]th records sizes", i)
 		compressed := make([]byte, records[i].CompSize)
 		if err := binary.Read(fd, binary.BigEndian, compressed); err != nil {
 			return err
