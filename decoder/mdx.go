@@ -96,7 +96,7 @@ func (m *MDict) dumpKeys() {
 			m.keymap[key] = uint64(i)
 		}
 		if len(m.keymap) != m.numEntries {
-			log.Debugf("dumpKeys: num entries number does not match: map[%d], numEntries:%v", len(m.keymap), m.numEntries)
+			log.Warnf("dumpKeys: num entries number does not match: map[%d], numEntries:%v", len(m.keymap), m.numEntries)
 		}
 		runtime.GC()
 		debug.FreeOSMemory()

@@ -23,10 +23,10 @@ type Dicts []*MdxDict
 var G = &Dicts{}
 var once sync.Once
 
-func (g *Dicts) Load() error {
+func (g *Dicts) Load(aho bool) error {
 	once.Do(func() {
 		for _, d := range *g {
-			d.Register()
+			d.Register(aho)
 		}
 		log.Debugf("loading g")
 	})

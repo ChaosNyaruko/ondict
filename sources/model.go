@@ -67,7 +67,7 @@ func loadAllCss() (string, error) {
 	return strings.Join(a, "\n"), nil
 }
 
-func (d *MdxDict) Register() error {
+func (d *MdxDict) Register(aho bool) error {
 	d.MdxDict = loadDecodedMdx(d.MdxFile)
 	if contents, err := os.ReadFile(d.MdxCss); err == nil {
 		d.MdxCss = string(contents)
@@ -78,6 +78,10 @@ func (d *MdxDict) Register() error {
 			d.MdxCss = string(css)
 		}
 	}
-	d.searcher = New(d.MdxDict)
+	if aho {
+		d.searcher = NewAho(d.MdxDict)
+	} else {
+		d.searcher = NewExact(d.MdxDict)
+	}
 	return nil
 }
