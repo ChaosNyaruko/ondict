@@ -205,23 +205,21 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 	}
 	// offset, err := file.Seek(0, io.SeekCurrent)
 	// log.Debugf("offset of Record start: %v, err: %v", offset, err)
-	if !fzf {
-		x := time.Now()
-		if err := m.decodeRecordSection(file); err != nil {
-			return fmt.Errorf("decode record section: %v", err)
+	x := time.Now()
+	if err := m.decodeRecordSection(file, fzf); err != nil {
+		return fmt.Errorf("decode record section: %v", err)
+	}
+	log.Debugf("decode record cost: %v", time.Since(x))
+	// The reader should be at EOF now
+	var eof = make([]byte, 1)
+	if n, err := file.Read(eof); err != nil && n == 0 {
+		// log.Debugf("n: %v, err: %v", n, err)
+		if errors.Is(err, io.EOF) {
+			return nil
 		}
-		log.Debugf("decode record cost: %v", time.Since(x))
-		// The reader should be at EOF now
-		var eof = make([]byte, 1)
-		if n, err := file.Read(eof); err != nil && n == 0 {
-			// log.Debugf("n: %v, err: %v", n, err)
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-		} else {
-			// return fmt.Errorf("the reader should be empty now!")
-			log.Infof("m.lazyOffset: %v", m.lazyOffset)
-		}
+	} else {
+		// return fmt.Errorf("the reader should be empty now!")
+		log.Infof("m.lazyOffset: %v", m.lazyOffset)
 	}
 	return nil
 }
@@ -293,7 +291,7 @@ func (m *MDict) ReadAtOffset(index int) []byte {
 	log.Tracef("index: %v, iBlock: %d, i1Block: %d, pre: %d, preDecomp: %d, total: %d, totalDecomp: %d, offset:%d",
 		index, iBlock, i1Block, pre, preDecomp, total, totalDecomp, m.lazyOffset)
 	if iBlock < 0 {
-		log.Fatalf("doesn't find a valid block for offset %d", iBlock)
+		log.Fatalf("doesn't find a valid block for offset %d, index: %d", iBlock, index)
 	}
 	decompressed := m.fetchNthRecordBlock(iBlock, pre)
 	offset = offset - uint64(preDecomp)
@@ -538,7 +536,7 @@ type recordBlock struct {
 	DecompSize uint64
 }
 
-func (m *MDict) decodeRecordSection(fd io.Reader) error {
+func (m *MDict) decodeRecordSection(fd io.Reader, lazy bool) error {
 	var recordHeader recordSection
 	if err := binary.Read(fd, binary.BigEndian, &recordHeader); err != nil {
 		return err
@@ -573,7 +571,7 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 	m.recordBlockSizes = records
 	log.Debugf("decodeRecordSection: %d<-%d", len(m.recordBlockSizes), len(records))
 	m.records = make([]byte, 0, totalDecomp)
-	if true && m.t == ".mdx" { // FIXME: xx
+	if lazy { // FIXME: xx
 		return nil
 	}
 	// decompress record blocks
