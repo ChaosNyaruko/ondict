@@ -67,8 +67,8 @@ func loadAllCss() (string, error) {
 	return strings.Join(a, "\n"), nil
 }
 
-func (d *MdxDict) Register(fzf bool) error {
-	d.MdxDict = loadDecodedMdx(d.MdxFile, fzf)
+func (d *MdxDict) Register(fzf bool, mdd bool) error {
+	d.MdxDict = loadDecodedMdx(d.MdxFile, fzf, mdd)
 	if contents, err := os.ReadFile(d.MdxCss); err == nil {
 		d.MdxCss = string(contents)
 	} else {

@@ -23,10 +23,10 @@ type Dicts []*MdxDict
 var G = &Dicts{}
 var once sync.Once
 
-func (g *Dicts) Load(fzf bool) error {
+func (g *Dicts) Load(fzf bool, mdd bool) error {
 	once.Do(func() {
 		for _, d := range *g {
-			d.Register(fzf)
+			d.Register(fzf, mdd)
 		}
 		log.Debugf("loading g")
 	})
@@ -83,7 +83,7 @@ func QueryMDX(word string, f string) string {
 	return res
 }
 
-func loadDecodedMdx(filePath string, fzf bool) Dict {
+func loadDecodedMdx(filePath string, fzf bool, mdd bool) Dict {
 	jsonData, err := os.ReadFile(filePath + ".json")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
@@ -91,10 +91,9 @@ func loadDecodedMdx(filePath string, fzf bool) Dict {
 		log.Debugf("JSON file not exist: %v", filePath+".json")
 		m := &decoder.MDict{}
 		err := m.Decode(filePath+".mdx", fzf)
-		if !fzf {
+		if !fzf && mdd {
 			// FIXME: dump on demand
 			go func() {
-				return
 				mdd := decoder.MDict{}
 				if err := mdd.Decode(filePath+".mdd", false); err != nil {
 					log.Debugf("[WARN] parse %v.mdd err: %v", filePath, err)

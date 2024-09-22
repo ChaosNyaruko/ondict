@@ -34,6 +34,7 @@ var dev = flag.Bool("d", false, "If specified, a static html file will be parsed
 var verbose = flag.Bool("v", false, "Show debug logs")
 var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
 var useFzf = flag.Bool("fzf", false, "EXPERIMENTAL: whether to use fzf as the fuzzy search tool")
+var dumpMDD = flag.Bool("dump", false, "If true, it will re-dump the mdd data when launched. The dumping will be running in the background, so the server won't be stuck")
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
@@ -82,13 +83,13 @@ func main() {
 	}
 
 	if *useFzf {
-		g.Load(true)
+		g.Load(true, false)
 		fzf.ListAllWord()
 		return
 	}
 
 	if *interactive {
-		g.Load(false)
+		g.Load(false, *dumpMDD)
 		startLoop()
 		return
 	}
@@ -114,7 +115,7 @@ func main() {
 			}
 		}
 		log.Debugf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
-		g.Load(false)
+		g.Load(false, *dumpMDD)
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -217,7 +218,7 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		g.Load(false)
+		g.Load(false, *dumpMDD)
 	}
 	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
 }

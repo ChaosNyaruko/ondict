@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"hash/adler32"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -79,7 +80,7 @@ func (m *MDict) Get(word string) string {
 	m.dumpKeys()
 	log.Debugf("Get %v from MDict", word)
 	if index, ok := m.keymap[word]; ok {
-		return m.decodeString(m.readAtOffset(int(index)))
+		return m.decodeString(m.ReadAtOffset(int(index)))
 	}
 	return ""
 }
@@ -92,9 +93,10 @@ func (m *MDict) dumpKeys() {
 			key := m.decodeString(k.key)
 			_ = bar.Add(1)
 			if e, ok := m.keymap[key]; ok {
+				// TODO: something like xxxx -> @@@LINK=lack
 				log.Debugf("key existed: %v, %v->[%v], now: %v->%v",
-					key, m.keys[e].key, m.decodeString(m.readAtOffset(int(e))),
-					k, m.decodeString(m.readAtOffset(i)),
+					key, m.keys[e].key, m.decodeString(m.ReadAtOffset(int(e))),
+					k, m.decodeString(m.ReadAtOffset(i)),
 				)
 				continue
 			}
@@ -235,9 +237,37 @@ func (m *MDict) decodeString(b []byte) string {
 	return string(b)
 }
 
-func (m *MDict) readAtOffset(index int) []byte {
+func (m *MDict) fetchNthRecordBlock(i int, bytesBefore int) []byte {
+	log.Tracef("fetchNthRecordBlock: %d, bytesBefore: %d, CompSize: %v", i, bytesBefore, m.recordBlockSizes[i].CompSize)
+	compressed1 := make([]byte, m.recordBlockSizes[i].CompSize)
+	n, err := m.file.ReadAt(compressed1, int64(m.lazyOffset+bytesBefore))
+	if err != nil {
+		log.Fatalf("read at err %v", err)
+	}
+	if n != int(m.recordBlockSizes[i].CompSize) {
+		log.Fatalf("read %v bytes, but expected %v bytes", n, m.recordBlockSizes[i].CompSize)
+	}
+	if n == 0 {
+		return nil
+	}
+	decompressed := decompress(compressed1[:4], compressed1[4:8], compressed1[8:])
+	if len(decompressed) != int(m.recordBlockSizes[i].DecompSize) {
+		log.Fatalf("decompressed length does not equal to expected")
+	}
+	return decompressed
+}
+
+func (m *MDict) ReadAtOffset(index int) []byte {
+	log.Tracef("m.keys len: %v, try to access: %v, nblock: %d[%d]", len(m.keys), index, len(m.recordBlockSizes), m.recordHeader.NumBlocks)
+	if index >= len(m.keys) {
+		log.Fatalf("invalid index for %s.%s", m.header.Title, m.t)
+	}
+
+	var offset1 uint64 = math.MaxUint64
+	if index < len(m.keys)-1 {
+		offset1 = m.keys[index+1].offset
+	}
 	offset := m.keys[index].offset
-	offset1 := m.keys[index+1].offset
 	total := uint64(0)
 	totalDecomp := uint64(0)
 	pre := -1
@@ -245,8 +275,7 @@ func (m *MDict) readAtOffset(index int) []byte {
 	iBlock := -1
 	i1Block := -1
 	for i := uint64(0); i < m.recordHeader.NumBlocks; i++ {
-		log.Debugf("%d block: %v->%v", i, m.recordBlockSizes[i].CompSize, m.recordBlockSizes[i].DecompSize)
-		// log.Debugf("decoding [%d]th records sizes", i)
+		log.Tracef("%d block: %v->%v", i, m.recordBlockSizes[i].CompSize, m.recordBlockSizes[i].DecompSize)
 		pre = int(total)
 		preDecomp = int(totalDecomp)
 		total += m.recordBlockSizes[i].CompSize
@@ -261,57 +290,23 @@ func (m *MDict) readAtOffset(index int) []byte {
 			break
 		}
 	}
-	log.Debugf("index: %v, iBlock: %d, i1Block: %d", index, iBlock, i1Block)
+	log.Tracef("index: %v, iBlock: %d, i1Block: %d, pre: %d, preDecomp: %d, total: %d, totalDecomp: %d, offset:%d",
+		index, iBlock, i1Block, pre, preDecomp, total, totalDecomp, m.lazyOffset)
 	if iBlock < 0 {
 		log.Fatalf("doesn't find a valid block for offset %d", iBlock)
 	}
-	compressed := make([]byte, m.recordBlockSizes[iBlock].CompSize)
-	n, err := m.file.ReadAt(compressed, int64(m.lazyOffset+pre))
-	if err != nil {
-		log.Fatalf("read at err %v", err)
-	}
-	log.Debugf("pre: %v, preDecomp: %v", pre, preDecomp)
-	if n != int(m.recordBlockSizes[iBlock].CompSize) {
-		log.Fatalf("read %v bytes, but expected %v bytes", n, m.recordBlockSizes[iBlock].CompSize)
-	}
-	decompressed := decompress(compressed[:4], compressed[4:8], compressed[8:])
-	if len(decompressed) != int(m.recordBlockSizes[iBlock].DecompSize) {
-		log.Fatalf("decompressed length does not equal to expected")
-	}
-	// FIXME: remove/abstract dup codes
-	if iBlock == i1Block {
-		offset = offset - uint64(preDecomp)
-		offset1 = offset1 - uint64(preDecomp)
+	decompressed := m.fetchNthRecordBlock(iBlock, pre)
+	offset = offset - uint64(preDecomp)
+	offset1 = offset1 - uint64(preDecomp)
+	if iBlock == i1Block { // | ---*--*- | -------- |
 		return decompressed[offset:offset1]
-	} else if i1Block == len(m.recordBlockSizes) {
-		return decompressed[offset:]
-	} else {
-		compressed1 := make([]byte, m.recordBlockSizes[i1Block].CompSize)
-		n, err := m.file.ReadAt(compressed1, int64(m.lazyOffset+int(total)))
-		if err != nil {
-			log.Fatalf("read at err %v", err)
-		}
-		if n != int(m.recordBlockSizes[i1Block].CompSize) {
-			log.Fatalf("read %v bytes, but expected %v bytes", n, m.recordBlockSizes[i1Block].CompSize)
-		}
-		decompressed1 := decompress(compressed1[:4], compressed1[4:8], compressed1[8:])
-		if len(decompressed1) != int(m.recordBlockSizes[i1Block].DecompSize) {
-			log.Fatalf("decompressed length does not equal to expected")
-		}
-		decompressed = append(decompressed, decompressed...)
-		offset = offset - uint64(preDecomp)
-		offset1 = offset1 - uint64(preDecomp)
+	} else if i1Block < len(m.recordBlockSizes) { // | ---*--- | -*-- |
+		decompressed1 := m.fetchNthRecordBlock(i1Block, int(total))
+		decompressed = append(decompressed, decompressed1...)
 		return decompressed[offset:offset1]
 	}
-	// offset := m.keys[index].offset
-	// start := offset
-	// end := len(m.records)
-	// if index < len(m.keys)-1 {
-	// 	end = int(m.keys[index+1].offset)
-	// }
-	// // log.Debugf("len(m.keys)=%d, len(m.records)=%d, index: %d, start: %v, end: %v",
-	// // len(m.keys), len(m.records), index, start, end)
-	// return m.records[start:end]
+	// i1Block == len(m.recordBlockSizes) , index is inside the last block | ---*--- |
+	return decompressed[offset:]
 }
 
 // DumpDict may cost quite a long time, use it when you actually need the whole data
@@ -326,7 +321,7 @@ func (m *MDict) DumpDict() (map[string]string, error) {
 	res := make(map[string]string, m.numEntries)
 	total := 0
 	for i, k := range m.keys {
-		res[m.decodeString(k.key)] = m.decodeString((m.readAtOffset(i)))
+		res[m.decodeString(k.key)] = m.decodeString((m.ReadAtOffset(i)))
 		total += 1
 	}
 	if total != m.numEntries {
@@ -560,7 +555,7 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 	}
 	m.recordHeader = recordHeader
 
-	records := make([]recordBlock, recordHeader.BlocksLen)
+	records := make([]recordBlock, recordHeader.NumBlocks)
 	total := 0
 	totalDecomp := 0
 	for i := uint64(0); i < recordHeader.NumBlocks; i++ {
@@ -576,6 +571,7 @@ func (m *MDict) decodeRecordSection(fd io.Reader) error {
 		log.Fatalf("the block len does not match")
 	}
 	m.recordBlockSizes = records
+	log.Debugf("decodeRecordSection: %d<-%d", len(m.recordBlockSizes), len(records))
 	m.records = make([]byte, 0, totalDecomp)
 	if true && m.t == ".mdx" { // FIXME: xx
 		return nil
@@ -660,7 +656,7 @@ func (m *MDict) DumpData() error {
 			}
 			fname = fname[size:]
 			fname = strings.ReplaceAll(fname, "\\", "/")
-			log.Debugf("fname: %q, %q", fname, filepath.Dir(fname))
+			log.Tracef("fname: %q, %q", fname, filepath.Dir(fname))
 		}
 		path := filepath.Join(util.TmpDir(), filepath.Dir(fname))
 		if err := os.MkdirAll(path, 0o755); err != nil {
@@ -670,8 +666,8 @@ func (m *MDict) DumpData() error {
 		if file, err := os.Create(fname); err != nil {
 			log.Fatalf("open %v err: %v", fname, err)
 		} else {
-			n, err := file.Write(m.readAtOffset(i))
-			log.Debugf("DumpData [%d] to file: %v, n: %v, err: %v", i, fname, n, err)
+			n, err := file.Write(m.ReadAtOffset(i))
+			log.Tracef("DumpData [%d] to file: %v, n: %v, err: %v", i, fname, n, err)
 			file.Close()
 		}
 
