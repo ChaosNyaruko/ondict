@@ -21,14 +21,16 @@
 - [x] BUG: QueryByURL will get an unexpected EOF error.
 - [x] Automate the dict generating process, registering
 - [x] Appropriate module abstraction, and unit testing automation. (sources/decoder/renderer)
-- [x] Lazy-loading for launch performance and memory usage?
+- [x] Lazy-loading for launch performance and memory usage? -> ~~mdd has some panic, debug later~~ fixed
 - [x] Parse the MDD file, and serve the picture sources when working in HTML mode.
 - [x] Support multiple mdx libs at the same time and provide a user interface (no UI yet)
 - [x] Integrated with FZF? or https://github.com/lithammer/fuzzysearch? https://github.com/junegunn/fzf/wiki/Language-bindings#go?
 - [x] `entry://` protocol and "auto"jump, such as `versatility` to `versatile` [node demo](./play.txt)
+- [ ] `@@@LINK=norm` for some items.
+- [x] fzf-mode: reduce the memory usage
 - [x] Integrated with [mdcat](https://github.com/swsnr/mdcat)
 - [x] Auto history. 
-- [ ] A better history/record system, to make the history.table less "polluted" by ongoing fzf-based queries. 
+- [x] A better history/record system, to make the history.table less "polluted" by ongoing fzf-based queries. 
 - [ ] An independent parser cmd.
 - [ ] See the TODOs in the code.
 - [ ] The progress bar while decoding?

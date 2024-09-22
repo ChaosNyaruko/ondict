@@ -22,7 +22,7 @@ type AhoCorasick struct {
 	trie    *ahocorasick.Trie
 }
 
-func New(dict Dict) Searcher {
+func NewAho(dict Dict) Searcher {
 	keys := dict.Keys()
 	// log.Debugf("new aho_corasick: %v", keys)
 	// lowercase

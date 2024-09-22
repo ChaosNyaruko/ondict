@@ -44,9 +44,10 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		word := q.Get("query")
 		e := q.Get("engine")
 		f := q.Get("format")
+		r := q.Get("record")
 		log.Debugf("query dict: %v, engine: %v, format: %v", word, e, f)
 
-		res := query(word, e, f)
+		res := query(word, e, f, r != "0")
 		w.WriteHeader(200)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(res))

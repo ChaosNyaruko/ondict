@@ -23,10 +23,10 @@ type Dicts []*MdxDict
 var G = &Dicts{}
 var once sync.Once
 
-func (g *Dicts) Load() error {
+func (g *Dicts) Load(fzf bool, mdd bool) error {
 	once.Do(func() {
 		for _, d := range *g {
-			d.Register()
+			d.Register(fzf, mdd)
 		}
 		log.Debugf("loading g")
 	})
@@ -83,25 +83,28 @@ func QueryMDX(word string, f string) string {
 	return res
 }
 
-func loadDecodedMdx(filePath string) Dict {
+func loadDecodedMdx(filePath string, fzf bool, mdd bool) Dict {
 	jsonData, err := os.ReadFile(filePath + ".json")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
 	} else if errors.Is(err, os.ErrNotExist) {
 		log.Debugf("JSON file not exist: %v", filePath+".json")
 		m := &decoder.MDict{}
-		err := m.Decode(filePath + ".mdx")
-		go func() {
-			mdd := decoder.MDict{}
-			if err := mdd.Decode(filePath + ".mdd"); err != nil {
-				log.Debugf("[WARN] parse %v.mdd err: %v", filePath, err)
-			} else {
-				log.Debugf("[INFO] successfully decode %v.mdd", filePath)
-				if err := mdd.DumpData(); err != nil {
-					log.Fatalf("dump mdd err: %v", err)
+		err := m.Decode(filePath+".mdx", fzf)
+		if !fzf && mdd {
+			// FIXME: dump on demand
+			go func() {
+				mdd := decoder.MDict{}
+				if err := mdd.Decode(filePath+".mdd", false); err != nil {
+					log.Debugf("[WARN] parse %v.mdd err: %v", filePath, err)
+				} else {
+					log.Debugf("[INFO] successfully decode %v.mdd", filePath)
+					if err := mdd.DumpData(); err != nil {
+						log.Fatalf("dump mdd err: %v", err)
+					}
 				}
-			}
-		}()
+			}()
+		}
 		if err != nil {
 			log.Fatalf("Failed to load mdx file[%v], err: %v", filePath, err)
 		}

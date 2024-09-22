@@ -27,11 +27,14 @@ var help = flag.Bool("h", false, "Show this help doc")
 var ver = flag.Bool("version", false, "Show current version of ondict")
 var word = flag.String("q", "", "Specify the word that you want to query")
 
+var record = flag.Int("r", 0, "Specify this query should be recorded in the log, only take effect with -q. \n0: Not recording\n1: Record it locally \n2: Tell the remote server to record it\n3: Record on both sides (If there is a -remote specified)")
+
 // var easyMode = flag.Bool("e", false, "True to show only 'frequent' meaning")
 var dev = flag.Bool("d", false, "If specified, a static html file will be parsed, instead of an online query, just for dev debugging")
 var verbose = flag.Bool("v", false, "Show debug logs")
 var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
 var useFzf = flag.Bool("fzf", false, "EXPERIMENTAL: whether to use fzf as the fuzzy search tool")
+var dumpMDD = flag.Bool("dump", false, "If true, it will re-dump the mdd data when launched. The dumping will be running in the background, so the server won't be stuck")
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
@@ -62,7 +65,9 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 	// TODO: put it in a better place.
-	sources.LoadConfig()
+	if err := sources.LoadConfig(); err != nil {
+		log.Fatalf("load config err: %v", err)
+	}
 
 	if *renderFormat != "md" {
 		sources.Gbold, sources.Gitalic = "", ""
@@ -78,13 +83,13 @@ func main() {
 	}
 
 	if *useFzf {
-		g.Load()
+		g.Load(true, false)
 		fzf.ListAllWord()
 		return
 	}
 
 	if *interactive {
-		g.Load()
+		g.Load(false, *dumpMDD)
 		startLoop()
 		return
 	}
@@ -110,7 +115,7 @@ func main() {
 			}
 		}
 		log.Debugf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
-		g.Load()
+		g.Load(false, *dumpMDD)
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -134,6 +139,7 @@ func main() {
 		}
 	}
 
+	// one shot mode (-q word)
 	var netConn net.Conn
 	var err error
 	var network, address string
@@ -147,7 +153,7 @@ func main() {
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
-			if err := request(netConn, *engine, *renderFormat); err != nil {
+			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -185,7 +191,7 @@ func main() {
 		startDial := time.Now()
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 		if err == nil {
-			if err := request(netConn, *engine, *renderFormat); err != nil {
+			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -212,16 +218,16 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		g.Load()
-		fmt.Println(sources.QueryMDX(*word, *renderFormat))
-		return
+		g.Load(false, *dumpMDD)
 	}
-	fmt.Println(sources.QueryByURL(*word))
+	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
 }
 
-func query(word string, e string, f string) string {
-	if err := history.Append(word); err != nil {
-		log.Debugf("record %v err: %v", word, err)
+func query(word string, e string, f string, r bool) string {
+	if r {
+		if err := history.Append(word); err != nil {
+			log.Debugf("record %v err: %v", word, err)
+		}
 	}
 	if e == "" {
 		e = *engine
