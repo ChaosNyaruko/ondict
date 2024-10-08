@@ -8,6 +8,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"time"
 
 	"github.com/fatih/color"
@@ -19,7 +20,19 @@ import (
 	"github.com/ChaosNyaruko/ondict/sources"
 )
 
-var version = "v0.0.2"
+var Commit = func() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				return setting.Value
+			}
+		}
+	}
+	return "no-vcs.revision(go build -buildvcs)"
+}()
+
+var Version = "v0.1.0"
+
 var dialTimeout = 5 * time.Second
 var defaultIdleTimeout = 876000 * time.Hour // 100 years
 
@@ -57,6 +70,12 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
+
+	if *ver {
+		fmt.Printf("ondict version: %s-%s built on %s %s with %s\n", Version, Commit, runtime.GOOS, runtime.GOARCH, runtime.Version())
+		return
+	}
+
 	if !*verbose {
 		log.SetLevel(log.InfoLevel)
 		// TODO: they should be bound with a renderer?
@@ -64,18 +83,9 @@ func main() {
 	} else {
 		log.SetLevel(log.DebugLevel)
 	}
-	// TODO: put it in a better place.
-	if err := sources.LoadConfig(); err != nil {
-		log.Fatalf("load config err: %v", err)
-	}
 
 	if *renderFormat != "md" {
 		sources.Gbold, sources.Gitalic = "", ""
-	}
-
-	if *ver {
-		fmt.Printf("ondict %s %s %s with %s\n", version, runtime.GOOS, runtime.GOARCH, runtime.Version())
-		return
 	}
 
 	if !*colour {

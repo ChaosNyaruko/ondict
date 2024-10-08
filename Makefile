@@ -1,5 +1,7 @@
 .PHONY: run debug install serve mdx interactive local auto
 word=doctor
+version := $(shell git describe --tags)
+commit := $(shell git rev-parse HEAD)
 
 # one-shot run
 run: 
@@ -31,8 +33,11 @@ mdx:
 interactive:
 	go run . -i -e=mdx -f=md
 
+build:
+	./build.sh
+
 install:
-	go install .
+	go install -ldflags "-X main.Version=$(version) -X main.Commit=$(commit)" .
 
 localtest:
 	FULLTEST=1 go test -v ./...
@@ -41,3 +46,9 @@ test:
 	go test ./... -coverprofile=cover.out  -v
 	go tool cover -func cover.out | tail -1
 	go tool cover -html=cover.out -o cover.html
+
+play:
+	@echo $$$$
+	@echo $$$$
+	@echo $$$$
+	@echo $$$$

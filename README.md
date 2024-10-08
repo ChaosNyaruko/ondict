@@ -63,6 +63,11 @@ There are some similar products. They are all mature products, but may not suit 
 ```console
 go install github.com/ChaosNyaruko/ondict@latest
 ```
+or 
+```console
+git clone https://github.com/ChaosNyaruko/ondict.git
+make install
+```
 # Usage
 ## Help
 ```console

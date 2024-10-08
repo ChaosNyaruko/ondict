@@ -25,6 +25,9 @@ var once sync.Once
 
 func (g *Dicts) Load(fzf bool, mdd bool) error {
 	once.Do(func() {
+		if err := LoadConfig(); err != nil {
+			log.Fatalf("load config err: %v", err)
+		}
 		for _, d := range *g {
 			d.Register(fzf, mdd)
 		}
