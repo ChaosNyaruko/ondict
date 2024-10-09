@@ -26,15 +26,15 @@
 - [x] Support multiple mdx libs at the same time and provide a user interface (no UI yet)
 - [x] Integrated with FZF? or https://github.com/lithammer/fuzzysearch? https://github.com/junegunn/fzf/wiki/Language-bindings#go?
 - [x] `entry://` protocol and "auto"jump, such as `versatility` to `versatile` [node demo](./play.txt)
-- [ ] `@@@LINK=norm` for some items.
+- [ ] `@@@LINK=norm` for some items, such as "tormentor/linker".
 - [x] fzf-mode: reduce the memory usage
 - [x] Integrated with [mdcat](https://github.com/swsnr/mdcat)
 - [x] Auto history. 
 - [x] A better history/record system, to make the history.table less "polluted" by ongoing fzf-based queries. 
 - [ ] An independent parser cmd.
 - [ ] See the TODOs in the code.
-- [ ] The progress bar while decoding?
-
+- [x] The progress bar while decoding?
+- [ ] Automatically generate a valid configuration file, using template or Internet.
 ---
 The following are less important things that I want to finish.
 - [x] Editor plugin: give users the option to setup the server in advance, for better first-query user experience. 
