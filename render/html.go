@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 type Renderer interface {
@@ -56,10 +58,73 @@ func modifyImgSrc(n *html.Node) {
 	// log.Debugf("modifyImgSrc %#v", n)
 }
 
-func replaceMp3(n *html.Node, val string, i int) {
+func replaceMp3(n *html.Node, val string) {
 	new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(val, "sound://")))
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
-	n.Attr[i].Val = new
+	n.DataAtom = atom.Div
+	n.Data = "div"
+	n.Attr = append(n.Attr, []html.Attribute{
+		{Key: "id", Val: "__div__" + val},
+		{Key: "class", Val: "__clickable__"},
+	}...)
+	node := newAudioTag(new)
+	jsChild := html.Node{
+		Parent:      nil,
+		FirstChild:  nil,
+		LastChild:   nil,
+		PrevSibling: nil,
+		NextSibling: nil,
+		Type:        html.TextNode,
+		DataAtom:    atom.Script,
+		Data:        fmt.Sprintf(jsTempl, "__div__"+val, "__audio__"+val),
+		Namespace:   "",
+		Attr:        nil,
+	}
+	jsNode := html.Node{
+		Parent:      nil,
+		FirstChild:  nil,
+		LastChild:   nil,
+		PrevSibling: nil,
+		NextSibling: nil,
+		Type:        html.ElementNode,
+		DataAtom:    atom.Script,
+		Data:        "script",
+		Namespace:   "",
+		Attr:        []html.Attribute{},
+	}
+	jsNode.InsertBefore(&jsChild, nil)
+	n.InsertBefore(node, nil)
+	n.InsertBefore(&jsNode, nil)
+	var b bytes.Buffer
+	err := html.Render(&b, n)
+	if err != nil {
+		panic(err)
+	}
+	file, err := os.OpenFile("test-audio.html", os.O_WRONLY|os.O_CREATE, 0o666)
+	if err != nil {
+		panic(err)
+	}
+	file.Write(b.Bytes())
+	file.Close()
+}
+
+func newAudioTag(src string) *html.Node {
+	res := html.Node{
+		Parent:      nil,
+		FirstChild:  nil,
+		LastChild:   nil,
+		PrevSibling: nil,
+		NextSibling: nil,
+		Type:        html.ElementNode,
+		DataAtom:    atom.Audio,
+		Data:        "audio",
+		Namespace:   "",
+		Attr: []html.Attribute{
+			{Key: "id", Val: `__audio__` + src},
+			{Key: "src", Val: src},
+		},
+	}
+	return &res
 }
 
 func modifyHref(n *html.Node) {
@@ -70,7 +135,7 @@ func modifyHref(n *html.Node) {
 				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
 				n.Attr[i].Val = new
 			} else if strings.HasPrefix(a.Val, "sound://") {
-				replaceMp3(n, a.Val, i)
+				replaceMp3(n, a.Val)
 			}
 		}
 	}
@@ -111,3 +176,14 @@ func IsElement(n *html.Node, ele string, class string) bool {
 	}
 	return false
 }
+
+const jsTempl = `
+ const playIcon = document.getElementById('%s');
+    const audioPlayer = document.getElementById('%s');
+
+    playIcon.addEventListener('click', () => {
+        audioPlayer.play().catch(error => {
+            console.error('Error playing audio:', error);
+        });
+    });
+`

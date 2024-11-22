@@ -22,10 +22,10 @@
 </head>
 <body>
 
-<div class="icon" id="playIcon">▶️</div>
 
-<audio controls id="audioPlayer" src="demo.mp3"></audio>
-
+<div class="icon" id="playIcon">
+<audio id="audioPlayer" src="demo.mp3">
+</audio>
 <script>
     const playIcon = document.getElementById('playIcon');
     const audioPlayer = document.getElementById('audioPlayer');
@@ -36,6 +36,10 @@
         });
     });
 </script>
+</div>
+
 
 </body>
 </html>
+
+<!-- https://stackoverflow.com/questions/63740598/how-can-i-use-html-audio-tag-with-icon -->
