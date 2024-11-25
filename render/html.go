@@ -59,7 +59,7 @@ func modifyImgSrc(n *html.Node) {
 }
 
 func replaceMp3(n *html.Node, val string) {
-	{
+	if false {
 		var b bytes.Buffer
 		err := html.Render(&b, n)
 		if err != nil {
@@ -76,10 +76,11 @@ func replaceMp3(n *html.Node, val string) {
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
 	n.DataAtom = atom.Div
 	n.Data = "div"
-	n.Attr = append(n.Attr, []html.Attribute{
+	n.Attr = []html.Attribute{
 		{Key: "id", Val: "__div__" + val},
 		{Key: "class", Val: "__clickable__"},
-	}...)
+		{Key: "style", Val: ".__clickable__:hover {cursor:pointer;}"},
+	}
 	node := newAudioTag(new)
 	jsChild := html.Node{
 		Parent:      nil,
@@ -89,7 +90,7 @@ func replaceMp3(n *html.Node, val string) {
 		NextSibling: nil,
 		Type:        html.TextNode,
 		DataAtom:    0,
-		Data:        fmt.Sprintf(jsTempl, "__div__"+val, "__audio__"+val),
+		Data:        fmt.Sprintf(jsTempl, "__div__"+val, "__audio__"+new),
 		Namespace:   "",
 		Attr:        nil,
 	}
@@ -108,17 +109,19 @@ func replaceMp3(n *html.Node, val string) {
 	jsNode.InsertBefore(&jsChild, nil)
 	n.InsertBefore(node, nil)
 	n.InsertBefore(&jsNode, nil)
-	var b bytes.Buffer
-	err := html.Render(&b, n)
-	if err != nil {
-		panic(err)
+	if false {
+		var b bytes.Buffer
+		err := html.Render(&b, n)
+		if err != nil {
+			panic(err)
+		}
+		file, err := os.OpenFile("test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
+		if err != nil {
+			panic(err)
+		}
+		file.Write(b.Bytes())
+		file.Close()
 	}
-	file, err := os.OpenFile("test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
-	if err != nil {
-		panic(err)
-	}
-	file.Write(b.Bytes())
-	file.Close()
 }
 
 func newAudioTag(src string) *html.Node {
