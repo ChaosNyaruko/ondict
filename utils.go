@@ -10,7 +10,7 @@ import (
 
 func dfs(n *html.Node) {
 	if n.Type == html.TextNode {
-		log.Printf("TextNode: %v, Parent: %v", n.Data, n.Parent.DataAtom)
+		log.Printf("TextNode: %v/%d, Parent: %v", n.Data, n.DataAtom, n.Parent.DataAtom)
 		return
 	}
 	log.Printf("Type: %#v, DataAtom: %v, Attr: %#v", n.Type, n.DataAtom, n.Attr)

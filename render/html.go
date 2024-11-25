@@ -59,6 +59,19 @@ func modifyImgSrc(n *html.Node) {
 }
 
 func replaceMp3(n *html.Node, val string) {
+	{
+		var b bytes.Buffer
+		err := html.Render(&b, n)
+		if err != nil {
+			panic(err)
+		}
+		file, err := os.OpenFile("origin-test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
+		if err != nil {
+			panic(err)
+		}
+		file.Write(b.Bytes())
+		file.Close()
+	}
 	new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(val, "sound://")))
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
 	n.DataAtom = atom.Div
@@ -75,7 +88,7 @@ func replaceMp3(n *html.Node, val string) {
 		PrevSibling: nil,
 		NextSibling: nil,
 		Type:        html.TextNode,
-		DataAtom:    atom.Script,
+		DataAtom:    0,
 		Data:        fmt.Sprintf(jsTempl, "__div__"+val, "__audio__"+val),
 		Namespace:   "",
 		Attr:        nil,
@@ -100,7 +113,7 @@ func replaceMp3(n *html.Node, val string) {
 	if err != nil {
 		panic(err)
 	}
-	file, err := os.OpenFile("test-audio.html", os.O_WRONLY|os.O_CREATE, 0o666)
+	file, err := os.OpenFile("test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		panic(err)
 	}
@@ -143,6 +156,7 @@ func modifyHref(n *html.Node) {
 
 func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	if n.Type == html.TextNode {
+		log.Infof("TextNode: %v, DataAtom:%v", n.Type, n.DataAtom)
 		return ""
 	}
 	if IsElement(n, "a", "") {
