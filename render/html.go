@@ -72,6 +72,7 @@ func replaceMp3(n *html.Node, val string) {
 		file.Write(b.Bytes())
 		file.Close()
 	}
+	name := strings.TrimSuffix(url.QueryEscape(strings.TrimPrefix(val, "sound://")), ".mp3")
 	new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(val, "sound://")))
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
 	n.DataAtom = atom.Div
@@ -90,7 +91,7 @@ func replaceMp3(n *html.Node, val string) {
 		NextSibling: nil,
 		Type:        html.TextNode,
 		DataAtom:    0,
-		Data:        fmt.Sprintf(jsTempl, "__div__"+val, "__audio__"+new),
+		Data:        fmt.Sprintf(jsTempl, name, "__div__"+val, name, "__audio__"+new, name, name),
 		Namespace:   "",
 		Attr:        nil,
 	}
@@ -195,11 +196,11 @@ func IsElement(n *html.Node, ele string, class string) bool {
 }
 
 const jsTempl = `
- const playIcon = document.getElementById('%s');
-    const audioPlayer = document.getElementById('%s');
+  let playIcon_%s = document.getElementById('%s');
+  let audioPlayer_%s = document.getElementById('%s');
 
-    playIcon.addEventListener('click', () => {
-        audioPlayer.play().catch(error => {
+    playIcon_%s.addEventListener('click', () => {
+        audioPlayer_%s.play().catch(error => {
             console.error('Error playing audio:', error);
         });
     });
