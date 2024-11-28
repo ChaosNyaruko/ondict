@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Player</title>
+    <style>
+        .icon {
+            cursor: pointer;
+            width: 50px;
+            height: 50px;
+            background-color: #007bff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+
+<div class="icon" id="playIcon">
+<audio id="audioPlayer" src="demo.mp3">
+</audio>
+<script>
+    const playIcon = document.getElementById('playIcon');
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    playIcon.addEventListener('click', () => {
+        audioPlayer.play().catch(error => {
+            console.error('Error playing audio:', error);
+        });
+    });
+</script>
+</div>
+
+
+</body>
+</html>
+
+<!-- https://stackoverflow.com/questions/63740598/how-can-i-use-html-audio-tag-with-icon -->

@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 type Renderer interface {
@@ -56,10 +58,90 @@ func modifyImgSrc(n *html.Node) {
 	// log.Debugf("modifyImgSrc %#v", n)
 }
 
-func replaceMp3(n *html.Node, val string, i int) {
+func replaceMp3(n *html.Node, val string) {
+	if false {
+		var b bytes.Buffer
+		err := html.Render(&b, n)
+		if err != nil {
+			panic(err)
+		}
+		file, err := os.OpenFile("origin-test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
+		if err != nil {
+			panic(err)
+		}
+		file.Write(b.Bytes())
+		file.Close()
+	}
+	name := strings.TrimSuffix(url.QueryEscape(strings.TrimPrefix(val, "sound://")), ".mp3")
 	new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(val, "sound://")))
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
-	n.Attr[i].Val = new
+	n.DataAtom = atom.Div
+	n.Data = "div"
+	n.Attr = []html.Attribute{
+		{Key: "id", Val: "__div__" + val},
+		{Key: "class", Val: "__clickable__"},
+		{Key: "style", Val: "cursor: pointer"},
+	}
+	node := newAudioTag(new)
+	jsChild := html.Node{
+		Parent:      nil,
+		FirstChild:  nil,
+		LastChild:   nil,
+		PrevSibling: nil,
+		NextSibling: nil,
+		Type:        html.TextNode,
+		DataAtom:    0,
+		Data:        fmt.Sprintf(jsTempl, name, "__div__"+val, name, "__audio__"+new, name, name),
+		Namespace:   "",
+		Attr:        nil,
+	}
+	jsNode := html.Node{
+		Parent:      nil,
+		FirstChild:  nil,
+		LastChild:   nil,
+		PrevSibling: nil,
+		NextSibling: nil,
+		Type:        html.ElementNode,
+		DataAtom:    atom.Script,
+		Data:        "script",
+		Namespace:   "",
+		Attr:        []html.Attribute{},
+	}
+	jsNode.InsertBefore(&jsChild, nil)
+	n.InsertBefore(node, nil)
+	n.InsertBefore(&jsNode, nil)
+	if false {
+		var b bytes.Buffer
+		err := html.Render(&b, n)
+		if err != nil {
+			panic(err)
+		}
+		file, err := os.OpenFile("test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
+		if err != nil {
+			panic(err)
+		}
+		file.Write(b.Bytes())
+		file.Close()
+	}
+}
+
+func newAudioTag(src string) *html.Node {
+	res := html.Node{
+		Parent:      nil,
+		FirstChild:  nil,
+		LastChild:   nil,
+		PrevSibling: nil,
+		NextSibling: nil,
+		Type:        html.ElementNode,
+		DataAtom:    atom.Audio,
+		Data:        "audio",
+		Namespace:   "",
+		Attr: []html.Attribute{
+			{Key: "id", Val: `__audio__` + src},
+			{Key: "src", Val: src},
+		},
+	}
+	return &res
 }
 
 func modifyHref(n *html.Node) {
@@ -70,7 +152,7 @@ func modifyHref(n *html.Node) {
 				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
 				n.Attr[i].Val = new
 			} else if strings.HasPrefix(a.Val, "sound://") {
-				replaceMp3(n, a.Val, i)
+				replaceMp3(n, a.Val)
 			}
 		}
 	}
@@ -78,6 +160,7 @@ func modifyHref(n *html.Node) {
 
 func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	if n.Type == html.TextNode {
+		log.Infof("TextNode: %v, DataAtom:%v", n.Type, n.DataAtom)
 		return ""
 	}
 	if IsElement(n, "a", "") {
@@ -111,3 +194,14 @@ func IsElement(n *html.Node, ele string, class string) bool {
 	}
 	return false
 }
+
+const jsTempl = `
+  let playIcon_%s = document.getElementById('%s');
+  let audioPlayer_%s = document.getElementById('%s');
+
+    playIcon_%s.addEventListener('click', () => {
+        audioPlayer_%s.play().catch(error => {
+            console.error('Error playing audio:', error);
+        });
+    });
+`

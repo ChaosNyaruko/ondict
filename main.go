@@ -31,7 +31,7 @@ var Commit = func() string {
 	return "no-vcs.revision(go build -buildvcs)"
 }()
 
-var Version = "v0.1.0"
+var Version = "v0.1.1"
 
 var dialTimeout = 5 * time.Second
 var defaultIdleTimeout = 876000 * time.Hour // 100 years
@@ -47,6 +47,7 @@ var dev = flag.Bool("d", false, "If specified, a static html file will be parsed
 var verbose = flag.Bool("v", false, "Show debug logs")
 var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
 var useFzf = flag.Bool("fzf", false, "EXPERIMENTAL: whether to use fzf as the fuzzy search tool")
+var ahoFuzzy = flag.Bool("aho", false, "When enabled, searching for something will use 'aho-corasick' algorithm, which will cost much more memory, \nbut allows you to find SHORTER && SIMILAR results when you didn't type in the exact word existing in the MDX dictionaries, \ni.e. finding the LONGEST match in the MDX dictionaries. \nNOT take effect when '-fzf' is enabled.")
 var dumpMDD = flag.Bool("dump", false, "If true, it will re-dump the mdd data when launched. The dumping will be running in the background, so the server won't be stuck")
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
@@ -99,7 +100,7 @@ func main() {
 	}
 
 	if *interactive {
-		g.Load(false, *dumpMDD)
+		g.Load(!*ahoFuzzy, *dumpMDD)
 		startLoop()
 		return
 	}
@@ -125,7 +126,7 @@ func main() {
 			}
 		}
 		log.Debugf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
-		g.Load(false, *dumpMDD)
+		g.Load(!*ahoFuzzy, *dumpMDD)
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -228,7 +229,7 @@ func main() {
 
 	if *engine == "mdx" {
 		// io.Copy(os.Stdout, fd)
-		g.Load(false, *dumpMDD)
+		g.Load(!*ahoFuzzy, *dumpMDD)
 	}
 	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
 }
