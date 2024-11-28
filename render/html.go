@@ -80,7 +80,7 @@ func replaceMp3(n *html.Node, val string) {
 	n.Attr = []html.Attribute{
 		{Key: "id", Val: "__div__" + val},
 		{Key: "class", Val: "__clickable__"},
-		{Key: "style", Val: ".__clickable__:hover {cursor:pointer;}"},
+		{Key: "style", Val: "cursor: pointer"},
 	}
 	node := newAudioTag(new)
 	jsChild := html.Node{
