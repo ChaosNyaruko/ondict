@@ -78,6 +78,10 @@ func (d *MdxDict) Register(fzf bool, mdd bool) error {
 			d.MdxCss = string(css)
 		}
 	}
-	d.searcher = NewExact(d.MdxDict)
+	if !fzf {
+		d.searcher = NewAho(d.MdxDict)
+	} else {
+		d.searcher = NewExact(d.MdxDict)
+	}
 	return nil
 }
