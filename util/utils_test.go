@@ -1,4 +1,4 @@
-package main
+package util_test
 
 import (
 	"fmt"
@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/ChaosNyaruko/ondict/render"
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 func Test_Parse(t *testing.T) {
-	DumpHTMLDoc("play-with-audio.html")
+	util.DumpHTMLDoc("play-with-audio.html")
 }
 
 func Test_ReplaceMp3(t *testing.T) {
