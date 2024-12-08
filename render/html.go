@@ -75,12 +75,19 @@ func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
 	n.DataAtom = atom.Div
 	n.Data = "div"
+	name = strings.ReplaceAll(name, ".", "_")
+	name = strings.ReplaceAll(name, "/", "_")
+	name = strings.ReplaceAll(name, "-", "_")
+	divID := "__div__" + name
+	audioID := "__audio__" + name
 	n.Attr = append(n.Attr, []html.Attribute{
-		{Key: "id", Val: "__div__" + val},
+		{Key: "id", Val: divID},
 		// {Key: "class", Val: "__clickable__"},
 		{Key: "style", Val: "cursor: pointer"},
 	}...)
-	node := newAudioTag(new)
+	node := newAudioTag(name, new)
+	playIconVar := fmt.Sprintf("playIcon_%s", name)
+	audioPlayerVar := fmt.Sprintf("audioPlayer_%s", name)
 	jsChild := html.Node{
 		Parent:      nil,
 		FirstChild:  nil,
@@ -89,7 +96,7 @@ func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
 		NextSibling: nil,
 		Type:        html.TextNode,
 		DataAtom:    0,
-		Data:        fmt.Sprintf(jsTempl, name, "__div__"+val, name, "__audio__"+new, name, name),
+		Data:        fmt.Sprintf(jsTempl, playIconVar, divID, audioPlayerVar, audioID, playIconVar, audioPlayerVar),
 		Namespace:   "",
 		Attr:        nil,
 	}
@@ -123,7 +130,7 @@ func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
 	}
 }
 
-func newAudioTag(src string) *html.Node {
+func newAudioTag(name, src string) *html.Node {
 	res := html.Node{
 		Parent:      nil,
 		FirstChild:  nil,
@@ -135,7 +142,7 @@ func newAudioTag(src string) *html.Node {
 		Data:        "audio",
 		Namespace:   "",
 		Attr: []html.Attribute{
-			{Key: "id", Val: `__audio__` + src},
+			{Key: "id", Val: `__audio__` + name},
 			{Key: "src", Val: src},
 		},
 	}
@@ -150,8 +157,8 @@ func (h *HTMLRender) modifyHref(n *html.Node) {
 				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
 				n.Attr[i].Val = new
 			} else if strings.HasPrefix(a.Val, "sound://") {
-				name := strings.TrimSuffix(url.QueryEscape(strings.TrimPrefix(a.Val, "sound://")), ".mp3")
-				new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(a.Val, "sound://")))
+				name := strings.TrimSuffix(strings.TrimPrefix(a.Val, "sound://"), ".mp3")
+				new := fmt.Sprintf("/%s", strings.TrimPrefix(a.Val, "sound://"))
 				if strings.HasSuffix(h.SourceType, "Online") {
 					n.Attr[i].Val = new
 				} else {
@@ -200,11 +207,11 @@ func IsElement(n *html.Node, ele string, class string) bool {
 }
 
 const jsTempl = `
-  let playIcon_%s = document.getElementById('%s');
-  let audioPlayer_%s = document.getElementById('%s');
+   let %s = document.getElementById('%s');
+   let %s = document.getElementById('%s');
 
-    playIcon_%s.addEventListener('click', () => {
-        audioPlayer_%s.play().catch(error => {
+    %s.addEventListener('click', () => {
+        %s.play().catch(error => {
             console.error('Error playing audio:', error);
         });
     });
