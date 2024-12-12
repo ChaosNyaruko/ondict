@@ -35,7 +35,7 @@ It is _NOT_ a "translator", in which scenario an LLM model based tool is more su
 
 Web mode is recommended, because both the online engine and MDX engine are based on HTML/CSS stuff. So when you need its output to be rendered as markdown, a independent parser and renderer need to written for each source, that's quite a lot of work and almost impossible.
 
-I just write a simple markdown renderer for [Longman Dictionary of Contemporary English](https://github.com/ChaosNyaruko/ondict/releases/download/v0.0.5/Longman.Dictionary.of.Contemporary.English.mdx) MDX dictionary, which I uploaded in some releases, so that you can roughly use its markdown rendered output in some cases, such working as a TUI editor(which has no "web core") plugin, or just using it in a terminal.
+I just write a simple markdown renderer for [Longman Dictionary of Contemporary English](https://github.com/ChaosNyaruko/ondict/releases/download/v0.0.5/Longman.Dictionary.of.Contemporary.English.mdx) MDX dictionary, which I uploaded in some releases, so that you can roughly use its markdown rendered output in some cases, such as working as a TUI(which has no "web core") editor plugin, or just using it in the terminal.
 
 # Other choices
 - [Golden](http://www.goldendict.org/)
@@ -44,15 +44,15 @@ I just write a simple markdown renderer for [Longman Dictionary of Contemporary 
 - ...
 
 There are some similar products. They are all mature products, but may not suit me(or you) in some cases. Compared to these, this application is not yet so well polished, but it has its own advantages.
-- It's a CLI application, conforming to the UNIX stdout convention. So you can further process the output, or embed it into any UNIX-like CLI tools.
+- It can serve as a CLI application, conforming to the UNIX stdout convention. So you can further process the output, or embed it into any UNIX-like CLI tools, then integrate it into your CLI/TUI based workflow very easily.
 - The output can be plain text(such as Markdown format), so feel free to render it with any renderer. You can also embed it into your extensible editor. I provide [neovim](https://neovim.io) integration out of the box.
-- The output can also be internally rendered as HTML, and your can just use it to build a server, which you can access anywhere by your browser, without having to install any other apps.
+- The raw output(for MDX dictionaries especially) are just HTML/CSS/JavaScript, so your can just use it to build a server, which you can access anywhere by your browser, without having to install any other apps. E.g. [Demo Website](https://mini.freecloud.dev)
 - Easy to cross platform. The core is written in Go. 
 - It's free and open source, just fork/PR/issue it if you like!
 
 # Prerequisites
 - Go version >=1.16, and add $GOBIN in your $PATH
-- Neovim version >= 0.9.1 [recommended, because I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) is required. So it can also be ported to Vim, but I am not quite familiar with vim's popup feature yet]
+- Neovim version >= 0.9.1 (recommended, because I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) are required. So it can also be ported to Vim with little effort theoretically, but I am not quite familiar with vim's popup feature yet)
 
 # Features
 - **Online** query support based on [Longman online dictionary](https://ldoceonline.com)
