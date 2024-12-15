@@ -19,6 +19,7 @@ Table of Contents
       * [Integrated with FZF (experimental and MacOS only)](#integrated-with-fzf-experimental-and-macos-only)
 * [How to use it in Neovim](#neovim)
 * [Configuration](#configuration)
+* [TODOs](#todos)
 * [LICENSE](#license)
 * [Table of Contents](#table-of-contents)
 
@@ -123,8 +124,6 @@ You can also deploy it on your server, as an upstream of Nginx/, or just exposin
 
 You can run `make serve` locally for an easy example. My front-end skill is poor, so the page is ugly and rough, don't hate it :(. 
 
-There are still a lot of [TODOs](./todo.md), feel free to give me PRs and contribute to the immature project, thanks in advance.
-
 ### Work with Neovim
 See [Integrated with Neovim](#neovim)
 ![Gif](./assets/e1_mdx_nvim.gif)
@@ -228,7 +227,9 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
   ]
 }
 ```
+
+# TODOs
+There are still a lot of [TODOs](./todo.md), feel free to give me PRs and contribute to the immature project, thanks in advance.
+
 # LICENSE
 [LICENSE](./LICENSE)
-
-
