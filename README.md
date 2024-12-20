@@ -28,6 +28,8 @@ Table of Contents
 # Introduction
 Yet another simple dictionary application. Support multiple sources, including Longman online dictionary, and user-loaded MDX/MDD dictionary files.
 
+[视频介绍（简中）](https://www.bilibili.com/video/BV1PuB5YmEeq)
+
 # Disclaimer
 It is trying to be just a **dictionary**, which you may need during your English study or writing some English posts. 
 
