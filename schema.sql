@@ -34,3 +34,4 @@ CREATE TABLE IF NOT EXISTS vocab(
 );
 
 CREATE UNIQUE INDEX i_word_src ON vocab(word, src);
+
