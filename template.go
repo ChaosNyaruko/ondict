@@ -7,6 +7,12 @@ const portal = `
         h1 {
             text-align:center;
         }
+		footer {
+			text-align: center;
+			padding: 3px;
+			background-color: DarkSalmon;
+			color: white;
+		}
     </style>
     <body>
         <h1>
@@ -23,6 +29,10 @@ const portal = `
         <input type="submit" value="Submit"/>
         </form>
         </h1>
+		<footer>
+		  <p>This is an open-source project<br> Author: ChaosNyaruko<br>
+	<a href="https://github.com/ChaosNyaruko/ondict">ChaosNyaruko's ondict</a></p>
+		</footer>
     </body>
 </html>
 `
