@@ -21,6 +21,6 @@ RUN go build -o ondict
 EXPOSE 1345
 
 # Start the application
-CMD ["/build/ondict","-serve","-f=md", "-e=mdx","-listen=0.0.0.0:1345"]
+CMD ["/build/ondict","-serve","-f=md", "-e=mdx","-listen=0.0.0.0:1345", "-dump"]
 # CMD ["/bin/bash"]
 

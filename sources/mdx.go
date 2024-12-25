@@ -94,7 +94,7 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool) Dict {
 		m := &decoder.MDict{}
 		err := m.Decode(filePath+".mdx", fzf)
 		if mdd {
-			log.Infof("dumping mdd files: %v", filePath+".mdd")
+			log.Infof("The server will dump mdd resources for [%v]!", filePath+".mdd")
 			go func() {
 				mdd := decoder.MDict{}
 				if err := mdd.Decode(filePath+".mdd", false); err != nil {
