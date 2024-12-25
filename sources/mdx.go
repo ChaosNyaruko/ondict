@@ -90,10 +90,11 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool) Dict {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
 	} else if errors.Is(err, os.ErrNotExist) {
-		log.Debugf("JSON file not exist: %v", filePath+".json")
+		log.Debugf("JSON file not exist: %v, fzf: %v, mdd: %v", filePath+".json", fzf, mdd)
 		m := &decoder.MDict{}
 		err := m.Decode(filePath+".mdx", fzf)
-		if !fzf && mdd {
+		if mdd {
+			log.Infof("dumping mdd files: %v", filePath+".mdd")
 			go func() {
 				mdd := decoder.MDict{}
 				if err := mdd.Decode(filePath+".mdd", false); err != nil {

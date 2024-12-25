@@ -125,7 +125,7 @@ func main() {
 				}
 			}
 		}
-		log.Debugf("start a new server: %s/%s/%s/%s", network, addr, *renderFormat, *engine)
+		log.Debugf("start a new server: %s/%s/%s/%s/%v", network, addr, *renderFormat, *engine, *dumpMDD)
 		g.Load(!*ahoFuzzy, *dumpMDD)
 		l, err := net.Listen(network, addr)
 		if err != nil {
