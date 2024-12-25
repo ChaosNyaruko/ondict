@@ -73,15 +73,16 @@ or
 git clone https://github.com/ChaosNyaruko/ondict.git
 make install
 ```
-## Using Docker 
+## Using Docker and serving as a HTTP server in the container
+For your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.
 ### Local
 ```console
 docker build . -t ondict
-docker run --rm --name ondict-app --publish 1346:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  ondict
+docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  ondict
 ```
 ### Remote
 ```console
-docker run --rm --name ondict-app --publish 1346:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  chaosnyaruko/ondict:latest
+docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  chaosnyaruko/ondict:latest
 ```
 # Usage
 ## Help
