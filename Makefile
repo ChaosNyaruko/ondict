@@ -54,4 +54,4 @@ play:
 	@echo $$$$
 
 docker:
-	 docker run --rm --name ondict-app --publish 1346:1345 --mount type=bind,source=/Users/bytedance/.config/ondict,target=/root/.config/ondict  ondict
+	 docker run --rm --name ondict-app --publish 1346:1345 --mount type=bind,source=/Users/bill/.config/ondict,target=/root/.config/ondict  ondict
