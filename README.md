@@ -10,10 +10,10 @@ Table of Contents
 * [Usage](#usage)
    * [Help](#help)
    * [Examples](#examples)
+      * [Work as an HTTP server](#work-as-an-http-server)
       * [One-shot query](#one-shot-query)
       * [One-shot query, but from remote server](#one-shot-query-but-from-remote-server)
       * [A "repl" querier](#a-repl-querier)
-      * [Work as a server](#work-as-a-server)
       * [Work with Neovim](#work-with-neovim)
       * [For MacOS, work with hammerspoon](#work-with-hammerspoon)
       * [Integrated with FZF (experimental and MacOS only)](#integrated-with-fzf-experimental-and-macos-only)
@@ -36,11 +36,12 @@ It is trying to be just a **dictionary**, which you may need during your English
 
 It is _NOT_ a "translator", in which scenario an LLM model based tool is more suitable in modern days.
 
-Web mode is recommended, because both the online engine and MDX engine are based on HTML/CSS stuff. So when you need its output to be rendered as markdown, a independent parser and renderer need to written for each source, that's quite a lot of work and almost impossible.
+Web mode is RECOMMENDED, because both the online engine and MDX engine are based on HTML/CSS stuff. So when you need its output to be rendered as markdown, a independent parser and renderer need to written for each source, that's quite a lot of work and almost impossible.
 
 I just write a simple markdown renderer for [Longman Dictionary of Contemporary English](https://github.com/ChaosNyaruko/ondict/releases/download/v0.0.5/Longman.Dictionary.of.Contemporary.English.mdx) MDX dictionary, which I uploaded in some releases, so that you can roughly use its markdown rendered output in some cases, such as working as a TUI(which has no "web core") editor plugin, or just using it in the terminal.
 
 # Other choices
+- [ninja33's wonderful work](https://github.com/ninja33/mdx-server)
 - [Golden](http://www.goldendict.org/)
 - [Eudic](https://www.eudic.net/v4/en/app/eudic)
 - [深蓝](https://www.ssdlsoft.com)
@@ -63,6 +64,7 @@ There are some similar products. They are all mature products, but may not suit 
 - In the offline mode, MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
 
 # Installation
+## Build from source(Recommended)
 ```console
 go install github.com/ChaosNyaruko/ondict@latest
 ```
@@ -70,6 +72,17 @@ or
 ```console
 git clone https://github.com/ChaosNyaruko/ondict.git
 make install
+```
+## Using Docker and serving as a HTTP server in the container
+For your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.
+### Local
+```console
+docker build . -t ondict
+docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  ondict
+```
+### Remote
+```console
+docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  chaosnyaruko/ondict:latest
 ```
 # Usage
 ## Help
@@ -81,6 +94,26 @@ ondict -h
 ```
 
 ## Examples
+### Work as an HTTP server
+A.K.A. Web mode, **recommended**.
+
+This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
+```console
+ondict -serve -listen=localhost:1345 -e=mdx
+```
+Launch a http request
+```console
+curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
+```
+Or just open your browser, vist localhost:1345 and you'll see!
+![Gif](./assets/e1_mdx_web.gif)
+If you are visiting the URL with a web browser, setting format to "html" is recommended. The browser will automatically render a more beautiful page than it is in the "CLI" interface.
+
+You can also deploy it on your server, as an upstream of Nginx/, or just exposing it with a suitable ip/port.
+
+You can run `make serve` locally for an easy example. My front-end skill is poor, so the page is ugly and rough, don't hate it :(. 
+
+There are still a lot of [TODOs](./todo.md), feel free to give me PRs and contribute to the immature project, thanks in advance.
 ### One-shot query
 A one-shot query, it will take some time when you call it the first time, it needs some loading work.
 It will launch an local server using unix domain socket.
@@ -109,22 +142,6 @@ ondict -i -e mdx
 ```
 input `.help` for commands that can be used.
 ![Gif](./assets/e1_mdx_interactive.gif)
-
-### Work as a server
-This app can also serve as a HTTP server, allowing remote fetch and query, with cache and acceleration.
-```console
-ondict -serve -listen=localhost:1345 -e=mdx
-```
-Launch a http request
-```console
-curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
-```
-![Gif](./assets/e1_mdx_web.gif)
-If you are visiting the URL with a web browser, setting format to "html" is recommended. The browser will automatically render a more beautiful page than it is in the "CLI" interface.
-
-You can also deploy it on your server, as an upstream of Nginx/, or just exposing it with a suitable ip/port.
-
-You can run `make serve` locally for an easy example. My front-end skill is poor, so the page is ugly and rough, don't hate it :(. 
 
 ### Work with Neovim
 See [Integrated with Neovim](#neovim)

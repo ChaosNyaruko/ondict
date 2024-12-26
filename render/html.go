@@ -36,7 +36,7 @@ func (h *HTMLRender) Render() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dfs(doc, 0, nil, "")
+	h.dfs(doc, 0, nil, "")
 	var b bytes.Buffer
 	err = html.Render(&b, doc)
 	if err != nil {
@@ -58,7 +58,7 @@ func modifyImgSrc(n *html.Node) {
 	// log.Debugf("modifyImgSrc %#v", n)
 }
 
-func replaceMp3(n *html.Node, val string) {
+func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
 	if false {
 		var b bytes.Buffer
 		err := html.Render(&b, n)
@@ -72,17 +72,22 @@ func replaceMp3(n *html.Node, val string) {
 		file.Write(b.Bytes())
 		file.Close()
 	}
-	name := strings.TrimSuffix(url.QueryEscape(strings.TrimPrefix(val, "sound://")), ".mp3")
-	new := fmt.Sprintf("/%s", url.QueryEscape(strings.TrimPrefix(val, "sound://")))
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
 	n.DataAtom = atom.Div
 	n.Data = "div"
-	n.Attr = []html.Attribute{
-		{Key: "id", Val: "__div__" + val},
-		{Key: "class", Val: "__clickable__"},
+	name = strings.ReplaceAll(name, ".", "_")
+	name = strings.ReplaceAll(name, "/", "_")
+	name = strings.ReplaceAll(name, "-", "_")
+	divID := "__div__" + name
+	audioID := "__audio__" + name
+	n.Attr = append(n.Attr, []html.Attribute{
+		{Key: "id", Val: divID},
+		// {Key: "class", Val: "__clickable__"},
 		{Key: "style", Val: "cursor: pointer"},
-	}
-	node := newAudioTag(new)
+	}...)
+	node := newAudioTag(name, new)
+	playIconVar := fmt.Sprintf("playIcon_%s", name)
+	audioPlayerVar := fmt.Sprintf("audioPlayer_%s", name)
 	jsChild := html.Node{
 		Parent:      nil,
 		FirstChild:  nil,
@@ -91,7 +96,7 @@ func replaceMp3(n *html.Node, val string) {
 		NextSibling: nil,
 		Type:        html.TextNode,
 		DataAtom:    0,
-		Data:        fmt.Sprintf(jsTempl, name, "__div__"+val, name, "__audio__"+new, name, name),
+		Data:        fmt.Sprintf(jsTempl, playIconVar, divID, audioPlayerVar, audioID, playIconVar, audioPlayerVar),
 		Namespace:   "",
 		Attr:        nil,
 	}
@@ -125,7 +130,7 @@ func replaceMp3(n *html.Node, val string) {
 	}
 }
 
-func newAudioTag(src string) *html.Node {
+func newAudioTag(name, src string) *html.Node {
 	res := html.Node{
 		Parent:      nil,
 		FirstChild:  nil,
@@ -137,14 +142,14 @@ func newAudioTag(src string) *html.Node {
 		Data:        "audio",
 		Namespace:   "",
 		Attr: []html.Attribute{
-			{Key: "id", Val: `__audio__` + src},
+			{Key: "id", Val: `__audio__` + name},
 			{Key: "src", Val: src},
 		},
 	}
 	return &res
 }
 
-func modifyHref(n *html.Node) {
+func (h *HTMLRender) modifyHref(n *html.Node) {
 	for i, a := range n.Attr {
 		if a.Key == "href" {
 			if strings.HasPrefix(a.Val, "entry://") {
@@ -152,20 +157,26 @@ func modifyHref(n *html.Node) {
 				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
 				n.Attr[i].Val = new
 			} else if strings.HasPrefix(a.Val, "sound://") {
-				replaceMp3(n, a.Val)
+				name := strings.TrimSuffix(strings.TrimPrefix(a.Val, "sound://"), ".mp3")
+				new := fmt.Sprintf("/%s", strings.TrimPrefix(a.Val, "sound://"))
+				if strings.HasSuffix(h.SourceType, "Online") {
+					n.Attr[i].Val = new
+				} else {
+					h.replaceMp3(n, a.Val, name, new)
+				}
 			}
 		}
 	}
 }
 
-func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
+func (h *HTMLRender) dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	if n.Type == html.TextNode {
 		log.Infof("TextNode: %v, DataAtom:%v", n.Type, n.DataAtom)
 		return ""
 	}
 	if IsElement(n, "a", "") {
 		log.Debugf("<a> %v", n)
-		modifyHref(n)
+		h.modifyHref(n)
 		return ""
 	}
 	if IsElement(n, "img", "") {
@@ -175,7 +186,7 @@ func dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 
 	var s string
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += dfs(c, level+1, n, ft)
+		s += h.dfs(c, level+1, n, ft)
 	}
 	return s
 }
@@ -196,11 +207,11 @@ func IsElement(n *html.Node, ele string, class string) bool {
 }
 
 const jsTempl = `
-  let playIcon_%s = document.getElementById('%s');
-  let audioPlayer_%s = document.getElementById('%s');
+   let %s = document.getElementById('%s');
+   let %s = document.getElementById('%s');
 
-    playIcon_%s.addEventListener('click', () => {
-        audioPlayer_%s.play().catch(error => {
+    %s.addEventListener('click', () => {
+        %s.play().catch(error => {
             console.error('Error playing audio:', error);
         });
     });

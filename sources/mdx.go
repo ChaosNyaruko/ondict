@@ -12,7 +12,6 @@ import (
 
 	"github.com/ChaosNyaruko/ondict/decoder"
 	"github.com/ChaosNyaruko/ondict/render"
-	"github.com/ChaosNyaruko/ondict/util"
 )
 
 var Gbold = "**"
@@ -58,9 +57,9 @@ func QueryMDX(word string, f string) string {
 				// log.Debugf("try to replace %v", replaceImg)
 				// TODO: it might be overriden
 				rs := fmt.Sprintf("<div>%s<style>%s</style></div> ", h.Render(), dict.css)
-				if strings.Contains(dict.t, "Online") {
-					rs = fmt.Sprintf("<script>%s</script>%v", util.CommonJS, rs)
-				}
+				// if strings.Contains(dict.t, "Online") {
+				// 	rs = fmt.Sprintf("<script>%s</script>%v", util.CommonJS, rs)
+				// }
 				// rs := fmt.Sprintf("%s", h.Render())
 				res = append(res, rs)
 			}
@@ -91,10 +90,11 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool) Dict {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
 	} else if errors.Is(err, os.ErrNotExist) {
-		log.Debugf("JSON file not exist: %v", filePath+".json")
+		log.Debugf("JSON file not exist: %v, fzf: %v, mdd: %v", filePath+".json", fzf, mdd)
 		m := &decoder.MDict{}
 		err := m.Decode(filePath+".mdx", fzf)
-		if !fzf && mdd {
+		if mdd {
+			log.Infof("The server will dump mdd resources for [%v]!", filePath+".mdd")
 			go func() {
 				mdd := decoder.MDict{}
 				if err := mdd.Decode(filePath+".mdd", false); err != nil {

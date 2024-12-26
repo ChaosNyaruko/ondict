@@ -8,7 +8,7 @@ run:
 	go run . -q=$(word) 
 
 serve:
-	go run . -serve -f=md -e=mdx -listen=0.0.0.0:1345 -aho
+	go run . -serve -f=md -e=mdx -listen=0.0.0.0:1345 
 	# go run . -serve -f=md -e=mdx -listen=127.0.0.1:1345 -v
 	#
 serve-v:
@@ -52,3 +52,6 @@ play:
 	@echo $$$$
 	@echo $$$$
 	@echo $$$$
+
+docker:
+	 docker run --rm --name ondict-app --publish 1346:1345 --mount type=bind,source=/Users/bill/.config/ondict,target=/root/.config/ondict  ondict
