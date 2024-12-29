@@ -1,3 +1,5 @@
+[简体中文](./README_zh.md)
+
 Table of Contents
 =================
 
@@ -59,9 +61,10 @@ There are some similar products. They are all mature products, but may not suit 
 - Neovim version >= 0.9.1 (recommended, because I developed it on this version, but previous versions may also use it, only some "lsp" utils (not lsp feature itself) are required. So it can also be ported to Vim with little effort theoretically, but I am not quite familiar with vim's popup feature yet)
 
 # Features
+- You can deploy it on your own server in Web/HTTP mode, no telemetry.
 - **Online** query support based on [Longman online dictionary](https://ldoceonline.com)
 - Integrated with (n)vim, feel free to use it in whatever editor you are using!
-- In the offline mode, MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
+- In the offline mode(do not need extra online queries itself), MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
 
 # Installation
 ## Build from source(Recommended)
