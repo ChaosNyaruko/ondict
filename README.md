@@ -170,20 +170,6 @@ You should have [FZF](https://github.com/junegunn/fzf) installed and have your o
 
 
 ## <a name="neovim"> </a>How to use it in Neovim
-1. Install the plugin with a plugin manager or manually. 
-2. Use `:lua require("ondict").query()` to query \<cword\>.
-3. Define a mapping for yourself to call it easier. NOTE: in visual mode, use "\<cmd\>lua require("ondict").query()\<cr\>" instead. It will capture the "SELECTED" word. Otherwise, the "mode" will be changed and only "\<cword\>" can be queried.
-
-Install the "ondict" binary automatically with [lazy](https://github.com/folke/lazy.nvim).
-```
-{ 
-    "ChaosNyaruko/ondict",
-    event = "VeryLazy",
-    build = function(plugin)
-        require("ondict").install(plugin.dir)
-    end
-}
-```
 
 Manually
 ```console

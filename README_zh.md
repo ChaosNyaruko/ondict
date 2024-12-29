@@ -117,6 +117,92 @@ curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 
 还有很多[待办事项](./todo.md)，欢迎给我提PR，为这个尚未成熟的项目做出贡献，提前感谢。
 
+### 单次查询
+单次查询会在首次调用时需要一些时间，因为需要进行一些加载工作。
+它会使用unix domain socket启动一个本地服务器。
+
+#### 在线引擎（不需要指定-e选项）：
+```console
+ondict -q <word> [-e anything]
+```
+![Gif](./assets/e1_online.gif)
+
+#### mdx引擎（ldoce5）：
+```console
+ondict -q <word> -e mdx
+```
+![Gif](./assets/e1_mdx.gif)
+
+### 从远程服务器进行单次查询
+```console
+ondict -q <word> -remote localhost:1345
+```
+![Gif](./assets/e1_mdx_remote.gif)
+
+### 交互式查询
+```console
+ondict -i -e mdx
+```
+输入 `.help` 查看可用命令。
+![Gif](./assets/e1_mdx_interactive.gif)
+
+### 与Neovim集成
+参见[与Neovim集成](#neovim)
+![Gif](./assets/e1_mdx_nvim.gif)
+
+# <a name="neovim"></a>如何在Neovim中使用
+1. 使用插件管理器或手动安装插件。
+2. 使用 `:lua require("ondict").query()` 来查询光标下的单词（\<cword\>）。
+3. 为自己定义一个更方便的映射来调用它。注意：在可视模式下，请使用 "\<cmd\>lua require("ondict").query()\<cr\>"。这样可以捕获"选中"的单词。否则，"模式"会被改变，只能查询光标下的单词（\<cword\>）。
+
+使用[lazy](https://github.com/folke/lazy.nvim)自动安装"ondict"二进制文件：
+```lua
+{ 
+    "ChaosNyaruko/ondict",
+    event = "VeryLazy",
+    build = function(plugin)
+        require("ondict").install(plugin.dir)
+    end
+}
+```
+
+手动安装：
+```console
+cd ~/.local/share/nvim/site/pack/packer/start/
+git clone https://github.com/ChaosNyaruko/ondict.git
+cd ondict
+go install .
+```
+
+### 映射示例
+```vimscript
+nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
+vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
+```
+
+```lua
+vim.keymap.set("n", "<leader>d", require("ondict").query)
+vim.keymap.set("v", "<leader>d", require("ondict").query)
+```
+
+### 与MacOS的hammerspoon集成
+![Gif](./assets/e1_mdx_hammerspoon.gif)
+
+##### 已知问题：
+如果您使用hammerspoon的"task"功能（即"hs.task.new"然后"xx::start"），某些词的查询会阻塞进程，无法看到结果（因为还没有返回），比如"test"。但在真正的web模式下没有这样的问题，这种情况只在hammerspoon中出现。
+
+目前还不知道原因，同样的词查询在[Neovim集成](#neovim)中也能正常工作，后者也使用Lua作为其异步运行时。因此我猜测可能与实现有关，这可能是hammerspoon的一个bug。
+
+##### 解决方案
+使用hs.execute代替hs.task（注意shell转义），这是执行任务的"同步"方法。普通查询足够快，您不会注意到差异，会"立即"看到结果。参见[示例](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90)
+
+### 与FZF集成（实验性功能，仅支持MacOS）
+```console
+ondict -fzf
+```
+您需要安装[FZF](https://github.com/junegunn/fzf)，并且ondict服务器监听在localhost:1345（目前正在开发中）
+![Gif](./assets/ondict_fzf.gif)
+
 # <a name="离线"></a>离线词典文件
 将词典文件放在$HOME/.config/ondict/dicts中，支持的格式有：
 - "键值对"组织的JSON文件。
@@ -167,3 +253,5 @@ curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 
 # 许可证
 [许可证](./LICENSE) 
+
+
