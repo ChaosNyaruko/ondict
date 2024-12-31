@@ -3,6 +3,7 @@ package main // go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 
 import (
 	"database/sql"
+	"flag"
 	"path/filepath"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
@@ -13,12 +14,26 @@ import (
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
+var help = flag.Bool("h", false, "Show this help doc")
+var file = flag.String("f", "", "Specify the mdx file that you want to dump")
+
+// var dir= flag.String("q", "", "Specify the word that you want to query")
+
 func main() {
+	flag.Parse()
+	// log.Infof("%v, %v", flag.NFlag(), flag.Args())
+	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
+		flag.PrintDefaults()
+		return
+	}
+	if *file == "" {
+		log.Fatalf("no file or directory specified")
+	}
 	// flag: mdx files location
 	// -f specific file name
 	// -d all mdx files in the directory
 	m := &decoder.MDict{}
-	name := filepath.Join(util.ConfigPath(), "/dicts/Longman Dictionary of Contemporary English.mdx")
+	name := *file
 	err := m.Decode(name, false)
 	if err != nil {
 		log.Fatalf("Failed to decode mdx file[%v], err: %v", name, err)
@@ -69,4 +84,7 @@ CREATE TABLE IF NOT EXISTS vocab(
 			log.Debugf("LastInsertId word %v: %v", k, id)
 		}
 	}
+}
+
+func dump(db *sql.DB, name string) {
 }
