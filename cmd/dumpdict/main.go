@@ -15,30 +15,33 @@ import (
 )
 
 var help = flag.Bool("h", false, "Show this help doc")
-var file = flag.String("f", "", "Specify the mdx file that you want to dump")
+
+type Files []string
+
+func (i *Files) String() string {
+	return "my string representation"
+}
+
+func (i *Files) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+var files Files
 
 // var dir= flag.String("q", "", "Specify the word that you want to query")
 
 func main() {
+	flag.Var(&files, "f", "Specify the mdx files that you want to dump. It can be used multiple times for more than one dicts")
 	flag.Parse()
 	// log.Infof("%v, %v", flag.NFlag(), flag.Args())
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
 		flag.PrintDefaults()
 		return
 	}
-	if *file == "" {
+	if len(files) == 0 {
 		log.Fatalf("no file or directory specified")
 	}
-	// flag: mdx files location
-	// -f specific file name
-	// -d all mdx files in the directory
-	m := &decoder.MDict{}
-	name := *file
-	err := m.Decode(name, false)
-	if err != nil {
-		log.Fatalf("Failed to decode mdx file[%v], err: %v", name, err)
-	}
-	defer m.Close()
 	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
 	db, err := sql.Open("sqlite3", "file:"+dbName)
 	if err != nil {
@@ -52,11 +55,6 @@ func main() {
 		log.Fatal(pingErr)
 	}
 	log.Infof("Connected!")
-	log.Infof("Decoding dict......")
-	words, err := m.DumpDict()
-	if err != nil {
-		log.Fatalf("DumpDict %v err: %v", name, err)
-	}
 
 	res, err := db.Exec(`DROP TABLE IF EXISTS vocab;
 CREATE TABLE IF NOT EXISTS vocab(
@@ -68,8 +66,24 @@ CREATE TABLE IF NOT EXISTS vocab(
 	if err != nil {
 		log.Errorf("INSERT error: %v, %v", id, err)
 	}
-	log.Infof("INSERT success: %v, %v", id, err)
-	log.Infof("Dumping dict......")
+	for _, name := range files {
+		dump(db, name)
+	}
+}
+
+func dump(db *sql.DB, name string) {
+	m := &decoder.MDict{}
+	err := m.Decode(name, false)
+	if err != nil {
+		log.Fatalf("Failed to decode mdx file[%v], err: %v", name, err)
+	}
+	defer m.Close()
+	log.Infof("Decoding dict %q......", name)
+	words, err := m.DumpDict()
+	if err != nil {
+		log.Fatalf("DumpDict %v err: %v", name, err)
+	}
+	log.Infof("Dumping dict %q.....", name)
 	for k, v := range words {
 		result, err := db.Exec("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)", k, name, v)
 		if err != nil {
@@ -84,7 +98,5 @@ CREATE TABLE IF NOT EXISTS vocab(
 			log.Debugf("LastInsertId word %v: %v", k, id)
 		}
 	}
-}
-
-func dump(db *sql.DB, name string) {
+	log.Infof("Dump %q success!", name)
 }
