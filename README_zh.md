@@ -86,6 +86,16 @@ docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={
 docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  chaosnyaruko/ondict:latest
 ```
 
+# 可单独使用的解析工具
+```console
+go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
+```
+如果你并不需要一个完整的server或词典工具，只是想解析一下MDX文件拿到里面的内容，你可以使用上述命令安装一个dumpdict工具。
+
+这个工具主要功能是解析MDX文件，并把它们记录到一个sqlite3数据库的文件中。
+
+可以参考[这个文件](./schema.sql)中的vocab表结构进行查看，或二次开发！
+
 # 使用方法
 ## 帮助
 ```console

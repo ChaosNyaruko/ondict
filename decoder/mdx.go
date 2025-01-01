@@ -119,7 +119,7 @@ func (m *MDict) Keys() []string {
 	return res
 }
 
-func (m *MDict) Close(fileName string, fzf bool) error {
+func (m *MDict) Close() error {
 	return m.file.Close()
 }
 
@@ -133,7 +133,7 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 		return err
 	}
 	if m.t = filepath.Ext(name); m.t != ".mdx" && m.t != ".mdd" {
-		return fmt.Errorf("unexpected file ext %v", m.t)
+		return fmt.Errorf("unexpected file ext %q", m.t)
 	}
 	file, err := os.Open(name)
 	if err != nil {

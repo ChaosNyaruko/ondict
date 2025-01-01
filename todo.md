@@ -31,7 +31,7 @@
 - [x] Integrated with [mdcat](https://github.com/swsnr/mdcat)
 - [x] Auto history. 
 - [x] A better history/record system, to make the history.table less "polluted" by ongoing fzf-based queries. 
-- [ ] An independent parser cmd.
+- [x] An independent parser cmd.
 - [ ] See the TODOs in the code.
 - [x] The progress bar while decoding?
 - [ ] Automatically generate a valid configuration file, using template or Internet.
