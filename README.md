@@ -87,11 +87,13 @@ docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={
 ```console
 docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={your $HOME/.config/ondict},target=/root/.config/ondict  chaosnyaruko/ondict:latest
 ```
-## The parser/decoder only
+# A standalone MDX parser CLI tool
 ```console
 go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 ```
 It is used to install a "standalone" CLI tool that can decode MDX files, and dump them into a sqlite3 datebase file. See [schema](./schema.sql) for more (the "vocab" table).
+
+If you just want a decoder to parse your MDX files, this would be enough!
 
 # Usage
 ## Help
