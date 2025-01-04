@@ -34,6 +34,7 @@
 - [x] An independent parser cmd.
 - [ ] See the TODOs in the code.
 - [x] The progress bar while decoding?
+- [ ] A sync-able history system, maybe "basicAuth" is needed.
 - [ ] Automatically generate a valid configuration file, using template or Internet.
 ---
 The following are less important things that I want to finish.
