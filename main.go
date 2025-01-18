@@ -118,7 +118,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("getting ondict path error: %v", err)
 			}
-			network, addr = autoNetworkAddressPosix(dp, "")
+			network, addr = autoNetworkAddress(dp, "")
 			if _, err := os.Stat(addr); err == nil {
 				if err := os.Remove(addr); err != nil {
 					log.Fatalf("removing remote socket file: %v", err)
@@ -159,7 +159,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("getting ondict path error: %v", err)
 		}
-		network, address = autoNetworkAddressPosix(dp, "")
+		network, address = autoNetworkAddress(dp, "")
 		log.Debugf("auto mode dp: %v, network: %v, address: %v", dp, network, address)
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
