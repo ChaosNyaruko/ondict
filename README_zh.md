@@ -160,41 +160,6 @@ ondict -i -e mdx
 参见[与Neovim集成](#neovim)
 ![Gif](./assets/e1_mdx_nvim.gif)
 
-# <a name="neovim"></a>如何在Neovim中使用
-1. 使用插件管理器或手动安装插件。
-2. 使用 `:lua require("ondict").query()` 来查询光标下的单词（\<cword\>）。
-3. 为自己定义一个更方便的映射来调用它。注意：在可视模式下，请使用 "\<cmd\>lua require("ondict").query()\<cr\>"。这样可以捕获"选中"的单词。否则，"模式"会被改变，只能查询光标下的单词（\<cword\>）。
-
-使用[lazy](https://github.com/folke/lazy.nvim)自动安装"ondict"二进制文件：
-```lua
-{ 
-    "ChaosNyaruko/ondict",
-    event = "VeryLazy",
-    build = function(plugin)
-        require("ondict").install(plugin.dir)
-    end
-}
-```
-
-手动安装：
-```console
-cd ~/.local/share/nvim/site/pack/packer/start/
-git clone https://github.com/ChaosNyaruko/ondict.git
-cd ondict
-go install .
-```
-
-### 映射示例
-```vimscript
-nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
-vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
-```
-
-```lua
-vim.keymap.set("n", "<leader>d", require("ondict").query)
-vim.keymap.set("v", "<leader>d", require("ondict").query)
-```
-
 ### 与MacOS的hammerspoon集成
 ![Gif](./assets/e1_mdx_hammerspoon.gif)
 
@@ -212,6 +177,55 @@ ondict -fzf
 ```
 您需要安装[FZF](https://github.com/junegunn/fzf)，并且ondict服务器监听在localhost:1345（目前正在开发中）
 ![Gif](./assets/ondict_fzf.gif)
+# <a name="neovim"></a>如何在Neovim中使用
+1. 使用插件管理器或手动安装插件。
+2. 使用 `:lua require("ondict").query()` 来查询光标下的单词（\<cword\>）。
+3. 为自己定义一个更方便的映射来调用它。注意：在可视模式下，请使用 "\<cmd\>lua require("ondict").query()\<cr\>"。这样可以捕获"选中"的单词。否则，"模式"会被改变，只能查询光标下的单词（\<cword\>）。
+
+## 安装
+### 使用[lazy插件管理器](https://github.com/folke/lazy.nvim)，比较推荐这一种（现在应该很少neovim用户手动装插件吧）
+```lua
+require("lazy").setup({
+  spec = {
+    -- add your plugins here
+    {
+        "ChaosNyaruko/ondict",
+        event = "VeryLazy",
+        build = function(plugin)
+            require("ondict").install(plugin.dir)
+        end,
+        dev = false,
+        config = function()
+            require("ondict").setup("localhost:1345") -- If you already have a running ondict server, you can just specify the address.
+        end
+    },
+  },
+  -- Configure any other settings here. See the documentation for more details.
+  -- colorscheme that will be used when installing plugins.
+  -- automatically check for plugin updates
+  checker= { enabled = false },
+})
+```
+
+### 手动安装
+```console
+cd ~/.local/share/nvim/site/pack/packer/start/
+git clone https://github.com/ChaosNyaruko/ondict.git
+cd ondict
+go install .
+```
+
+## 映射示例
+```vimscript
+nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
+vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
+```
+
+```lua
+vim.keymap.set("n", "<leader>d", require("ondict").query)
+vim.keymap.set("v", "<leader>d", require("ondict").query)
+```
+
 
 # <a name="离线"></a>离线词典文件
 将词典文件放在$HOME/.config/ondict/dicts中，支持的格式有：

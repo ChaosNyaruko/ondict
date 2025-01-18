@@ -179,14 +179,38 @@ You should have [FZF](https://github.com/junegunn/fzf) installed and have your o
 
 ## <a name="neovim"> </a>How to use it in Neovim
 
-Manually
+### Installation
+#### Use [lazy.nvim](https://lazy.folke.io/installation), Recommended
+```lua
+require("lazy").setup({
+  spec = {
+    -- add your plugins here
+    {
+        "ChaosNyaruko/ondict",
+        event = "VeryLazy",
+        build = function(plugin)
+            require("ondict").install(plugin.dir)
+        end,
+        dev = false,
+        config = function()
+            require("ondict").setup("localhost:1345") -- If you already have a running ondict server, you can just specify the address.
+        end
+    },
+  },
+  -- Configure any other settings here. See the documentation for more details.
+  -- colorscheme that will be used when installing plugins.
+  -- automatically check for plugin updates
+  checker= { enabled = false },
+})
+```
+
+#### Manually
 ```console
 cd ~/.local/share/nvim/site/pack/packer/start/
 git clone https://github.com/ChaosNyaruko/ondict.git
 cd ondict
 go install .
 ```
-
 ### Mapping examples
 ```vimscript
 nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
