@@ -165,18 +165,31 @@ ondict -i -e mdx
 2. 使用 `:lua require("ondict").query()` 来查询光标下的单词（\<cword\>）。
 3. 为自己定义一个更方便的映射来调用它。注意：在可视模式下，请使用 "\<cmd\>lua require("ondict").query()\<cr\>"。这样可以捕获"选中"的单词。否则，"模式"会被改变，只能查询光标下的单词（\<cword\>）。
 
-使用[lazy](https://github.com/folke/lazy.nvim)自动安装"ondict"二进制文件：
+## 使用[lazy插件管理器](https://github.com/folke/lazy.nvim)，比较推荐这一种（现在应该很少neovim用户手动装插件吧）
 ```lua
-{ 
-    "ChaosNyaruko/ondict",
-    event = "VeryLazy",
-    build = function(plugin)
-        require("ondict").install(plugin.dir)
-    end
-}
+require("lazy").setup({
+  spec = {
+    -- add your plugins here
+    {
+        "ChaosNyaruko/ondict",
+        event = "VeryLazy",
+        build = function(plugin)
+            require("ondict").install(plugin.dir)
+        end,
+        dev = false,
+        config = function()
+            require("ondict").setup("localhost:1345") -- If you already have a running ondict server, you can just specify the address.
+        end
+    },
+  },
+  -- Configure any other settings here. See the documentation for more details.
+  -- colorscheme that will be used when installing plugins.
+  -- automatically check for plugin updates
+  checker= { enabled = false },
+})
 ```
 
-手动安装：
+## 手动安装：
 ```console
 cd ~/.local/share/nvim/site/pack/packer/start/
 git clone https://github.com/ChaosNyaruko/ondict.git
