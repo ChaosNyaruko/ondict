@@ -160,12 +160,30 @@ ondict -i -e mdx
 参见[与Neovim集成](#neovim)
 ![Gif](./assets/e1_mdx_nvim.gif)
 
+### 与MacOS的hammerspoon集成
+![Gif](./assets/e1_mdx_hammerspoon.gif)
+
+##### 已知问题：
+如果您使用hammerspoon的"task"功能（即"hs.task.new"然后"xx::start"），某些词的查询会阻塞进程，无法看到结果（因为还没有返回），比如"test"。但在真正的web模式下没有这样的问题，这种情况只在hammerspoon中出现。
+
+目前还不知道原因，同样的词查询在[Neovim集成](#neovim)中也能正常工作，后者也使用Lua作为其异步运行时。因此我猜测可能与实现有关，这可能是hammerspoon的一个bug。
+
+##### 解决方案
+使用hs.execute代替hs.task（注意shell转义），这是执行任务的"同步"方法。普通查询足够快，您不会注意到差异，会"立即"看到结果。参见[示例](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90)
+
+### 与FZF集成（实验性功能，仅支持MacOS）
+```console
+ondict -fzf
+```
+您需要安装[FZF](https://github.com/junegunn/fzf)，并且ondict服务器监听在localhost:1345（目前正在开发中）
+![Gif](./assets/ondict_fzf.gif)
 # <a name="neovim"></a>如何在Neovim中使用
 1. 使用插件管理器或手动安装插件。
 2. 使用 `:lua require("ondict").query()` 来查询光标下的单词（\<cword\>）。
 3. 为自己定义一个更方便的映射来调用它。注意：在可视模式下，请使用 "\<cmd\>lua require("ondict").query()\<cr\>"。这样可以捕获"选中"的单词。否则，"模式"会被改变，只能查询光标下的单词（\<cword\>）。
 
-## 使用[lazy插件管理器](https://github.com/folke/lazy.nvim)，比较推荐这一种（现在应该很少neovim用户手动装插件吧）
+## 安装
+### 使用[lazy插件管理器](https://github.com/folke/lazy.nvim)，比较推荐这一种（现在应该很少neovim用户手动装插件吧）
 ```lua
 require("lazy").setup({
   spec = {
@@ -189,7 +207,7 @@ require("lazy").setup({
 })
 ```
 
-## 手动安装：
+### 手动安装
 ```console
 cd ~/.local/share/nvim/site/pack/packer/start/
 git clone https://github.com/ChaosNyaruko/ondict.git
@@ -197,7 +215,7 @@ cd ondict
 go install .
 ```
 
-### 映射示例
+## 映射示例
 ```vimscript
 nnoremap <leader>d <cmd>lua require("ondict").query()<cr>
 vnoremap <leader>d <cmd>lua require("ondict").query()<cr>
@@ -208,23 +226,6 @@ vim.keymap.set("n", "<leader>d", require("ondict").query)
 vim.keymap.set("v", "<leader>d", require("ondict").query)
 ```
 
-### 与MacOS的hammerspoon集成
-![Gif](./assets/e1_mdx_hammerspoon.gif)
-
-##### 已知问题：
-如果您使用hammerspoon的"task"功能（即"hs.task.new"然后"xx::start"），某些词的查询会阻塞进程，无法看到结果（因为还没有返回），比如"test"。但在真正的web模式下没有这样的问题，这种情况只在hammerspoon中出现。
-
-目前还不知道原因，同样的词查询在[Neovim集成](#neovim)中也能正常工作，后者也使用Lua作为其异步运行时。因此我猜测可能与实现有关，这可能是hammerspoon的一个bug。
-
-##### 解决方案
-使用hs.execute代替hs.task（注意shell转义），这是执行任务的"同步"方法。普通查询足够快，您不会注意到差异，会"立即"看到结果。参见[示例](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90)
-
-### 与FZF集成（实验性功能，仅支持MacOS）
-```console
-ondict -fzf
-```
-您需要安装[FZF](https://github.com/junegunn/fzf)，并且ondict服务器监听在localhost:1345（目前正在开发中）
-![Gif](./assets/ondict_fzf.gif)
 
 # <a name="离线"></a>离线词典文件
 将词典文件放在$HOME/.config/ondict/dicts中，支持的格式有：
