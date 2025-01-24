@@ -2,8 +2,8 @@ DROP TABLE IF EXISTS history;
 CREATE TABLE IF NOT EXISTS history (
     word TEXT NOT NULL UNIQUE,
     `count` INTEGER NOT NULL DEFAULT 0,
-    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    create_time DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')), -- CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')) -- CURRENT_TIMESTAMP
 );
 
 CREATE INDEX i_count on history(count);

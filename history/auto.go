@@ -43,12 +43,20 @@ func (h *History) Append(word string) error {
 var _ Writer = &TxtWriter{}
 
 type TxtWriter struct {
-	fd *os.File
+	loc *time.Location
+	fd  *os.File
 }
 
 func NewTxtWriter() *TxtWriter {
-	// TODO: a singleton fd
-	return &TxtWriter{}
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Warnf("LoadLocation err for History: %v", err)
+	}
+	return &TxtWriter{
+		loc: loc,
+		// TODO: a singleton fd
+		fd: nil,
+	}
 }
 
 func (w *TxtWriter) Close() error {
@@ -65,7 +73,7 @@ func (w *TxtWriter) Append(word string) error {
 	if err != nil {
 		return fmt.Errorf("open %s err: %v", t, err)
 	}
-	if _, err := table.WriteString(fmt.Sprintf("%s | %s\n", time.Now(), word)); err != nil {
+	if _, err := table.WriteString(fmt.Sprintf("%s | %s\n", time.Now().In(w.loc), word)); err != nil {
 		return fmt.Errorf("write a record error: %v", err)
 	}
 	defer table.Close()
@@ -109,14 +117,14 @@ func (w *Sqlite3Writer) Append(word string) error {
     word TEXT NOT NULL UNIQUE,
 	` +
 		"`count`" + ` INTEGER NOT NULL DEFAULT 0,
-    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    create_time DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
+    update_time DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 `)
 	if err != nil {
 		return err
 	}
-	res, err = db.Exec(`INSERT INTO history (word, count) VALUES (?, 1) ON CONFLICT(word) DO UPDATE SET count=count+1, update_time=CURRENT_TIMESTAMP;`, word)
+	res, err = db.Exec(`INSERT INTO history (word, count) VALUES (?, 1) ON CONFLICT(word) DO UPDATE SET count=count+1, update_time=datetime('now','localtime');`, word)
 	id, err := res.LastInsertId()
 	if err != nil {
 		log.Errorf("INSERT error: %v, %v", id, err)
