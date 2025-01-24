@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
@@ -38,6 +39,50 @@ func (h *History) Append(word string) error {
 		}
 	}
 	return nil
+}
+
+type Word struct {
+	Name       string
+	Count      int
+	CreateTime time.Time
+	UpdateTime time.Time
+}
+
+func (w *Word) String() string {
+	return fmt.Sprintf("%-20v|%v ", w.Name, w.Count)
+}
+
+func (h *History) Review() (string, error) {
+	// TODO: refactor
+	dbName := util.HistoryDB()
+	log.Debugf("Connected to %v!", dbName)
+	db, err := sql.Open("sqlite3", "file:"+dbName)
+	if err != nil {
+		log.Errorf("open db err: %v", err)
+		return "", err
+	}
+	defer db.Close()
+	rows, err := db.Query(`SELECT * FROM history
+		WHERE update_time > datetime('now', 'localtime', '-2 months')
+		ORDER BY count DESC;
+		`)
+	if err != nil {
+		log.Errorf("query most frequently queried words error: %v", err)
+	}
+	defer rows.Close()
+	var res []string
+	// Loop through rows, using Scan to assign column data to struct fields.
+	for rows.Next() {
+		var w Word
+		if err := rows.Scan(&w.Name, &w.Count, &w.CreateTime, &w.UpdateTime); err != nil {
+			return "", fmt.Errorf("Review words Scan: %v", err)
+		}
+		res = append(res, w.String())
+	}
+	if err := rows.Err(); err != nil {
+		return "", fmt.Errorf("Review words: %v", err)
+	}
+	return strings.Join(res, "\n"), nil
 }
 
 var _ Writer = &TxtWriter{}

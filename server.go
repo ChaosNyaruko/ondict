@@ -39,6 +39,15 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	// TODO: make it structrual, use "Gin" or "Echo", etc.
+	if strings.HasSuffix(r.URL.Path, "/review") && r.Method == "GET" {
+		words, err := his.Review()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		w.Write([]byte(words))
+		return
+	}
 	if strings.HasSuffix(r.URL.Path, "/dict") {
 		q := r.URL.Query()
 		word := q.Get("query")
