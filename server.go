@@ -40,7 +40,7 @@ func queryWord(c *gin.Context) {
 
 	res := query(word, e, f, r != "0")
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, "%v", res)
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(res))
 	return
 }
 
