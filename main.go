@@ -111,7 +111,7 @@ func main() {
 	if *server {
 		go http.ListenAndServe("localhost:8083", nil)
 		stop := make(chan error)
-		p := new(proxy)
+		p := NewProxy()
 		if *idleTimeout > 0 {
 			p.timeout = time.NewTimer(*idleTimeout)
 		}
@@ -134,12 +134,9 @@ func main() {
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
 		}
-		server := http.Server{
-			Handler: p,
-		}
 
 		go func() {
-			if err := server.Serve(l); err != nil {
+			if err := p.Run(l); err != nil {
 				stop <- err
 				close(stop)
 			}

@@ -1,18 +1,71 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gin-contrib/static"
+	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
 type proxy struct {
+	e       *gin.Engine
 	timeout *time.Timer
+}
+
+func (p *proxy) Run(l net.Listener) error {
+	return p.e.RunListener(l)
+}
+
+func review(c *gin.Context) {
+	words, err := his.Review()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("bad review request: %v", err))
+	}
+	c.String(200, "%v", words)
+}
+
+func queryWord(c *gin.Context) {
+	word, _ := c.GetQuery("query")
+	e, _ := c.GetQuery("engine")
+	f, _ := c.GetQuery("format")
+	r, _ := c.GetQuery("record")
+
+	res := query(word, e, f, r != "0")
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, "%v", res)
+	return
+}
+
+func index(c *gin.Context) {
+	tmplt := template.New("portal")
+	tmplt, err := tmplt.Parse(portal)
+	if err != nil {
+		log.Fatalf("parse portal html err: %v", err)
+	}
+
+	if err := tmplt.Execute(c.Writer, nil); err != nil {
+		return
+	}
+	return
+}
+
+func NewProxy() *proxy {
+	r := gin.Default()
+	r.GET("/", index)
+	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
+	r.GET("/dict", queryWord)
+	r.GET("/review", review)
+	return &proxy{
+		e: r,
+	}
 }
 
 func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -26,52 +79,7 @@ func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if *idleTimeout > 0 {
 		s.timeout.Reset(*idleTimeout)
 	}
-	log.Debugf("query HTTP path: %v", r.URL.Path)
-	if r.URL.Path == "/" {
-		tmplt := template.New("portal")
-		tmplt, err := tmplt.Parse(portal)
-		if err != nil {
-			log.Fatalf("parse portal html err: %v", err)
-		}
-
-		if err := tmplt.Execute(w, nil); err != nil {
-			return
-		}
-		return
-	}
-	// TODO: make it structrual, use "Gin" or "Echo", etc.
-	if strings.HasSuffix(r.URL.Path, "/review") && r.Method == "GET" {
-		words, err := his.Review()
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		w.Write([]byte(words))
-		return
-	}
-	if strings.HasSuffix(r.URL.Path, "/dict") {
-		q := r.URL.Query()
-		word := q.Get("query")
-		e := q.Get("engine")
-		f := q.Get("format")
-		r := q.Get("record")
-		log.Debugf("query dict: %v, engine: %v, format: %v", word, e, f)
-
-		res := query(word, e, f, r != "0")
-		w.WriteHeader(200)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(res))
-		w.(http.Flusher).Flush()
-		// w.Write([]byte("<style>" + odecss + "</style>"))
-		// w.Write([]byte(fmt.Sprintf(`<link ref="stylesheet" type="text/css", href=/d/static/oald9.css />`)))
-		return
-	}
-	// if strings.HasSuffix(r.URL.Path, ".css") {
-	// 	log.Debugf("static info: %v", r.URL.Path)
-	// 	http.FileServer(http.Dir("./static")).ServeHTTP(w, r)
-	// 	return
-	// }
-	log.Infof("URL: %v, Scheme: %v", r.URL, r.URL.Scheme)
-	http.FileServer(http.Dir(util.TmpDir())).ServeHTTP(w, r)
+	s.e.ServeHTTP(w, r)
 }
 
 func ParseAddr(listen string) (network string, address string) {
