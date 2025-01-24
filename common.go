@@ -10,8 +10,6 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
-
-	"github.com/ChaosNyaruko/ondict/history"
 )
 
 func request(netConn net.Conn, e, f string, r int) error {
@@ -23,7 +21,7 @@ func request(netConn net.Conn, e, f string, r int) error {
 		},
 	}
 	if r&0x1 != 0 {
-		if err := history.Append(*word); err != nil {
+		if err := his.Append(*word); err != nil {
 			log.Warnf("append %s to history err: %v", *word, err)
 		}
 	}

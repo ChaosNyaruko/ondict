@@ -60,6 +60,8 @@ var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 // TODO: prev work, for better source abstractions
 var g = sources.G
 
+var his *history.History
+
 func init() {
 	log.SetOutput(os.Stderr)
 	log.SetLevel(log.InfoLevel)
@@ -76,6 +78,7 @@ func main() {
 		fmt.Printf("ondict version: %s-%s built on %s %s with %s\n", Version, Commit, runtime.GOOS, runtime.GOARCH, runtime.Version())
 		return
 	}
+	his = history.NewHistory(history.NewTxtWriter(), history.NewSqlite3Writer())
 
 	if !*verbose {
 		log.SetLevel(log.InfoLevel)
@@ -236,7 +239,7 @@ func main() {
 
 func query(word string, e string, f string, r bool) string {
 	if r {
-		if err := history.Append(word); err != nil {
+		if err := his.Append(word); err != nil {
 			log.Debugf("record %v err: %v", word, err)
 		}
 	}
