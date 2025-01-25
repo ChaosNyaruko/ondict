@@ -164,7 +164,7 @@ func main() {
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
-			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
+			if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -199,10 +199,11 @@ func main() {
 	// It can take some time for the newly started server to bind to our address,
 	// so we retry for a bit.
 	for retry := 0; retry < retries; retry++ {
+		log.Debugf("dialling %v %v", network, address)
 		startDial := time.Now()
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 		if err == nil {
-			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
+			if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
