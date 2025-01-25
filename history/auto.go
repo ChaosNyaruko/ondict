@@ -68,6 +68,7 @@ func (h *History) Review() (string, error) {
 		`)
 	if err != nil {
 		log.Errorf("query most frequently queried words error: %v", err)
+		return "", err
 	}
 	defer rows.Close()
 	var res []string
