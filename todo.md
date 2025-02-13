@@ -34,11 +34,12 @@
 - [x] An independent parser cmd.
 - [ ] See the TODOs in the code.
 - [x] The progress bar while decoding?
+- [ ] A sync-able history system, maybe "basicAuth" is needed.
 - [ ] Automatically generate a valid configuration file, using template or Internet.
 ---
 The following are less important things that I want to finish.
 - [x] Editor plugin: give users the option to setup the server in advance, for better first-query user experience. 
-- [ ] A system for reviewing, e.g. simple ANKI? --> related to the history functionality?
+- [x] A system for reviewing, e.g. simple ANKI? --> related to the history functionality?
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
 - [ ] A more decent web page.

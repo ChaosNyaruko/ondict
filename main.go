@@ -60,6 +60,8 @@ var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
 // TODO: prev work, for better source abstractions
 var g = sources.G
 
+var his *history.History
+
 func init() {
 	log.SetOutput(os.Stderr)
 	log.SetLevel(log.InfoLevel)
@@ -76,6 +78,7 @@ func main() {
 		fmt.Printf("ondict version: %s-%s built on %s %s with %s\n", Version, Commit, runtime.GOOS, runtime.GOARCH, runtime.Version())
 		return
 	}
+	his = history.NewHistory(history.NewTxtWriter(), history.NewSqlite3Writer())
 
 	if !*verbose {
 		log.SetLevel(log.InfoLevel)
@@ -108,7 +111,7 @@ func main() {
 	if *server {
 		go http.ListenAndServe("localhost:8083", nil)
 		stop := make(chan error)
-		p := new(proxy)
+		p := NewProxy()
 		if *idleTimeout > 0 {
 			p.timeout = time.NewTimer(*idleTimeout)
 		}
@@ -131,12 +134,9 @@ func main() {
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
 		}
-		server := http.Server{
-			Handler: p,
-		}
 
 		go func() {
-			if err := server.Serve(l); err != nil {
+			if err := p.Run(l); err != nil {
 				stop <- err
 				close(stop)
 			}
@@ -164,7 +164,7 @@ func main() {
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 		if err == nil { // detect an exsitng server, just forward a request
-			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
+			if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -199,10 +199,11 @@ func main() {
 	// It can take some time for the newly started server to bind to our address,
 	// so we retry for a bit.
 	for retry := 0; retry < retries; retry++ {
+		log.Debugf("dialling %v %v", network, address)
 		startDial := time.Now()
 		netConn, err = net.DialTimeout(network, address, dialTimeout)
 		if err == nil {
-			if err := request(netConn, *engine, *renderFormat, *record); err != nil {
+			if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
 				log.Fatal(err)
 			}
 			return
@@ -236,7 +237,7 @@ func main() {
 
 func query(word string, e string, f string, r bool) string {
 	if r {
-		if err := history.Append(word); err != nil {
+		if err := his.Append(word); err != nil {
 			log.Debugf("record %v err: %v", word, err)
 		}
 	}

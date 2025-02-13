@@ -15,6 +15,10 @@ func HistoryTable() string {
 	return filepath.Join(ConfigPath(), "history.table")
 }
 
+func HistoryDB() string {
+	return filepath.Join(ConfigPath(), "history.db")
+}
+
 func DictsPath() string {
 	return filepath.Join(ConfigPath(), "dicts")
 }

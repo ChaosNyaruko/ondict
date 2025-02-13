@@ -117,7 +117,7 @@ const portal = `<!DOCTYPE html>
         <form class="search-form" action="/dict" method="get">
             <div class="form-group">
                 <label for="query">Query:</label>
-                <input type="text" id="query" name="query" placeholder="Enter a word..." required autocomplete="off"/>
+                <input type="text" id="query" name="query" placeholder="Enter a word..." required autocomplete="on"/>
             </div>
             
             <div class="form-group">
@@ -126,6 +126,7 @@ const portal = `<!DOCTYPE html>
             </div>
 
             <input type="hidden" name="format" value="html" />
+            <input type="hidden" name="record" value="1" />
             <input type="submit" value="Search"/>
         </form>
     </div>

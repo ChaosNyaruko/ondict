@@ -171,7 +171,7 @@ func (h *HTMLRender) modifyHref(n *html.Node) {
 
 func (h *HTMLRender) dfs(n *html.Node, level int, parent *html.Node, ft string) string {
 	if n.Type == html.TextNode {
-		log.Infof("TextNode: %v, DataAtom:%v", n.Type, n.DataAtom)
+		log.Debugf("TextNode: %v, DataAtom:%v", n.Type, n.DataAtom)
 		return ""
 	}
 	if IsElement(n, "a", "") {
