@@ -50,6 +50,7 @@ type Word struct {
 
 func (w *Word) NormTime(loc *time.Location) error {
 	// TODO: ''bad review request: parsing time "2025-02-15T18:00:27Z" as "2006-01-02 15:04:05": cannot parse "T18:00:27Z" as " "'
+	// > SQLite does not have a storage class set aside for storing dates and/or times. Instead, the built-in Date And Time Functions of SQLite are capable of storing dates and times as TEXT, REAL, or INTEGER values:
 	return nil
 	ct, err := time.ParseInLocation("2006-01-02 15:04:05", w.CreateTime, loc)
 	if err != nil {
