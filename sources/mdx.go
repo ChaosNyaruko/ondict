@@ -71,6 +71,9 @@ func QueryMDX(word string, f string) string {
 	var res string
 	for i, dict := range defs {
 		for _, def := range dict.defs {
+			fd := strings.NewReader(def)
+			res += "\n---\n" + render.Markdownify(fd)
+			continue
 			if dict.t == render.LongmanEasy {
 				fd := strings.NewReader(def)
 				res += "\n---\n" + render.ParseMDX(fd, f)
