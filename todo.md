@@ -44,6 +44,6 @@ The following are less important things that I want to finish.
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
 - [ ] A more decent web page.
-- [ ] Other online dict parsing engines if I have the motivation?
+- [ ] Other online dict parsing engines if I have the motivation? --> maybe "markdownify" is a workaround.
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] Make the plugin compatible with Vim 
