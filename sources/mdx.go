@@ -69,19 +69,13 @@ func QueryMDX(word string, f string) string {
 
 	log.Debugf("query: %v, format: %v", word, f)
 	var res string
-	for i, dict := range defs {
+	for _, dict := range defs {
 		for _, def := range dict.defs {
-			fd := strings.NewReader(def)
-			if dict.t == render.LongmanEasy {
-				fd := strings.NewReader(def)
-				res += "\n---\n" + render.ParseMDX(fd, f)
-			} else if dict.t == render.Longman5Online {
-				fd := strings.NewReader(def)
-				res += "\n--\n" + render.ParseHTML(fd)
-			} else {
-				log.Warnf("undefined markdown render for %dth dict, whose type is %q, using general markdownify.", i, dict.t)
-				res += "\n---\n" + render.Markdownify(fd)
+			ren := &render.MarkdownRender{
+				Raw:        def,
+				SourceType: dict.t,
 			}
+			res += "\n----\n" + ren.Render()
 		}
 	}
 	return res
