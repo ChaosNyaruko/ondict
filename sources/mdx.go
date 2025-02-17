@@ -79,7 +79,7 @@ func QueryMDX(word string, f string) string {
 				fd := strings.NewReader(def)
 				res += "\n--\n" + render.ParseHTML(fd)
 			} else {
-				log.Debugf("undefined markdown render for %dth dict, whose type is %v", i, dict.t)
+				log.Warnf("undefined markdown render for %dth dict, whose type is %q, using general markdownify.", i, dict.t)
 				res += "\n---\n" + render.Markdownify(fd)
 			}
 		}

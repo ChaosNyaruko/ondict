@@ -14,10 +14,7 @@ import (
 )
 
 func Markdownify(info io.Reader) string {
-	cmd := exec.Command("/Users/bytedance/miniconda3/bin/markdownify")
-	if cmd == nil {
-		return "Cannot find executable markdownify, see https://pypi.org/project/markdownify/ for more"
-	}
+	cmd := exec.Command("markdownify")
 
 	// Create a buffer to capture stdout
 	var out bytes.Buffer
@@ -31,7 +28,7 @@ func Markdownify(info io.Reader) string {
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Sprintf("%v: %v", "cmd.Start error", err)
+		return fmt.Sprintf("Invoke markdownify err: %v. Maybe the 'markdownify' binary is missing, see https://pypi.org/project/markdownify/ for more.", err)
 	}
 
 	_, err = io.Copy(stdin, info)
