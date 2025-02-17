@@ -72,8 +72,6 @@ func QueryMDX(word string, f string) string {
 	for i, dict := range defs {
 		for _, def := range dict.defs {
 			fd := strings.NewReader(def)
-			res += "\n---\n" + render.Markdownify(fd)
-			continue
 			if dict.t == render.LongmanEasy {
 				fd := strings.NewReader(def)
 				res += "\n---\n" + render.ParseMDX(fd, f)
@@ -82,6 +80,7 @@ func QueryMDX(word string, f string) string {
 				res += "\n--\n" + render.ParseHTML(fd)
 			} else {
 				log.Debugf("undefined markdown render for %dth dict, whose type is %v", i, dict.t)
+				res += "\n---\n" + render.Markdownify(fd)
 			}
 		}
 	}

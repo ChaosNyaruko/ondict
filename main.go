@@ -52,7 +52,7 @@ var dumpMDD = flag.Bool("dump", false, "If true, it will re-dump the mdd data wh
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
-var remote = flag.String("remote", "auto", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 1 min.")
+var remote = flag.String("remote", "", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 2min.")
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
 var renderFormat = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
@@ -151,85 +151,76 @@ func main() {
 	}
 
 	// one shot mode (-q word)
-	var netConn net.Conn
-	var err error
-	var network, address string
-	if *remote == "auto" {
-		dp, err := os.Executable()
-		if err != nil {
-			log.Fatalf("getting ondict path error: %v", err)
-		}
-		network, address = autoNetworkAddress(dp, "")
-		log.Debugf("auto mode dp: %v, network: %v, address: %v", dp, network, address)
-		netConn, err = net.DialTimeout(network, address, dialTimeout)
-
-		if err == nil { // detect an exsitng server, just forward a request
-			if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
-				log.Fatal(err)
+	if *remote != "" {
+		var netConn net.Conn
+		var err error
+		var network, address string
+		if *remote == "auto" {
+			dp, err := os.Executable()
+			if err != nil {
+				log.Fatalf("getting ondict path error: %v", err)
 			}
-			return
-		}
-		if network == "unix" {
-			// Sometimes the socketfile isn't properly cleaned up when the server
-			// shuts down. Since we have already tried and failed to dial this
-			// address, it should *usually* be safe to remove the socket before
-			// binding to the address.
-			// TODO(rfindley): there is probably a race here if multiple server
-			// instances are simultaneously starting up.
-			if _, err := os.Stat(address); err == nil {
-				if err := os.Remove(address); err != nil {
-					log.Fatalf("removing remote socket file: %v", err)
+			network, address = autoNetworkAddress(dp, "")
+			log.Debugf("auto mode dp: %v, network: %v, address: %v", dp, network, address)
+			netConn, err = net.DialTimeout(network, address, dialTimeout)
+
+			if err == nil { // detect an exsitng server, just forward a request
+				if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
+					log.Fatal(err)
+				}
+				return
+			}
+			if network == "unix" {
+				// Sometimes the socketfile isn't properly cleaned up when the server
+				// shuts down. Since we have already tried and failed to dial this
+				// address, it should *usually* be safe to remove the socket before
+				// binding to the address.
+				// TODO(rfindley): there is probably a race here if multiple server
+				// instances are simultaneously starting up.
+				if _, err := os.Stat(address); err == nil {
+					if err := os.Remove(address); err != nil {
+						log.Fatalf("removing remote socket file: %v", err)
+					}
 				}
 			}
-		}
-		args := []string{
-			"-serve=true",
-			"-listen.timeout=2m",
-			"-e=" + *engine,
-			"-f=" + *renderFormat,
-		}
-		log.Debugf("starting remote: %v", args)
-		if err := startRemote(dp, args...); err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		network, address = ParseAddr(*remote)
-	}
-	const retries = 5
-	// It can take some time for the newly started server to bind to our address,
-	// so we retry for a bit.
-	for retry := 0; retry < retries; retry++ {
-		log.Debugf("dialling %v %v", network, address)
-		startDial := time.Now()
-		netConn, err = net.DialTimeout(network, address, dialTimeout)
-		if err == nil {
-			if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
+			args := []string{
+				"-serve=true",
+				"-listen.timeout=2m",
+				"-e=" + *engine,
+				"-f=" + *renderFormat,
+			}
+			log.Debugf("starting remote: %v", args)
+			if err := startRemote(dp, args...); err != nil {
 				log.Fatal(err)
 			}
-			return
+		} else {
+			network, address = ParseAddr(*remote)
 		}
-		log.Debugf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
-		// In case our failure was a fast-failure, ensure we wait at least
-		// f.dialTimeout before trying again.
-		if retry != retries-1 {
-			time.Sleep(dialTimeout - time.Since(startDial))
+		const retries = 5
+		// It can take some time for the newly started server to bind to our address,
+		// so we retry for a bit.
+		for retry := 0; retry < retries; retry++ {
+			log.Debugf("dialling %v %v", network, address)
+			startDial := time.Now()
+			netConn, err = net.DialTimeout(network, address, dialTimeout)
+			if err == nil {
+				if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
+					log.Fatal(err)
+				}
+				return
+			}
+			log.Debugf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
+			// In case our failure was a fast-failure, ensure we wait at least
+			// f.dialTimeout before trying again.
+			if retry != retries-1 {
+				time.Sleep(dialTimeout - time.Since(startDial))
+			}
 		}
+		log.Fatalf("failed after %d attempts, remote: %v", retries, *remote)
 	}
-	log.Fatalf("failed after %d attempts", retries)
 
-	// just for offline test.
-	if *dev {
-		fd, err := os.Open("./testdata/doctor_ldoce.html")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer fd.Close()
-		fmt.Println(render.ParseHTML(fd))
-		return
-	}
-
+	// one-shot query, without making a request to "remote", remote is empty
 	if *engine == "mdx" {
-		// io.Copy(os.Stdout, fd)
 		g.Load(!*ahoFuzzy, *dumpMDD)
 	}
 	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
