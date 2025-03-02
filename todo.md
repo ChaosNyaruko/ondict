@@ -22,6 +22,7 @@
 - [x] Automate the dict generating process, registering
 - [x] Appropriate module abstraction, and unit testing automation. (sources/decoder/renderer)
 - [x] Lazy-loading for launch performance and memory usage? -> ~~mdd has some panic, debug later~~ fixed
+- [ ] make Lazy-loading optional.
 - [x] Parse the MDD file, and serve the picture sources when working in HTML mode.
 - [x] Support multiple mdx libs at the same time and provide a user interface (no UI yet)
 - [x] Integrated with FZF? or https://github.com/lithammer/fuzzysearch? https://github.com/junegunn/fzf/wiki/Language-bindings#go?
