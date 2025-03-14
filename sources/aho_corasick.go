@@ -48,7 +48,7 @@ func NewAho(dict Dict) Searcher {
 }
 
 func (ack *AhoCorasick) GetRawOutputs(input string) []RawOutput {
-	matches := ack.trie.Match([]byte(input))
+	matches := ack.trie.Match([]byte(strings.ToLower(input)))
 	res := make([]RawOutput, 0, len(matches))
 	for i, match := range matches {
 		log.Debugf("%d th match: pos[%v], pattern[%v], string[%v]\n", i, match.Pos(), match.Pattern(), match.MatchString())

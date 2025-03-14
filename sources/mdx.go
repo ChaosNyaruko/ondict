@@ -137,7 +137,7 @@ func (d *MdxDict) CSS() string {
 }
 
 func (d *MdxDict) Get(word string) []string {
-	results := d.searcher.GetRawOutputs(strings.ToLower(word))
+	results := d.searcher.GetRawOutputs(word)
 	if len(results) == 0 {
 		return []string{}
 	}
