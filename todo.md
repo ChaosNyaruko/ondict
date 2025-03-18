@@ -22,11 +22,13 @@
 - [x] Automate the dict generating process, registering
 - [x] Appropriate module abstraction, and unit testing automation. (sources/decoder/renderer)
 - [x] Lazy-loading for launch performance and memory usage? -> ~~mdd has some panic, debug later~~ fixed
+- [ ] make Lazy-loading optional.
 - [x] Parse the MDD file, and serve the picture sources when working in HTML mode.
 - [x] Support multiple mdx libs at the same time and provide a user interface (no UI yet)
 - [x] Integrated with FZF? or https://github.com/lithammer/fuzzysearch? https://github.com/junegunn/fzf/wiki/Language-bindings#go?
 - [x] `entry://` protocol and "auto"jump, such as `versatility` to `versatile` [node demo](./play.txt)
 - [ ] `@@@LINK=norm` for some items, such as "tormentor/linker".
+- [ ] "swung" why eudic can auto parse the "swing"?
 - [x] fzf-mode: reduce the memory usage
 - [x] Integrated with [mdcat](https://github.com/swsnr/mdcat)
 - [x] Auto history. 
@@ -42,7 +44,7 @@ The following are less important things that I want to finish.
 - [x] A system for reviewing, e.g. simple ANKI? --> related to the history functionality?
 - [ ] Online mode: more information such as collocations/corpus/.....
 - [ ] More search algorithms?(Refs: https://aclanthology.org/C10-1096.pdf)
-- [ ] A more decent web page.
-- [ ] Other online dict parsing engines if I have the motivation?
+- [x] A more decent web page -> completed by Cursor
+- [x] Other online dict parsing engines if I have the motivation? --> maybe "markdownify" is a workaround.
 - [ ] A simple TUI using https://github.com/charmbracelet/bubbletea ?
 - [ ] Make the plugin compatible with Vim 

@@ -44,12 +44,29 @@ func (h *History) Append(word string) error {
 type Word struct {
 	Name       string
 	Count      int
-	CreateTime time.Time
-	UpdateTime time.Time
+	CreateTime string
+	UpdateTime string
+}
+
+func (w *Word) NormTime(loc *time.Location) error {
+	// TODO: ''bad review request: parsing time "2025-02-15T18:00:27Z" as "2006-01-02 15:04:05": cannot parse "T18:00:27Z" as " "'
+	// > SQLite does not have a storage class set aside for storing dates and/or times. Instead, the built-in Date And Time Functions of SQLite are capable of storing dates and times as TEXT, REAL, or INTEGER values:
+	return nil
+	ct, err := time.ParseInLocation("2006-01-02 15:04:05", w.CreateTime, loc)
+	if err != nil {
+		return err
+	}
+	ut, err := time.ParseInLocation("2006-01-02 15:04:05", w.UpdateTime, loc)
+	if err != nil {
+		return err
+	}
+	w.CreateTime = ct.String()
+	w.UpdateTime = ut.String()
+	return nil
 }
 
 func (w *Word) String() string {
-	return fmt.Sprintf("%-20v|%v ", w.Name, w.Count)
+	return fmt.Sprintf("%-20v|%v|%v ", w.Name, w.UpdateTime, w.Count)
 }
 
 func (h *History) Review() (string, error) {
@@ -63,8 +80,8 @@ func (h *History) Review() (string, error) {
 	}
 	defer db.Close()
 	rows, err := db.Query(`SELECT * FROM history
-		WHERE update_time > datetime('now', 'localtime', '-2 months')
-		ORDER BY count DESC;
+		WHERE update_time > datetime('now', 'localtime', '-7 days')
+		ORDER BY update_time DESC;
 		`)
 	if err != nil {
 		log.Errorf("query most frequently queried words error: %v", err)
@@ -73,10 +90,17 @@ func (h *History) Review() (string, error) {
 	defer rows.Close()
 	var res []string
 	// Loop through rows, using Scan to assign column data to struct fields.
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return "", err
+	}
 	for rows.Next() {
 		var w Word
 		if err := rows.Scan(&w.Name, &w.Count, &w.CreateTime, &w.UpdateTime); err != nil {
 			return "", fmt.Errorf("Review words Scan: %v", err)
+		}
+		if err := w.NormTime(loc); err != nil {
+			return "", err
 		}
 		res = append(res, w.String())
 	}

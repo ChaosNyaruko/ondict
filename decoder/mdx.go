@@ -106,7 +106,7 @@ func (m *MDict) dumpKeys() {
 		}
 		runtime.GC()
 		debug.FreeOSMemory()
-		log.Infof("[after dumpKeys]FreeOSMemory...")
+		log.Debugf("[after dumpKeys]FreeOSMemory...")
 	})
 }
 
@@ -218,7 +218,7 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 		}
 	} else {
 		// return fmt.Errorf("the reader should be empty now!")
-		log.Infof("m.lazyOffset: %v", m.lazyOffset)
+		log.Debugf("m.lazyOffset: %v", m.lazyOffset)
 	}
 	return nil
 }
@@ -676,7 +676,7 @@ func (m *MDict) DumpData() error {
 	}
 	runtime.GC()
 	debug.FreeOSMemory()
-	log.Infof("[after DumpData]FreeOSMemory...")
+	log.Debugf("[after DumpData]FreeOSMemory...")
 
 	return nil
 }

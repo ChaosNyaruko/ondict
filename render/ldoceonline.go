@@ -1,8 +1,10 @@
 package render
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 	"unicode"
 
@@ -10,6 +12,40 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 )
+
+func Markdownify(info io.Reader) string {
+	cmd := exec.Command("markdownify")
+
+	// Create a buffer to capture stdout
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	// Create a pipe for stdin
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		fmt.Println("Error creating stdin pipe:", err)
+		return fmt.Sprintf("%v: %v", "Creating stdin pipe", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Sprintf("Invoke markdownify err: %v. Maybe the 'markdownify' binary is missing, see https://pypi.org/project/markdownify/ for more.", err)
+	}
+
+	_, err = io.Copy(stdin, info)
+	if err != nil {
+		return fmt.Sprintf("%v: %v", "io.Copy error", err)
+	}
+	if err := stdin.Close(); err != nil {
+		return fmt.Sprintf("close stdin err: %v", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Sprintf("%v: %v", "Waiting for command err", err)
+	}
+
+	// Print the output from stdout
+	return out.String()
+}
 
 func ParseHTML(info io.Reader) string {
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
