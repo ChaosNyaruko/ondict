@@ -49,6 +49,7 @@ var interactive = flag.Bool("i", false, "Launch an interactive CLI app")
 var useFzf = flag.Bool("fzf", false, "EXPERIMENTAL: whether to use fzf as the fuzzy search tool")
 var ahoFuzzy = flag.Bool("aho", false, "When enabled, searching for something will use 'aho-corasick' algorithm, which will cost much more memory, \nbut allows you to find SHORTER && SIMILAR results when you didn't type in the exact word existing in the MDX dictionaries, \ni.e. finding the LONGEST match in the MDX dictionaries. \nNOT take effect when '-fzf' is enabled.")
 var dumpMDD = flag.Bool("dump", false, "If true, it will re-dump the mdd data when launched. The dumping will be running in the background, so the server won't be stuck")
+var lazy = flag.Bool("lazy", true, "If disabled(-lazy=false), the application will load all the dictionary items in the MDX file, rather than loading them at the first query.")
 var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, for cache stuff, make it quicker!")
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
@@ -97,13 +98,13 @@ func main() {
 	}
 
 	if *useFzf {
-		g.Load(true, false)
+		g.Load(true, false, *lazy)
 		fzf.ListAllWord()
 		return
 	}
 
 	if *interactive {
-		g.Load(!*ahoFuzzy, *dumpMDD)
+		g.Load(!*ahoFuzzy, *dumpMDD, *lazy)
 		startLoop()
 		return
 	}
@@ -129,7 +130,7 @@ func main() {
 			}
 		}
 		log.Debugf("start a new server: %s/%s/%s/%s/%v", network, addr, *renderFormat, *engine, *dumpMDD)
-		g.Load(!*ahoFuzzy, *dumpMDD)
+		g.Load(!*ahoFuzzy, *dumpMDD, *lazy)
 		l, err := net.Listen(network, addr)
 		if err != nil {
 			log.Fatal("bad Listen: ", err)
@@ -221,7 +222,7 @@ func main() {
 
 	// one-shot query, without making a request to "remote", remote is empty
 	if *engine == "mdx" {
-		g.Load(!*ahoFuzzy, *dumpMDD)
+		g.Load(!*ahoFuzzy, *dumpMDD, *lazy)
 	}
 	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
 }

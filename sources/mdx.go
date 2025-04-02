@@ -22,13 +22,13 @@ type Dicts []*MdxDict
 var G = &Dicts{}
 var once sync.Once
 
-func (g *Dicts) Load(fzf bool, mdd bool) error {
+func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
 		if err := LoadConfig(); err != nil {
 			log.Fatalf("load config err: %v", err)
 		}
 		for _, d := range *g {
-			d.Register(fzf, mdd)
+			d.Register(fzf, mdd, lazy)
 		}
 		log.Debugf("loading g")
 	})
@@ -81,7 +81,7 @@ func QueryMDX(word string, f string) string {
 	return res
 }
 
-func loadDecodedMdx(filePath string, fzf bool, mdd bool) Dict {
+func loadDecodedMdx(filePath string, fzf bool, mdd bool, lazy bool) Dict {
 	jsonData, err := os.ReadFile(filePath + ".json")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("Failed to read JSON file: %v, %v", filePath, err)
@@ -89,6 +89,11 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool) Dict {
 		log.Debugf("JSON file not exist: %v, fzf: %v, mdd: %v", filePath+".json", fzf, mdd)
 		m := &decoder.MDict{}
 		err := m.Decode(filePath+".mdx", fzf)
+		if !lazy {
+			go func() {
+				m.DumpKeys()
+			}()
+		}
 		if mdd {
 			log.Infof("The server will dump mdd resources for [%v]!", filePath+".mdd")
 			go func() {

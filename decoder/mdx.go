@@ -76,7 +76,7 @@ type Header struct {
 }
 
 func (m *MDict) Get(word string) string {
-	m.dumpKeys()
+	m.DumpKeys()
 	log.Debugf("Get %v from MDict", word)
 	if index, ok := m.keymap[word]; ok {
 		return m.decodeString(m.ReadAtOffset(int(index)))
@@ -84,7 +84,7 @@ func (m *MDict) Get(word string) string {
 	return ""
 }
 
-func (m *MDict) dumpKeys() {
+func (m *MDict) DumpKeys() {
 	m.once.Do(func() {
 		m.keymap = make(map[string]uint64, m.numEntries)
 		bar := progressbar.Default(int64(m.numEntries), fmt.Sprintf("dumping keys for %v(%v)", m.header.Title, m.t))
@@ -111,7 +111,7 @@ func (m *MDict) dumpKeys() {
 }
 
 func (m *MDict) Keys() []string {
-	m.dumpKeys()
+	m.DumpKeys()
 	res := make([]string, 0, len(m.keymap))
 	for k := range m.keymap {
 		res = append(res, k)
@@ -640,7 +640,7 @@ func (m *MDict) DumpData() error {
 	defer func() {
 		log.Debugf("dump data cost: %v", time.Since(start))
 	}()
-	m.dumpKeys()
+	m.DumpKeys()
 	total := 0
 	for i, k := range m.keys {
 		fname := m.decodeString(k.key)
