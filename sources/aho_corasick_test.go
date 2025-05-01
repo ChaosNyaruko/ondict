@@ -16,7 +16,7 @@ func Test_New(t *testing.T) {
 		}
 		g = &d
 	}
-	g.Register(false, false)
+	g.Register(false, false, false)
 	ack := NewAho(g.MdxDict)
 	res := ack.GetRawOutputs("jesus")
 	t.Logf("%q output: %v", "jesus", res)
