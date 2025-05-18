@@ -203,3 +203,22 @@ const reviewPage = `
 </body>
 </html>
 `
+const login = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+</head>
+<body>
+    <h1>Login</h1>
+    {{if .error}}<p style="color:red;">{{.error}}</p>{{end}}
+    <form method="post" action="/login">
+        Username: <input type="text" name="username"><br>
+        Password: <input type="password" name="password"><br>
+        <input type="submit" value="Login">
+    </form>
+</body>
+</html>
+`
