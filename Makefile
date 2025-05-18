@@ -8,11 +8,11 @@ run:
 	go run . -q=$(word) 
 
 serve:
-	go run . -serve -f=md -e=mdx -listen=0.0.0.0:1345
+	go run . -serve -f=md -e=mdx -listen=0.0.0.0:1346
 	# go run . -serve -f=md -e=mdx -listen=127.0.0.1:1345 -v
 	#
 serve-v:
-	go run . -serve -f=md -e=mdx -listen=0.0.0.0:1345 -v -lazy=false
+	go run . -serve -f=md -e=mdx -listen=0.0.0.0:1346 -v -lazy=false
 	# go run . -serve -f=md -e=mdx -listen=127.0.0.1:1345 -v
 	#
 query-online:
