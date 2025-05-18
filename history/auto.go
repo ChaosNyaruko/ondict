@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +70,16 @@ func (w *Word) String() string {
 	return fmt.Sprintf("%-20v|%v|%v ", w.Name, w.UpdateTime, w.Count)
 }
 
-func (h *History) Review() (string, error) {
+func (h *History) Review(days string, count string) (string, error) {
+	d, err := strconv.Atoi(days)
+	if err != nil {
+		return "", err
+	}
+	cnt, err := strconv.Atoi(count)
+	if err != nil {
+		return "", err
+	}
+
 	// TODO: refactor
 	dbName := util.HistoryDB()
 	log.Debugf("Connected to %v!", dbName)
@@ -79,10 +89,14 @@ func (h *History) Review() (string, error) {
 		return "", err
 	}
 	defer db.Close()
-	rows, err := db.Query(`SELECT * FROM history
-		WHERE update_time > datetime('now', 'localtime', '-7 days')
-		ORDER BY update_time DESC;
-		`)
+	where := fmt.Sprintf(`WHERE 
+		update_time > datetime('now', 'localtime', '-%d days')
+		AND count >= %d `,
+		d,
+		cnt)
+	rows, err := db.Query(`SELECT * FROM history ` +
+		where +
+		`ORDER BY update_time DESC;`)
 	if err != nil {
 		log.Errorf("query most frequently queried words error: %v", err)
 		return "", err

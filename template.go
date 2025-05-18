@@ -155,3 +155,51 @@ const portal = `<!DOCTYPE html>
 </body>
 </html>
 `
+
+const reviewPage = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Submit Page</title>
+  <style>
+    .form-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .form-group label {
+      width: 100px;
+      font-weight: bold;
+    }
+
+    .form-group input {
+      flex: 1;
+      padding: 5px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 6px 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Submit Data</h1>
+  <form id="dataForm" action="/review" method="GET">
+    <div class="form-group">
+      <label for="count">Count:</label>
+      <input type="number" id="count" name="count" value="1" min="1" required>
+    </div>
+
+    <div class="form-group">
+      <label for="daysAgo">X Days Ago:</label>
+      <input type="number" id="daysAgo" name="days_ago" value="7" required>
+    </div>
+
+    <button type="submit">Submit</button>
+  </form>
+</body>
+</html>
+`

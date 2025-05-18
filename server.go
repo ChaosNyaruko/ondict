@@ -25,7 +25,21 @@ func (p *proxy) Run(l net.Listener) error {
 }
 
 func review(c *gin.Context) {
-	words, err := his.Review()
+	days, x := c.GetQuery("days_ago")
+	count, y := c.GetQuery("count")
+	if !x && !y {
+		tmplt := template.New("review")
+		tmplt, err := tmplt.Parse(reviewPage)
+		if err != nil {
+			log.Fatalf("parse portal html err: %v", err)
+		}
+
+		if err := tmplt.Execute(c.Writer, nil); err != nil {
+			return
+		}
+		return
+	}
+	words, err := his.Review(days, count)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("bad review request: %v", err))
 	}
