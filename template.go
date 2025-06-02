@@ -161,6 +161,7 @@ const reviewPage = `
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Submit Page</title>
   <style>
     .form-group {
@@ -183,7 +184,34 @@ const reviewPage = `
       margin-top: 10px;
       padding: 6px 12px;
     }
-  </style>
+    body {
+		font-family: Arial, sans-serif;
+		margin: 0;
+		padding: 0;
+	}
+
+	.container {
+		width: 90%;
+		max-width: 1200px;
+		margin: auto;
+	}
+
+	@media (max-width: 600px) {
+		.container {
+			padding: 10px;
+		}
+	}
+
+	.nav {
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.nav-item {
+		flex: 1;
+		text-align: center;
+	}
+</style>
 </head>
 <body>
   <h1>Submit Data</h1>
