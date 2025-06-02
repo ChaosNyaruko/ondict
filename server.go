@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -73,6 +75,15 @@ func index(c *gin.Context) {
 
 func NewProxy() *proxy {
 	r := gin.Default()
+	r.LoadHTMLGlob("templates/*")
+	// Set up cookie-based sessions
+	store := cookie.NewStore([]byte("secret-key"))
+	r.Use(sessions.Sessions("session", store))
+
+	r.GET("/login", loginHandler)
+	r.POST("/login", processLogin)
+	r.GET("/auth", authMiddleware(), review)
+
 	r.GET("/", index)
 	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 	r.GET("/dict", queryWord)
