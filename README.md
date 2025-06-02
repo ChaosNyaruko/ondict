@@ -116,8 +116,12 @@ Launch a http request
 ```console
 curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 ```
-Or just open your browser, vist localhost:1345 and you'll see!
-![Gif](./assets/e1_mdx_web.gif)
+Or just open your browser, visit localhost:1345 and you'll see!
+<details> 
+<summary>Web Mode</summary>
+<img src="https://github.com/ChaosNyaruko/ondict/blob/main/assets/e1_mdx_web.gif" />
+</details>
+
 If you are visiting the URL with a web browser, setting format to "html" is recommended. The browser will automatically render a more beautiful page than it is in the "CLI" interface.
 
 You can also deploy it on your server, as an upstream of Nginx/, or just exposing it with a suitable ip/port.
