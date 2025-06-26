@@ -77,7 +77,7 @@ type Header struct {
 
 func (m *MDict) Get(word string) string {
 	m.DumpKeys()
-	log.Debugf("Get %v from MDict", word)
+	log.Tracef("Get %v from MDict", word)
 	if index, ok := m.keymap[word]; ok {
 		return m.decodeString(m.ReadAtOffset(int(index)))
 	}
