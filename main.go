@@ -9,7 +9,9 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"time"
+	"encoding/json"
 
 	"github.com/fatih/color"
 	log "github.com/sirupsen/logrus"
@@ -68,6 +70,33 @@ func init() {
 	log.SetLevel(log.InfoLevel)
 }
 
+func completeHandler(w http.ResponseWriter, r *http.Request) {
+    prefix := r.URL.Query().Get("prefix")
+    if prefix == "" {
+        http.Error(w, "Prefix is required", http.StatusBadRequest)
+        return
+    }
+
+    words, err := sources.G.GetAllWords()
+    if err != nil {
+        http.Error(w, "Failed to retrieve words: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    var suggestions []string
+    for _, word := range words {
+        if strings.HasPrefix(strings.ToLower(word), strings.ToLower(prefix)) {
+            suggestions = append(suggestions, word)
+            if len(suggestions) >= 10 {
+                break
+            }
+        }
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(suggestions)
+}
+
 func main() {
 	flag.Parse()
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
@@ -110,6 +139,7 @@ func main() {
 	}
 
 	if *server {
+    http.HandleFunc("/complete", completeHandler)
 		go http.ListenAndServe("localhost:8083", nil)
 		stop := make(chan error)
 		p := NewProxy()
