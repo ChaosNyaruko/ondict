@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
@@ -88,6 +90,7 @@ func NewProxy() *proxy {
 	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 	r.GET("/dict", queryWord)
 	r.GET("/review", review)
+	r.GET("/complete", completeHandler)
 	return &proxy{
 		e: r,
 	}
@@ -117,4 +120,34 @@ func ParseAddr(listen string) (network string, address string) {
 		return parts[0], parts[1]
 	}
 	return "tcp", listen
+}
+
+func completeHandler(c *gin.Context) {
+	prefix, pre := c.GetQuery("prefix")
+	if !pre {
+		c.String(200, "prefix empty")
+		return
+	}
+
+	var words []string
+	for _, g := range *sources.G {
+		words = append(words, g.MdxDict.Keys()...)
+	}
+
+	var suggestions []string
+	for _, word := range words {
+		if strings.HasPrefix(strings.ToLower(word), strings.ToLower(prefix)) {
+			suggestions = append(suggestions, word)
+			if len(suggestions) >= 10 {
+				break
+			}
+		}
+	}
+
+	res, err := json.Marshal(suggestions)
+	if err != nil {
+		c.AbortWithError(500, fmt.Errorf("unmarshal error"))
+		return
+	}
+	c.Data(200, "application/json", res)
 }
