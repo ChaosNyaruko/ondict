@@ -50,6 +50,7 @@ const portal = `<!DOCTYPE html>
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            position: relative;
         }
 
         label {
@@ -149,6 +150,7 @@ const portal = `<!DOCTYPE html>
         max-height: 200px;
         overflow-y: auto;
         position: absolute;
+        top: 100%;
         width: calc(100% - 2px);
         z-index: 1000;
     }
