@@ -1,5 +1,6 @@
 package sources
 
+// Exact is a case sensitive search source, only matching the key(s) that is "exactly" the same
 type Exact struct {
 	dict Dict
 }

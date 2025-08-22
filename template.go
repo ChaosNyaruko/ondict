@@ -50,6 +50,7 @@ const portal = `<!DOCTYPE html>
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            position: relative;
         }
 
         label {
@@ -137,7 +138,128 @@ const portal = `<!DOCTYPE html>
         <p><a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a></p>
     </footer>
 
-    <script>
+	<style>
+    .suggestions {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid #e0e0e0;
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        background-color: white;
+        max-height: 200px;
+        overflow-y: auto;
+        position: absolute;
+        top: 100%;
+        width: calc(100% - 2px);
+        z-index: 1000;
+    }
+
+    .suggestions li {
+        padding: 0.8rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .suggestions li:hover, .suggestions li.active {
+        background-color: #f5f5f5;
+    }
+
+    .form-group {
+        position: relative;
+    }
+</style>
+
+<script>
+        // Autocomplete functionality
+const queryInput = document.getElementById('query');
+const suggestionsList = document.createElement('ul');
+suggestionsList.className = 'suggestions';
+const formGroup = queryInput.parentNode;
+formGroup.appendChild(suggestionsList);
+let activeIndex = -1;
+
+// Debounce function
+function debounce(func, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+function updateActiveSuggestion(suggestions) {
+  suggestions.forEach((item, index) => {
+    item.classList.toggle('active', index === activeIndex);
+  });
+  if (activeIndex >= 0 && activeIndex < suggestions.length) {
+    suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+// Handle input events for autocomplete
+queryInput.addEventListener('input', debounce(async (e) => {
+    const prefix = e.target.value.trim();
+    suggestionsList.innerHTML = '';
+
+    if (prefix.length < 2) {
+        return;
+    }
+
+    try {
+        const response = await ` + "fetch(`/complete?prefix=${encodeURIComponent(prefix)}`)\n" + `;
+        if (!response.ok) {
+	` +
+	" throw new Error(`HTTP error! status: ${response.status}`);" + `
+        }
+        const suggestions = await response.json();
+
+        if (suggestions.length === 0) {
+            return;
+        }
+
+        suggestions.forEach(word => {
+            const li = document.createElement('li');
+            li.textContent = word;
+            li.addEventListener('click', () => {
+                queryInput.value = word;
+                suggestionsList.innerHTML = '';
+            });
+            suggestionsList.appendChild(li);
+        });
+    } catch (err) {
+        console.error('Error fetching autocomplete suggestions:', err);
+    }
+}, 800));
+
+// Handle keydown events for navigation
+queryInput.addEventListener('keydown', (e) => {
+  const suggestions = suggestionsList.querySelectorAll('li');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIndex = Math.max(activeIndex - 1, 0);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+      queryInput.value = suggestions[activeIndex].textContent;
+      suggestionsList.innerHTML = '';
+      activeIndex = -1;
+    }
+  }
+});
+
+// Clear suggestions when clicking outside
+document.addEventListener('click', (e) => {
+    if (!formGroup.contains(e.target)) {
+        suggestionsList.innerHTML = '';
+        activeIndex = -1;
+    }
+});
         // Focus the query input when page loads
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('query').focus();

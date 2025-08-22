@@ -133,7 +133,7 @@ type MdxDict struct {
 	MdxFile string
 	// Only match the mdx with the same mdxFile name
 	MdxCss   string
-	MdxDict  Dict
+	MdxDict  Dict // TODO: it's "embedded" in the searcher, maybe we can remove it to reduce mem usage when apply non-plain search algorithms.
 	searcher Searcher
 }
 
