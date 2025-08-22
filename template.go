@@ -161,7 +161,7 @@ const portal = `<!DOCTYPE html>
         transition: background-color 0.3s ease;
     }
 
-    .suggestions li:hover {
+    .suggestions li:hover, .suggestions li.active {
         background-color: #f5f5f5;
     }
 
@@ -177,6 +177,7 @@ const suggestionsList = document.createElement('ul');
 suggestionsList.className = 'suggestions';
 const formGroup = queryInput.parentNode;
 formGroup.appendChild(suggestionsList);
+let activeIndex = -1;
 
 // Debounce function
 function debounce(func, delay) {
@@ -185,6 +186,15 @@ function debounce(func, delay) {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => func.apply(this, args), delay);
     };
+}
+
+function updateActiveSuggestion(suggestions) {
+  suggestions.forEach((item, index) => {
+    item.classList.toggle('active', index === activeIndex);
+  });
+  if (activeIndex >= 0 && activeIndex < suggestions.length) {
+    suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+  }
 }
 
 // Handle input events for autocomplete
@@ -222,10 +232,32 @@ queryInput.addEventListener('input', debounce(async (e) => {
     }
 }, 800));
 
+// Handle keydown events for navigation
+queryInput.addEventListener('keydown', (e) => {
+  const suggestions = suggestionsList.querySelectorAll('li');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIndex = Math.max(activeIndex - 1, 0);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+      queryInput.value = suggestions[activeIndex].textContent;
+      suggestionsList.innerHTML = '';
+      activeIndex = -1;
+    }
+  }
+});
+
 // Clear suggestions when clicking outside
 document.addEventListener('click', (e) => {
     if (!formGroup.contains(e.target)) {
         suggestionsList.innerHTML = '';
+        activeIndex = -1;
     }
 });
         // Focus the query input when page loads
