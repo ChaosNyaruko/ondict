@@ -77,7 +77,7 @@ func index(c *gin.Context) {
 
 func NewProxy() *proxy {
 	r := gin.Default()
-	r.LoadHTMLGlob("templates/*")
+	// r.LoadHTMLGlob("templates/*")
 	// Set up cookie-based sessions
 	store := cookie.NewStore([]byte("secret-key"))
 	r.Use(sessions.Sessions("session", store))
