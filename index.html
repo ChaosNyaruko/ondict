@@ -28,7 +28,9 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            flex: 1;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
         }
 
         h1 {
@@ -42,6 +44,8 @@
             display: flex;
             flex-direction: column;
             gap: 1rem;
+            flex: 1;
+            justify-content: flex-start;
         }
 
         .form-group {
@@ -77,6 +81,9 @@
             font-size: 1rem;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            margin-top: 1rem;
+            min-height: 48px;
+            width: 100%;
         }
 
         input[type="submit"]:hover {
@@ -146,8 +153,11 @@
         max-height: 200px;
         overflow-y: auto;
         position: absolute;
-        width: calc(100% - 2px);
+        top: 100%;
+        left: 0;
+        right: 0;
         z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
     .suggestions li {
@@ -162,6 +172,15 @@
 
     .form-group {
         position: relative;
+        margin-bottom: 1rem;
+    }
+
+    .form-group:first-child {
+        margin-bottom: 1.5rem;
+    }
+
+    .search-form {
+        margin-bottom: 2rem;
     }
 </style>
 <script>
@@ -171,6 +190,17 @@ const suggestionsList = document.createElement('ul');
 suggestionsList.className = 'suggestions';
 const formGroup = queryInput.parentNode;
 formGroup.appendChild(suggestionsList);
+let activeIndex = -1;
+
+// Function to update active suggestion highlighting
+function updateActiveSuggestion(suggestions) {
+    suggestions.forEach((item, index) => {
+        item.classList.toggle('active', index === activeIndex);
+    });
+    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
 
 // Debounce function
 function debounce(func, delay) {
@@ -215,10 +245,36 @@ queryInput.addEventListener('input', debounce(async (e) => {
     }
 }, 800));
 
+// Handle keydown events for navigation and form submission
+queryInput.addEventListener('keydown', (e) => {
+    const suggestions = suggestionsList.querySelectorAll('li');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
+        updateActiveSuggestion(suggestions);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = Math.max(activeIndex - 1, 0);
+        updateActiveSuggestion(suggestions);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < suggestions.length) {
+            queryInput.value = suggestions[activeIndex].textContent;
+            suggestionsList.innerHTML = '';
+            activeIndex = -1;
+        } else {
+            // Submit form if no suggestion is selected
+            document.querySelector('.search-form').submit();
+        }
+    }
+});
+
 // Clear suggestions when clicking outside
 document.addEventListener('click', (e) => {
     if (!formGroup.contains(e.target)) {
         suggestionsList.innerHTML = '';
+        activeIndex = -1;
     }
 });
 

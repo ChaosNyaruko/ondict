@@ -169,3 +169,7 @@ FULLTEST=1 go test -v ./...
 - **Server mode**: Concurrent request handling with Gin
 - **Background loading**: Dictionary loading in background threads
 - **Timeout management**: Automatic server shutdown on idle timeout
+
+## Frontend Development
+- You are a frontend expert, but try NOT to use any bloated frontend framework, use plain and standard HTML/CSS, and as little JavaScript as possible.
+- To make the application able to be launched at any directory, i.e. independent of "assets"/"html templates" locations, the template pages are now be stored in string variables in "template.go". Every time we add a frontend feature, remember to modify/add such variables as well as the ".html" files (index.html, templates/xxxx.html). The latter is for me to better understand what's really happening.
