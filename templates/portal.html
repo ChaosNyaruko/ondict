@@ -46,12 +46,19 @@
             gap: 1rem;
             flex: 1;
             justify-content: flex-start;
+            margin-bottom: 2rem;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .form-group:first-child {
+            margin-bottom: 1.5rem;
         }
 
         label {
@@ -116,13 +123,14 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Online Dictionary</h1>
         <form class="search-form" action="/dict" method="get">
             <div class="form-group">
                 <label for="query">Query:</label>
-                <input type="text" id="query" name="query" placeholder="Enter a word..." required autocomplete="off"/>
+                <input type="text" id="query" name="query" placeholder="Enter a word..." required autocomplete="on"/>
             </div>
             
             <div class="form-group">
@@ -131,6 +139,7 @@
             </div>
 
             <input type="hidden" name="format" value="html" />
+            <input type="hidden" name="record" value="1" />
             <input type="submit" value="Search"/>
         </form>
     </div>
@@ -141,7 +150,7 @@
         <p><a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a></p>
     </footer>
 
-    <style>
+<style>
     .suggestions {
         list-style-type: none;
         margin: 0;
@@ -166,50 +175,50 @@
         transition: background-color 0.3s ease;
     }
 
-    .suggestions li:hover {
+    .suggestions li:hover, .suggestions li.active {
         background-color: #f5f5f5;
     }
 
     .form-group {
         position: relative;
-        margin-bottom: 1rem;
-    }
-
-    .form-group:first-child {
-        margin-bottom: 1.5rem;
-    }
-
-    .search-form {
-        margin-bottom: 2rem;
     }
 </style>
+
 <script>
-        // Autocomplete functionality
-const queryInput = document.getElementById('query');
-const suggestionsList = document.createElement('ul');
-suggestionsList.className = 'suggestions';
-const formGroup = queryInput.parentNode;
-formGroup.appendChild(suggestionsList);
-let activeIndex = -1;
+    const queryInput = document.getElementById('query');
+    const suggestionsList = document.createElement('ul');
+    suggestionsList.className = 'suggestions';
+    const formGroup = queryInput.parentNode;
+    formGroup.appendChild(suggestionsList);
+    let activeIndex = -1;
 
-// Function to update active suggestion highlighting
-function updateActiveSuggestion(suggestions) {
-    suggestions.forEach((item, index) => {
-        item.classList.toggle('active', index === activeIndex);
-    });
-    if (activeIndex >= 0 && activeIndex < suggestions.length) {
-        suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+    // Function to update active suggestion highlighting
+    function updateActiveSuggestion(suggestions) {
+        suggestions.forEach((item, index) => {
+            item.classList.toggle('active', index === activeIndex);
+        });
+        if (activeIndex >= 0 && activeIndex < suggestions.length) {
+            suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+        }
     }
-}
 
-// Debounce function
-function debounce(func, delay) {
-    let timeoutId;
-    return function(...args) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(this, args), delay);
-    };
-}
+    // Debounce function
+    function debounce(func, delay) {
+        let timeoutId;
+        return function(...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    function updateActiveSuggestion(suggestions) {
+      suggestions.forEach((item, index) => {
+        item.classList.toggle('active', index === activeIndex);
+      });
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+      }
+    }
 
 // Handle input events for autocomplete
 queryInput.addEventListener('input', debounce(async (e) => {
@@ -245,6 +254,27 @@ queryInput.addEventListener('input', debounce(async (e) => {
     }
 }, 800));
 
+// Handle keydown events for navigation
+queryInput.addEventListener('keydown', (e) => {
+  const suggestions = suggestionsList.querySelectorAll('li');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIndex = Math.max(activeIndex - 1, 0);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+      queryInput.value = suggestions[activeIndex].textContent;
+      suggestionsList.innerHTML = '';
+      activeIndex = -1;
+    }
+  }
+});
+
 // Handle keydown events for navigation and form submission
 queryInput.addEventListener('keydown', (e) => {
     const suggestions = suggestionsList.querySelectorAll('li');
@@ -277,8 +307,7 @@ document.addEventListener('click', (e) => {
         activeIndex = -1;
     }
 });
-
-// Focus the query input when page loads
+        // Focus the query input when page loads
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('query').focus();
         });
@@ -294,3 +323,5 @@ document.addEventListener('click', (e) => {
     </script>
 </body>
 </html>
+
+

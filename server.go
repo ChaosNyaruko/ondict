@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -32,15 +33,7 @@ func review(c *gin.Context) {
 	days, x := c.GetQuery("days_ago")
 	count, y := c.GetQuery("count")
 	if !x && !y {
-		tmplt := template.New("review")
-		tmplt, err := tmplt.Parse(reviewPage)
-		if err != nil {
-			log.Fatalf("parse portal html err: %v", err)
-		}
-
-		if err := tmplt.Execute(c.Writer, nil); err != nil {
-			return
-		}
+		c.HTML(200, "review.html", nil)
 		return
 	}
 	words, err := his.Review(days, count)
@@ -59,25 +52,21 @@ func queryWord(c *gin.Context) {
 	res := query(word, e, f, r != "0")
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(res))
-	return
 }
 
 func index(c *gin.Context) {
-	tmplt := template.New("portal")
-	tmplt, err := tmplt.Parse(portal)
-	if err != nil {
-		log.Fatalf("parse portal html err: %v", err)
-	}
-
-	if err := tmplt.Execute(c.Writer, nil); err != nil {
-		return
-	}
-	return
+	c.HTML(200, "portal.html", nil)
 }
+
+//go:embed templates/*
+var templateFS embed.FS
 
 func NewProxy() *proxy {
 	r := gin.Default()
-	// r.LoadHTMLGlob("templates/*")
+
+	// 从嵌入的文件系统加载模板
+	tpl := template.Must(template.ParseFS(templateFS, "templates/*.html"))
+	r.SetHTMLTemplate(tpl)
 	// Set up cookie-based sessions
 	store := cookie.NewStore([]byte("secret-key"))
 	r.Use(sessions.Sessions("session", store))
