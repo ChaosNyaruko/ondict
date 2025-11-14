@@ -1,12 +1,10 @@
 package main
 
 import (
-	"html/template"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -15,17 +13,7 @@ var (
 )
 
 func loginHandler(c *gin.Context) {
-	// c.HTML(http.StatusOK, "login.html", nil)
-	tmplt := template.New("login")
-	tmplt, err := tmplt.Parse(login)
-	if err != nil {
-		log.Fatalf("parse portal html err: %v", err)
-	}
-
-	if err := tmplt.Execute(c.Writer, nil); err != nil {
-		return
-	}
-	return
+	c.HTML(http.StatusOK, "login.html", nil)
 }
 
 func processLogin(c *gin.Context) {

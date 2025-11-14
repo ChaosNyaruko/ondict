@@ -25,11 +25,38 @@
       margin-top: 10px;
       padding: 6px 12px;
     }
-  </style>
+    body {
+		font-family: Arial, sans-serif;
+		margin: 0;
+		padding: 0;
+	}
+
+	.container {
+		width: 90%;
+		max-width: 1200px;
+		margin: auto;
+	}
+
+	@media (max-width: 600px) {
+		.container {
+			padding: 10px;
+		}
+	}
+
+	.nav {
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.nav-item {
+		flex: 1;
+		text-align: center;
+	}
+</style>
 </head>
 <body>
   <h1>Submit Data</h1>
-  <form id="dataForm" action="/path" method="GET">
+  <form id="dataForm" action="/review" method="GET">
     <div class="form-group">
       <label for="count">Count:</label>
       <input type="number" id="count" name="count" value="1" min="1" required>
@@ -44,3 +71,4 @@
   </form>
 </body>
 </html>
+

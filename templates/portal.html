@@ -28,7 +28,9 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            flex: 1;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
         }
 
         h1 {
@@ -42,12 +44,21 @@
             display: flex;
             flex-direction: column;
             gap: 1rem;
+            flex: 1;
+            justify-content: flex-start;
+            margin-bottom: 2rem;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .form-group:first-child {
+            margin-bottom: 1.5rem;
         }
 
         label {
@@ -77,6 +88,9 @@
             font-size: 1rem;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            margin-top: 1rem;
+            min-height: 48px;
+            width: 100%;
         }
 
         input[type="submit"]:hover {
@@ -109,13 +123,14 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Online Dictionary</h1>
         <form class="search-form" action="/dict" method="get">
             <div class="form-group">
                 <label for="query">Query:</label>
-                <input type="text" id="query" name="query" placeholder="Enter a word..." required autocomplete="off"/>
+                <input type="text" id="query" name="query" placeholder="Enter a word..." required autocomplete="on"/>
             </div>
             
             <div class="form-group">
@@ -124,6 +139,7 @@
             </div>
 
             <input type="hidden" name="format" value="html" />
+            <input type="hidden" name="record" value="1" />
             <input type="submit" value="Search"/>
         </form>
     </div>
@@ -134,7 +150,7 @@
         <p><a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a></p>
     </footer>
 
-    <style>
+<style>
     .suggestions {
         list-style-type: none;
         margin: 0;
@@ -146,8 +162,11 @@
         max-height: 200px;
         overflow-y: auto;
         position: absolute;
-        width: calc(100% - 2px);
+        top: 100%;
+        left: 0;
+        right: 0;
         z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
     .suggestions li {
@@ -156,7 +175,7 @@
         transition: background-color 0.3s ease;
     }
 
-    .suggestions li:hover {
+    .suggestions li:hover, .suggestions li.active {
         background-color: #f5f5f5;
     }
 
@@ -164,22 +183,42 @@
         position: relative;
     }
 </style>
-<script>
-        // Autocomplete functionality
-const queryInput = document.getElementById('query');
-const suggestionsList = document.createElement('ul');
-suggestionsList.className = 'suggestions';
-const formGroup = queryInput.parentNode;
-formGroup.appendChild(suggestionsList);
 
-// Debounce function
-function debounce(func, delay) {
-    let timeoutId;
-    return function(...args) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(this, args), delay);
-    };
-}
+<script>
+    const queryInput = document.getElementById('query');
+    const suggestionsList = document.createElement('ul');
+    suggestionsList.className = 'suggestions';
+    const formGroup = queryInput.parentNode;
+    formGroup.appendChild(suggestionsList);
+    let activeIndex = -1;
+
+    // Function to update active suggestion highlighting
+    function updateActiveSuggestion(suggestions) {
+        suggestions.forEach((item, index) => {
+            item.classList.toggle('active', index === activeIndex);
+        });
+        if (activeIndex >= 0 && activeIndex < suggestions.length) {
+            suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // Debounce function
+    function debounce(func, delay) {
+        let timeoutId;
+        return function(...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    function updateActiveSuggestion(suggestions) {
+      suggestions.forEach((item, index) => {
+        item.classList.toggle('active', index === activeIndex);
+      });
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
+      }
+    }
 
 // Handle input events for autocomplete
 queryInput.addEventListener('input', debounce(async (e) => {
@@ -215,14 +254,60 @@ queryInput.addEventListener('input', debounce(async (e) => {
     }
 }, 800));
 
+// Handle keydown events for navigation
+queryInput.addEventListener('keydown', (e) => {
+  const suggestions = suggestionsList.querySelectorAll('li');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIndex = Math.max(activeIndex - 1, 0);
+    updateActiveSuggestion(suggestions);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (activeIndex >= 0 && activeIndex < suggestions.length) {
+      queryInput.value = suggestions[activeIndex].textContent;
+      suggestionsList.innerHTML = '';
+      activeIndex = -1;
+    }
+  }
+});
+
+// Handle keydown events for navigation and form submission
+queryInput.addEventListener('keydown', (e) => {
+    const suggestions = suggestionsList.querySelectorAll('li');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
+        updateActiveSuggestion(suggestions);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = Math.max(activeIndex - 1, 0);
+        updateActiveSuggestion(suggestions);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < suggestions.length) {
+            queryInput.value = suggestions[activeIndex].textContent;
+            suggestionsList.innerHTML = '';
+            activeIndex = -1;
+        } else {
+            // Submit form if no suggestion is selected
+            document.querySelector('.search-form').submit();
+        }
+    }
+});
+
 // Clear suggestions when clicking outside
 document.addEventListener('click', (e) => {
     if (!formGroup.contains(e.target)) {
         suggestionsList.innerHTML = '';
+        activeIndex = -1;
     }
 });
-
-// Focus the query input when page loads
+        // Focus the query input when page loads
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('query').focus();
         });
@@ -238,3 +323,5 @@ document.addEventListener('click', (e) => {
     </script>
 </body>
 </html>
+
+
