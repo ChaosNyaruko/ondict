@@ -26,6 +26,7 @@ type proxy struct {
 }
 
 func (p *proxy) Run(l net.Listener) error {
+	log.Infof("proxy started!")
 	return p.e.RunListener(l)
 }
 

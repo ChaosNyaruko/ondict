@@ -27,7 +27,7 @@
 - [x] Support multiple mdx libs at the same time and provide a user interface (no UI yet)
 - [x] Integrated with FZF? or https://github.com/lithammer/fuzzysearch? https://github.com/junegunn/fzf/wiki/Language-bindings#go?
 - [x] `entry://` protocol and "auto"jump, such as `versatility` to `versatile` [node demo](./play.txt)
-- [ ] `@@@LINK=norm` for some items, such as "tormentor/linker".
+- [x] `@@@LINK=norm` for some items, such as "tormentor/linker".
 - [ ] "swung" why eudic can auto parse the "swing"?
 - [x] fzf-mode: reduce the memory usage
 - [x] Integrated with [mdcat](https://github.com/swsnr/mdcat)

@@ -29,7 +29,7 @@ func LoadConfig() error {
 	}
 	c := Config{}
 	if err := json.Unmarshal(data, &c); err != nil {
-		log.Debugf("bad json unmarshal: %v, default settings are used.", err)
+		log.Errorf("bad json unmarshal: %v, default settings are used.", err)
 		return err
 	}
 	if len(c.Dicts) == 0 {
@@ -43,6 +43,6 @@ func LoadConfig() error {
 		log.Debugf("get global dict: %v", dict.MdxFile)
 		*G = append(*G, dict)
 	}
-	log.Debugf("get global dicts: %v", G)
+	log.Infof("get global dicts: %v", G)
 	return nil
 }

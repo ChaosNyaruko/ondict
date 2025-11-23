@@ -16,6 +16,7 @@ import (
 	"hash/adler32"
 	"io"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -50,7 +51,7 @@ type MDict struct {
 	lazyOffset int
 
 	once   sync.Once
-	keymap map[string]uint64 // key: key value: the index of the key in MDict.keys
+	keymap map[string][]uint64 // key: key value: the index of the key in MDict.keys
 
 	file             *os.File // the raw fd, to avoid store all "records" bytes, they are memory-head
 	recordHeader     recordSection
@@ -78,35 +79,36 @@ type Header struct {
 func (m *MDict) Get(word string) string {
 	m.DumpKeys()
 	log.Tracef("Get %v from MDict", word)
-	if index, ok := m.keymap[word]; ok {
-		return m.decodeString(m.ReadAtOffset(int(index)))
+	var res []string
+	for _, offset := range m.keymap[word] {
+		exp := m.decodeString(m.ReadAtOffset(int(offset)))
+		if link, ok := strings.CutPrefix(exp, "@@@LINK="); ok && string(link)[len(link)-1] == 0 {
+			link = link[:len(link)-3] // ending with \r\n\x00
+			exp = fmt.Sprintf(`
+See <a class=Crossrefto href="/dict?query=%s&engine=mdx&format=html">%s</a> for more
+</div>`,
+
+				url.QueryEscape(link), link)
+		}
+
+		res = append(res, exp)
 	}
-	return ""
+	return strings.Join(res, "<br/>")
 }
 
 func (m *MDict) DumpKeys() {
 	m.once.Do(func() {
-		m.keymap = make(map[string]uint64, m.numEntries)
+		m.keymap = make(map[string][]uint64, m.numEntries)
+		if m.numEntries != len(m.keys) {
+			log.Warnf("dumpKeys: num entries number does not match: keys have[%d], numEntries:%v",
+				len(m.keys), m.numEntries)
+		}
 		bar := progressbar.Default(int64(m.numEntries), fmt.Sprintf("dumping keys for %v(%v)", m.header.Title, m.t))
 		for i, k := range m.keys {
 			key := m.decodeString(k.key)
 			_ = bar.Add(1)
-			if e, ok := m.keymap[key]; ok {
-				// TODO: something like xxxx -> @@@LINK=lack
-				log.Debugf("key existed: %v, %v->[%v], now: %v->%v",
-					key, m.keys[e].key, m.decodeString(m.ReadAtOffset(int(e))),
-					k, m.decodeString(m.ReadAtOffset(i)),
-				)
-				continue
-			}
-			m.keymap[key] = uint64(i)
+			m.keymap[key] = append(m.keymap[key], uint64(i))
 		}
-		if len(m.keymap) != m.numEntries {
-			log.Warnf("dumpKeys: num entries number does not match: map[%d], numEntries:%v", len(m.keymap), m.numEntries)
-		}
-		runtime.GC()
-		debug.FreeOSMemory()
-		log.Debugf("[after dumpKeys]FreeOSMemory...")
 	})
 }
 
