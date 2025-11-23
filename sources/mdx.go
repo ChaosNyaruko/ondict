@@ -27,11 +27,13 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 		if err := LoadConfig(); err != nil {
 			log.Fatalf("load config err: %v", err)
 		}
+		log.Infof("stuck at Register")
 		for _, d := range *g {
 			d.Register(fzf, mdd, lazy)
 		}
 		log.Debugf("loading g")
 	})
+	log.Infof("stuck at Load")
 	return nil
 }
 

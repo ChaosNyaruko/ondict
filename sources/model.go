@@ -80,9 +80,12 @@ func (d *MdxDict) Register(fzf bool, mdd bool, lazy bool) error {
 		}
 	}
 	if !fzf {
+		log.Infof("stuck NewAho ok")
 		d.searcher = NewAho(d.MdxDict)
 	} else {
+		log.Infof("stuck IExact ok")
 		d.searcher = NewIExact(d.MdxDict)
 	}
+	log.Infof("Register ok")
 	return nil
 }
