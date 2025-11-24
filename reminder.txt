@@ -1,0 +1,1 @@
+http://localhost:1345/dict?query=nasty&engine=mdx&format=html&record=1#nasty__5

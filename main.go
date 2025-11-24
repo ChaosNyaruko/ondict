@@ -137,6 +137,11 @@ func main() {
 		}
 
 		go func() {
+			runtime.GC()
+			debug.FreeOSMemory()
+		}()
+
+		go func() {
 			if err := p.Run(l); err != nil {
 				stop <- err
 				close(stop)
