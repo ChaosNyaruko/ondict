@@ -171,7 +171,7 @@ func main() {
 			netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 			if err == nil { // detect an exsitng server, just forward a request
-				if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
+				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
 					log.Fatal(err)
 				}
 				return
@@ -191,6 +191,7 @@ func main() {
 			}
 			args := []string{
 				"-serve=true",
+				"-listen=auto",
 				"-listen.timeout=2m",
 				"-e=" + *engine,
 				"-f=" + *renderFormat,
@@ -210,7 +211,8 @@ func main() {
 			startDial := time.Now()
 			netConn, err = net.DialTimeout(network, address, dialTimeout)
 			if err == nil {
-				if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
+				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
+					log.Fatalf("dxx")
 					log.Fatal(err)
 				}
 				return
