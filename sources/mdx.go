@@ -28,7 +28,7 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 		// TODO: refactor the code
 		d := &MdxDict{
 			Type:     render.LongmanEasy, // TODO: may need some other abstractions
-			MdxFile:  "",
+			MdxFile:  "vocab.db",
 			MdxCss:   "",
 			MdxDict:  nil,
 			searcher: nil,

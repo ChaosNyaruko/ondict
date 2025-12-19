@@ -56,5 +56,36 @@ func (d *DBDict) Keys() []string {
 }
 
 func (d *DBDict) Get(s string) string {
-	return ""
+	panic("We don't call DBDict.Get directly, use searcher instead")
+}
+
+func (d *DBDict) WordsWithPrefix(prefix string) []string {
+	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
+	db, err := sql.Open("sqlite3", "file:"+dbName)
+	if err != nil {
+		log.Errorf("open db err: %v", err)
+		return nil
+	}
+	defer db.Close()
+
+	pattern := prefix + "%"
+
+	// NOTE: we don't very care about the security problem here.
+	// And based on this doc https://go.dev/doc/database/sql-injection, there will not be sql injection problem.
+	rows, err := db.Query("SELECT word FROM vocab WHERE word LIKE ?", pattern)
+	if err != nil {
+		log.Errorf("select %q from vocab error: %v", prefix, err)
+		return nil
+	}
+	defer rows.Close()
+	var res []string
+	for rows.Next() {
+		var ro output
+		if err := rows.Scan(&ro.rawWord); err != nil {
+			log.Errorf("scan row for %q err: %v", prefix, err)
+			return res
+		}
+		res = append(res, ro.rawWord)
+	}
+	return res
 }
