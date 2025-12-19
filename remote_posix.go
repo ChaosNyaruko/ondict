@@ -57,10 +57,11 @@ func autoNetworkAddressPosix(goplsPath, id string) (network string, address stri
 	return "unix", filepath.Join(runtimeDir, fmt.Sprintf("%s-%s-daemon.%s%s", basename, shortHash, user, idComponent))
 }
 
-func startRemotePosix(dp string, args ...string) error {
+func startRemotePosix(dp string, env []string, args ...string) error {
 	cmd := exec.Command(dp, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
 	}

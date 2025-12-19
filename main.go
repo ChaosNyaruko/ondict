@@ -196,8 +196,10 @@ func main() {
 				"-e=" + *engine,
 				"-f=" + *renderFormat,
 			}
+			env := os.Environ()
+			env = append(env, "GIN_MODE=release")
 			log.Debugf("starting remote: %v", args)
-			if err := startRemote(dp, args...); err != nil {
+			if err := startRemote(dp, env, args...); err != nil {
 				log.Fatal(err)
 			}
 		} else {

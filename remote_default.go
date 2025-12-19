@@ -18,10 +18,11 @@ func autoNetworkAddressDefault(goplsPath, id string) (network string, address st
 	return "tcp", "localhost:37374"
 }
 
-func startRemoteDefault(dp string, args ...string) error {
+func startRemoteDefault(dp string, env []string, args ...string) error {
 	cmd := exec.Command(dp, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+	cmd.Env = env
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("startRemote server err: %v", err)
 	}
