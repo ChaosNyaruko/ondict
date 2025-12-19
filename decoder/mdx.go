@@ -319,9 +319,11 @@ func (m *MDict) DumpDict() (map[string]string, error) {
 	}()
 	res := make(map[string]string, m.numEntries)
 	total := 0
+	bar := progressbar.Default(int64(len(m.keys)), fmt.Sprintf("Dumping dict: %v", m.header.Title))
 	for i, k := range m.keys {
 		res[m.decodeString(k.key)] = m.decodeString((m.ReadAtOffset(i)))
 		total += 1
+		bar.Add(1)
 	}
 	if total != m.numEntries {
 		return nil, fmt.Errorf("the keys not suffice, got: %v, expected: %v", total, m.numEntries)

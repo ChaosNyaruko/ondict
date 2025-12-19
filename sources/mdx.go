@@ -101,9 +101,9 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool, lazy bool) Dict {
 			go func() {
 				mdd := decoder.MDict{}
 				if err := mdd.Decode(filePath+".mdd", false); err != nil {
-					log.Debugf("[WARN] parse %v.mdd err: %v", filePath, err)
+					log.Errorf("parse %v.mdd err: %v", filePath, err)
 				} else {
-					log.Debugf("[INFO] successfully decode %v.mdd", filePath)
+					log.Infof("[INFO] successfully decode %v.mdd", filePath)
 					if err := mdd.DumpData(); err != nil {
 						log.Fatalf("dump mdd err: %v", err)
 					}

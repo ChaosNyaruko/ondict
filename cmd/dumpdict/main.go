@@ -5,11 +5,13 @@ package main // go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
+	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/decoder"
@@ -62,7 +64,7 @@ func main() {
 
 	res, err := db.Exec(`DROP TABLE IF EXISTS vocab;
 CREATE TABLE IF NOT EXISTS vocab(
-    word TEXT NOT NULL,
+    word TEXT NOT NULL COLLATE NOCASE,
     src TEXT NOT NULL DEFAULT "",
     def TEXT NOT NULL DEFAULT ""
 )`)
@@ -102,7 +104,8 @@ func dump(db *sql.DB, name string) {
 	if err != nil {
 		log.Fatalf("DumpDict %v err: %v", name, err)
 	}
-	log.Infof("Dumping dict %q.....", name)
+	log.Infof("insert dict to datebase %q.....", name)
+	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("insert dict to datebase %s", name))
 	for k, v := range words {
 		result, err := db.Exec("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)", k, name, v)
 		if err != nil {
@@ -116,6 +119,7 @@ func dump(db *sql.DB, name string) {
 		} else {
 			log.Debugf("LastInsertId word %v: %v", k, id)
 		}
+		bar.Add(1)
 	}
 	log.Infof("Dump %q success!", name)
 }
