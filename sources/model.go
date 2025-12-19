@@ -20,6 +20,11 @@ func init() {
 	historyFile = util.HistoryFile()
 }
 
+type Dict interface {
+	Keys() []string
+	Get(string) string
+}
+
 type RawOutput interface {
 	GetMatch() string
 	GetDefinition() string
@@ -35,8 +40,9 @@ type Source interface {
 }
 
 type output struct {
-	rawWord string
-	def     string
+	rawWord string `db:"word"`
+	src     string `db:"src"`
+	def     string `db:"def"`
 }
 
 func (o output) GetMatch() string {
@@ -65,6 +71,13 @@ func loadAllCss() (string, error) {
 		return nil
 	})
 	return strings.Join(a, "\n"), nil
+}
+
+func (d *MdxDict) registerDictDB() error {
+	d.MdxDict = &DBDict{}
+	d.searcher = NewDBIExact()
+	*G = append(*G, d)
+	return nil
 }
 
 // TODO: make the option easier to maintain.

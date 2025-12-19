@@ -24,6 +24,20 @@ var once sync.Once
 
 func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
+		// try db first, reduce mem usage.
+		// TODO: refactor the code
+		d := &MdxDict{
+			Type:     render.LongmanEasy, // TODO: may need some other abstractions
+			MdxFile:  "",
+			MdxCss:   "",
+			MdxDict:  nil,
+			searcher: nil,
+		}
+		if d.registerDictDB() == nil {
+			log.Infof("db loaded")
+			return
+		}
+
 		if err := LoadConfig(); err != nil {
 			log.Fatalf("load config err: %v", err)
 		}

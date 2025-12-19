@@ -11,11 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Dict interface {
-	Keys() []string
-	Get(string) string
-}
-
 type AhoCorasick struct {
 	dict    Dict
 	lowDict map[string][]string
@@ -53,7 +48,7 @@ func (ack *AhoCorasick) GetRawOutputs(input string) []RawOutput {
 	for i, match := range matches {
 		log.Debugf("%d th match: pos[%v], pattern[%v], string[%v]\n", i, match.Pos(), match.Pattern(), match.MatchString())
 		for _, v := range ack.lowDict[match.MatchString()] {
-			res = append(res, output{v, ack.dict.Get(v)})
+			res = append(res, output{v, "aho", ack.dict.Get(v)})
 		}
 	}
 	return res
