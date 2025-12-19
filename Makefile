@@ -8,7 +8,7 @@ run:
 	go run . -q=$(word) 
 
 serve:
-	GIN_MODE=release go run . -serve -f=md -e=mdx -listen=0.0.0.0:1346 -lazy=false
+	GIN_MODE=release go run . -serve -f=md -e=mdx -listen=0.0.0.0:1345 -lazy=false
 	# go run . -serve -f=md -e=mdx -listen=127.0.0.1:1345 -v
 	#
 serve-v:

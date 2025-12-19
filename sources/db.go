@@ -52,7 +52,33 @@ type DBDict struct {
 }
 
 func (d *DBDict) Keys() []string {
-	return nil
+	// basically called by fzf filter
+	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
+	db, err := sql.Open("sqlite3", "file:"+dbName)
+	if err != nil {
+		log.Errorf("open db err: %v", err)
+		return nil
+	}
+	defer db.Close()
+
+	// NOTE: we don't very care about the security problem here.
+	// And based on this doc https://go.dev/doc/database/sql-injection, there will not be sql injection problem.
+	rows, err := db.Query("SELECT word FROM vocab")
+	if err != nil {
+		log.Errorf("select from vocab error: %v", err)
+		return nil
+	}
+	defer rows.Close()
+	var res []string
+	for rows.Next() {
+		var ro output
+		if err := rows.Scan(&ro.rawWord); err != nil {
+			log.Errorf("scan row for err: %v", err)
+			return res
+		}
+		res = append(res, ro.rawWord)
+	}
+	return res
 }
 
 func (d *DBDict) Get(s string) string {
