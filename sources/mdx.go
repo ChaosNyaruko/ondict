@@ -24,6 +24,19 @@ var once sync.Once
 
 func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
+		// try db first, reduce mem usage.
+		// TODO: refactor the code
+		d := &MdxDict{
+			Type:     render.LongmanEasy, // TODO: may need some other abstractions
+			MdxFile:  "vocab.db",
+			MdxDict:  nil,
+			searcher: nil,
+		}
+		if d.registerDictDB() == nil {
+			log.Infof("db loaded")
+			return
+		}
+
 		if err := LoadConfig(); err != nil {
 			log.Fatalf("load config err: %v", err)
 		}
@@ -40,12 +53,11 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 func QueryMDX(word string, f string) string {
 	type mdxResult struct {
 		defs []string
-		css  string
 		t    string // SourceType
 	}
 	var defs []mdxResult
 	for _, dict := range *G {
-		defs = append(defs, mdxResult{dict.Get(word), dict.CSS(), dict.Type})
+		defs = append(defs, mdxResult{dict.Get(word), dict.Type})
 		log.Debugf("def of %q, %v: %q", dict.MdxFile, defs, word)
 	}
 	// TODO: put the render abstraction here?
@@ -54,15 +66,7 @@ func QueryMDX(word string, f string) string {
 		for _, dict := range defs {
 			for _, def := range dict.defs {
 				h := render.HTMLRender{Raw: def, SourceType: dict.t}
-				// m1 := regexp.MustCompile(`<img src="(.*?)\.png" style`)
-				// replaceImg := m1.ReplaceAllString(def, `<img src="`+"data/"+`${1}.png" style`)
-				// log.Debugf("try to replace %v", replaceImg)
-				// TODO: it might be overriden
-				rs := fmt.Sprintf("<div>%s<style>%s</style></div> ", h.Render(), dict.css)
-				// if strings.Contains(dict.t, "Online") {
-				// 	rs = fmt.Sprintf("<script>%s</script>%v", util.CommonJS, rs)
-				// }
-				// rs := fmt.Sprintf("%s", h.Render())
+				rs := fmt.Sprintf("<div>%s</div> ", h.Render())
 				res = append(res, rs)
 			}
 		}
@@ -101,9 +105,9 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool, lazy bool) Dict {
 			go func() {
 				mdd := decoder.MDict{}
 				if err := mdd.Decode(filePath+".mdd", false); err != nil {
-					log.Debugf("[WARN] parse %v.mdd err: %v", filePath, err)
+					log.Errorf("parse %v.mdd err: %v", filePath, err)
 				} else {
-					log.Debugf("[INFO] successfully decode %v.mdd", filePath)
+					log.Infof("[INFO] successfully decode %v.mdd", filePath)
 					if err := mdd.DumpData(); err != nil {
 						log.Fatalf("dump mdd err: %v", err)
 					}
@@ -132,15 +136,9 @@ type MdxDict struct {
 	// SourceType
 	Type string
 	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
-	MdxFile string
-	// Only match the mdx with the same mdxFile name
-	MdxCss   string
+	MdxFile  string
 	MdxDict  Dict // TODO: it's "embedded" in the searcher, maybe we can remove it to reduce mem usage when apply non-plain search algorithms.
 	searcher Searcher
-}
-
-func (d *MdxDict) CSS() string {
-	return d.MdxCss
 }
 
 func (d *MdxDict) Get(word string) []string {

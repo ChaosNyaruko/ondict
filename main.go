@@ -31,7 +31,7 @@ var Commit = func() string {
 	return "no-vcs.revision(go build -buildvcs)"
 }()
 
-var Version = "v0.1.2"
+var Version = "v0.3.1"
 
 var dialTimeout = 5 * time.Second
 var defaultIdleTimeout = 876000 * time.Hour // 100 years
@@ -171,7 +171,7 @@ func main() {
 			netConn, err = net.DialTimeout(network, address, dialTimeout)
 
 			if err == nil { // detect an exsitng server, just forward a request
-				if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
+				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
 					log.Fatal(err)
 				}
 				return
@@ -191,12 +191,15 @@ func main() {
 			}
 			args := []string{
 				"-serve=true",
+				"-listen=auto",
 				"-listen.timeout=2m",
 				"-e=" + *engine,
 				"-f=" + *renderFormat,
 			}
+			env := os.Environ()
+			env = append(env, "GIN_MODE=release")
 			log.Debugf("starting remote: %v", args)
-			if err := startRemote(dp, args...); err != nil {
+			if err := startRemote(dp, env, args...); err != nil {
 				log.Fatal(err)
 			}
 		} else {
@@ -210,7 +213,8 @@ func main() {
 			startDial := time.Now()
 			netConn, err = net.DialTimeout(network, address, dialTimeout)
 			if err == nil {
-				if err := request(address, netConn, *engine, *renderFormat, *record); err != nil {
+				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
+					log.Fatalf("dxx")
 					log.Fatal(err)
 				}
 				return

@@ -119,17 +119,22 @@ func completeHandler(c *gin.Context) {
 		return
 	}
 
-	var words []string
-	for _, g := range *sources.G {
-		words = append(words, g.MdxDict.Keys()...)
-	}
-
 	var suggestions []string
-	for _, word := range words {
-		if strings.HasPrefix(strings.ToLower(word), strings.ToLower(prefix)) {
-			suggestions = append(suggestions, word)
-			if len(suggestions) >= 10 {
-				break
+	if len(*sources.G) == 1 && (*sources.G)[0].MdxFile == "vocab.db" { // TODO: bad code...
+		suggestions = (*sources.G)[0].MdxDict.(*sources.DBDict).WordsWithPrefix(prefix)
+	} else {
+		var words []string
+		for _, g := range *sources.G {
+			words = append(words, g.MdxDict.Keys()...)
+		}
+
+		var suggestions []string
+		for _, word := range words {
+			if strings.HasPrefix(strings.ToLower(word), strings.ToLower(prefix)) {
+				suggestions = append(suggestions, word)
+				if len(suggestions) >= 10 {
+					break
+				}
 			}
 		}
 	}

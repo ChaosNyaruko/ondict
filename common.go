@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func request(target string, netConn net.Conn, e, f string, r int) error {
+func request(network, target string, netConn net.Conn, e, f string, r int) error {
 	httpc := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -28,27 +28,30 @@ func request(target string, netConn net.Conn, e, f string, r int) error {
 	}
 	scheme := "http"
 	hostname := "fakedomain"
+
 	https := false
 	var host, port string
 	var err error
-	if host, port, err = net.SplitHostPort(target); err == nil {
-		if port == "443" {
-			https = true
-		} else if ip := net.ParseIP(host); ip != nil {
-			// raw ip
-		} else {
-			addrs, err := net.LookupHost(host)
-			log.Debugf("addrs by lookup: %v %v", host, addrs)
-			if err == nil && !strings.EqualFold(host, "localhost") {
+	if network != "unix" {
+		if host, port, err = net.SplitHostPort(target); err == nil {
+			if port == "443" {
 				https = true
+			} else if ip := net.ParseIP(host); ip != nil {
+				// raw ip
+			} else {
+				addrs, err := net.LookupHost(host)
+				log.Debugf("addrs by lookup: %v %v", host, addrs)
+				if err == nil && !strings.EqualFold(host, "localhost") {
+					https = true
+				}
 			}
+		} else {
+			return err
 		}
-	} else {
-		return err
-	}
-	if https {
-		scheme = "https"
-		hostname = host
+		if https {
+			scheme = "https"
+			hostname = host
+		}
 	}
 	res, err := httpc.Get(fmt.Sprintf("%v://%v/dict?query=%s&engine=%s&format=%s&record=%d", scheme, hostname, url.QueryEscape(*word), e, f, r&0x2))
 	if err != nil {

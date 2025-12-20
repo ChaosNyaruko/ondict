@@ -20,6 +20,11 @@ func init() {
 	historyFile = util.HistoryFile()
 }
 
+type Dict interface {
+	Keys() []string
+	Get(string) string
+}
+
 type RawOutput interface {
 	GetMatch() string
 	GetDefinition() string
@@ -35,8 +40,9 @@ type Source interface {
 }
 
 type output struct {
-	rawWord string
-	def     string
+	rawWord string `db:"word"`
+	src     string `db:"src"`
+	def     string `db:"def"`
 }
 
 func (o output) GetMatch() string {
@@ -67,18 +73,16 @@ func loadAllCss() (string, error) {
 	return strings.Join(a, "\n"), nil
 }
 
+func (d *MdxDict) registerDictDB() error {
+	d.MdxDict = &DBDict{}
+	d.searcher = NewDBIExact()
+	*G = append(*G, d)
+	return nil
+}
+
 // TODO: make the option easier to maintain.
 func (d *MdxDict) Register(fzf bool, mdd bool, lazy bool) error {
 	d.MdxDict = loadDecodedMdx(d.MdxFile, fzf, mdd, lazy)
-	if contents, err := os.ReadFile(d.MdxCss); err == nil {
-		d.MdxCss = string(contents)
-	} else {
-		if css, err := loadAllCss(); err != nil {
-			log.Debugf("load dicts[%v] css err: %v", d.MdxFile, err)
-		} else {
-			d.MdxCss = string(css)
-		}
-	}
 	if !fzf {
 		log.Infof("stuck NewAho ok")
 		d.searcher = NewAho(d.MdxDict)

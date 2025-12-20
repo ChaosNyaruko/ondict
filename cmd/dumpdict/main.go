@@ -5,11 +5,13 @@ package main // go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
+	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/decoder"
@@ -62,7 +64,7 @@ func main() {
 
 	res, err := db.Exec(`DROP TABLE IF EXISTS vocab;
 CREATE TABLE IF NOT EXISTS vocab(
-    word TEXT NOT NULL,
+    word TEXT NOT NULL COLLATE NOCASE,
     src TEXT NOT NULL DEFAULT "",
     def TEXT NOT NULL DEFAULT ""
 )`)
@@ -102,20 +104,27 @@ func dump(db *sql.DB, name string) {
 	if err != nil {
 		log.Fatalf("DumpDict %v err: %v", name, err)
 	}
-	log.Infof("Dumping dict %q.....", name)
-	for k, v := range words {
-		result, err := db.Exec("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)", k, name, v)
-		if err != nil {
-			log.Errorf("insert word %v, err: %v", k, err)
-			continue
+	log.Infof("insert dict to datebase %q.....", name)
+	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("insert dict to datebase %s", name))
+	for k, vs := range words {
+		for _, v := range vs {
+			result, err := db.Exec("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)", k, name, v)
+			if err != nil {
+				log.Errorf("insert word %v, err: %v", k, err)
+				continue
+			}
+			id, err := result.LastInsertId()
+			if err != nil {
+				log.Errorf("LastInsertId err word %v, err: %v", k, err)
+				continue
+			} else {
+				log.Debugf("LastInsertId word %v: %v", k, id)
+			}
 		}
-		id, err := result.LastInsertId()
-		if err != nil {
-			log.Errorf("LastInsertId err word %v, err: %v", k, err)
-			continue
-		} else {
-			log.Debugf("LastInsertId word %v: %v", k, id)
-		}
+		bar.Add(1)
 	}
+	// if necessary:
+	// CREATE INDEX i_word on vocab(word), or do it yourself,
+	// this will make the query or the "prefix completer" faster.
 	log.Infof("Dump %q success!", name)
 }
