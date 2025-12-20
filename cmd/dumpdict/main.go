@@ -106,20 +106,25 @@ func dump(db *sql.DB, name string) {
 	}
 	log.Infof("insert dict to datebase %q.....", name)
 	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("insert dict to datebase %s", name))
-	for k, v := range words {
-		result, err := db.Exec("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)", k, name, v)
-		if err != nil {
-			log.Errorf("insert word %v, err: %v", k, err)
-			continue
-		}
-		id, err := result.LastInsertId()
-		if err != nil {
-			log.Errorf("LastInsertId err word %v, err: %v", k, err)
-			continue
-		} else {
-			log.Debugf("LastInsertId word %v: %v", k, id)
+	for k, vs := range words {
+		for _, v := range vs {
+			result, err := db.Exec("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)", k, name, v)
+			if err != nil {
+				log.Errorf("insert word %v, err: %v", k, err)
+				continue
+			}
+			id, err := result.LastInsertId()
+			if err != nil {
+				log.Errorf("LastInsertId err word %v, err: %v", k, err)
+				continue
+			} else {
+				log.Debugf("LastInsertId word %v: %v", k, id)
+			}
 		}
 		bar.Add(1)
 	}
+	// if necessary:
+	// CREATE INDEX i_word on vocab(word), or do it yourself,
+	// this will make the query or the "prefix completer" faster.
 	log.Infof("Dump %q success!", name)
 }

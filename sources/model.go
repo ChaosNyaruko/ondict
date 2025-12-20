@@ -83,15 +83,6 @@ func (d *MdxDict) registerDictDB() error {
 // TODO: make the option easier to maintain.
 func (d *MdxDict) Register(fzf bool, mdd bool, lazy bool) error {
 	d.MdxDict = loadDecodedMdx(d.MdxFile, fzf, mdd, lazy)
-	if contents, err := os.ReadFile(d.MdxCss); err == nil {
-		d.MdxCss = string(contents)
-	} else {
-		if css, err := loadAllCss(); err != nil {
-			log.Debugf("load dicts[%v] css err: %v", d.MdxFile, err)
-		} else {
-			d.MdxCss = string(css)
-		}
-	}
 	if !fzf {
 		log.Infof("stuck NewAho ok")
 		d.searcher = NewAho(d.MdxDict)

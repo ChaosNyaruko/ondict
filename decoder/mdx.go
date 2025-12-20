@@ -16,7 +16,6 @@ import (
 	"hash/adler32"
 	"io"
 	"math"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -81,16 +80,7 @@ func (m *MDict) Get(word string) string {
 	log.Tracef("Get %v from MDict", word)
 	var res []string
 	for _, offset := range m.keymap[word] {
-		exp := m.decodeString(m.ReadAtOffset(int(offset)))
-		if link, ok := strings.CutPrefix(exp, "@@@LINK="); ok && string(link)[len(link)-1] == 0 {
-			link = link[:len(link)-3] // ending with \r\n\x00
-			exp = fmt.Sprintf(`
-See <a class=Crossrefto href="/dict?query=%s&engine=mdx&format=html">%s</a> for more
-</div>`,
-
-				url.QueryEscape(link), link)
-		}
-
+		exp := util.ReplaceLINK(m.decodeString(m.ReadAtOffset(int(offset))))
 		res = append(res, exp)
 	}
 	return strings.Join(res, "<br/>")
@@ -309,7 +299,7 @@ func (m *MDict) ReadAtOffset(index int) []byte {
 }
 
 // DumpDict may cost quite a long time, use it when you actually need the whole data
-func (m *MDict) DumpDict() (map[string]string, error) {
+func (m *MDict) DumpDict() (map[string][]string, error) {
 	if m.t != ".mdx" {
 		return nil, fmt.Errorf("The dict should be the MDX file, not %v", m.t)
 	}
@@ -317,11 +307,12 @@ func (m *MDict) DumpDict() (map[string]string, error) {
 	defer func() {
 		log.Debugf("dump dict cost: %v", time.Since(start))
 	}()
-	res := make(map[string]string, m.numEntries)
+	res := make(map[string][]string, m.numEntries)
 	total := 0
 	bar := progressbar.Default(int64(len(m.keys)), fmt.Sprintf("Dumping dict: %v", m.header.Title))
 	for i, k := range m.keys {
-		res[m.decodeString(k.key)] = m.decodeString((m.ReadAtOffset(i)))
+		key := m.decodeString(k.key)
+		res[key] = append(res[key], m.decodeString((m.ReadAtOffset(i))))
 		total += 1
 		bar.Add(1)
 	}

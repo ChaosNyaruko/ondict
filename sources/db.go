@@ -43,6 +43,7 @@ func (e *DBIExact) GetRawOutputs(input string) []RawOutput {
 			log.Errorf("scan row for %q err: %v", input, err)
 			return res
 		}
+		ro.def = util.ReplaceLINK(ro.def)
 		res = append(res, ro)
 	}
 	return res
@@ -86,6 +87,7 @@ func (d *DBDict) Get(s string) string {
 }
 
 func (d *DBDict) WordsWithPrefix(prefix string) []string {
+	// TODO: very slow if the db is large.
 	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
 	db, err := sql.Open("sqlite3", "file:"+dbName)
 	if err != nil {

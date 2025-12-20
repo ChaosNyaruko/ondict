@@ -38,7 +38,6 @@ func LoadConfig() error {
 	for _, d := range c.Dicts {
 		dict := &MdxDict{}
 		dict.MdxFile = filepath.Join(util.DictsPath(), d.Name)
-		dict.MdxCss = filepath.Join(util.DictsPath(), d.Css+".css")
 		dict.Type = d.Type
 		log.Debugf("get global dict: %v", dict.MdxFile)
 		*G = append(*G, dict)
