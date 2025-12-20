@@ -63,9 +63,18 @@ var g = sources.G
 
 var his *history.History
 
+var file *os.File
+
 func init() {
-	log.SetOutput(os.Stderr)
-	log.SetLevel(log.InfoLevel)
+	file, err := os.OpenFile("/Users/bill/tmp/dondict.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err == nil {
+		log.SetOutput(file)
+	} else {
+		log.Info("Failed to log to file, using default stderr")
+	}
+
+	log.Info("This log will be written to a file.")
+	log.SetLevel(log.TraceLevel)
 }
 
 func main() {
@@ -172,7 +181,7 @@ func main() {
 
 			if err == nil { // detect an exsitng server, just forward a request
 				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
-					log.Fatal(err)
+					fmt.Printf("resp from existing server: %v, err: %v", address, err)
 				}
 				return
 			}
@@ -191,8 +200,9 @@ func main() {
 			}
 			args := []string{
 				"-serve=true",
+				"-v",
 				"-listen=auto",
-				"-listen.timeout=2m",
+				"-listen.timeout=10m",
 				"-e=" + *engine,
 				"-f=" + *renderFormat,
 			}
@@ -214,10 +224,11 @@ func main() {
 			netConn, err = net.DialTimeout(network, address, dialTimeout)
 			if err == nil {
 				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
-					log.Fatalf("dxx")
-					log.Fatal(err)
+					fmt.Printf("request at [%v/%v] err: %v\n", network, address, err)
+					continue
+				} else {
+					return
 				}
-				return
 			}
 			log.Debugf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
 			// In case our failure was a fast-failure, ensure we wait at least

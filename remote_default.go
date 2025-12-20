@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 )
 
@@ -20,8 +19,6 @@ func autoNetworkAddressDefault(goplsPath, id string) (network string, address st
 
 func startRemoteDefault(dp string, env []string, args ...string) error {
 	cmd := exec.Command(dp, args...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
 	cmd.Env = env
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("startRemote server err: %v", err)

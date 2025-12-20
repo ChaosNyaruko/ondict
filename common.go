@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -55,8 +54,7 @@ func request(network, target string, netConn net.Conn, e, f string, r int) error
 	}
 	res, err := httpc.Get(fmt.Sprintf("%v://%v/dict?query=%s&engine=%s&format=%s&record=%d", scheme, hostname, url.QueryEscape(*word), e, f, r&0x2))
 	if err != nil {
-		log.SetOutput(os.Stderr)
-		log.Fatalf("new request error %v", err)
+		return err
 	}
 	defer res.Body.Close()
 	if res, err := io.ReadAll(res.Body); err != nil {

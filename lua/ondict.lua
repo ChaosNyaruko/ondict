@@ -49,13 +49,15 @@ function M.query()
     -- doctor
     local output = {}
     local info = ""
-    local job = { "ondict", "-q", word, "-remote", remote, "-f=md", "-e=mdx" }
+    local job = { "ondict", "-q", word, "-remote", remote, "-f", "md", "-e", "mdx" }
+    -- local job = { "ondict", "-version" }
     -- job = { "ondict", "-remote=auto", "-q", word, "-f=x", "-e=mdx" }
     -- notify(string.format("start query: [[ %s ]]", word))
     vim.fn.jobstart(job, {
         on_stdout = function(_, d, _)
             -- tutils.notify(string.format("on _stdout event: %s", e), {msg = string.format("ondict result, output:%s", vim.inspect(d)), level = "INFO"})
             for _, item in pairs(d) do
+                -- print(item)
                 table.insert(output, item)
             end
         end,
