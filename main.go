@@ -7,6 +7,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/ChaosNyaruko/ondict/history"
 	"github.com/ChaosNyaruko/ondict/render"
 	"github.com/ChaosNyaruko/ondict/sources"
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 var Commit = func() string {
@@ -66,7 +68,7 @@ var his *history.History
 var file *os.File
 
 func init() {
-	file, err := os.OpenFile("/Users/bill/tmp/dondict.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	file, err := os.OpenFile(filepath.Join(util.TmpDir(), "ondict.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err == nil {
 		log.SetOutput(file)
 	} else {
@@ -200,7 +202,6 @@ func main() {
 			}
 			args := []string{
 				"-serve=true",
-				"-v",
 				"-listen=auto",
 				"-listen.timeout=10m",
 				"-e=" + *engine,
