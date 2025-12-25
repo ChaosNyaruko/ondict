@@ -1,22 +1,8 @@
 local M = {}
 
-local vimutil = require("vim.lsp.util")
--- local tutils = require ("telescope.utils")
--- local notify = tutils.notify
 local notify = function(msg, _)
     vim.notify(msg, vim.log.levels.WARN)
 end
--- local notify = function(funname, opts)
---   opts.once = vim.F.if_nil(opts.once, false)
---   local level = vim.log.levels[opts.level]
---   if not level then
---     error("Invalid error level", 2)
---   end
---   local notify_fn = opts.once and vim.notify_once or vim.notify
---   notify_fn(string.format("[ondict.%s]: %s", funname, opts.msg), level, {
---     title = "ondict.nvim",
---   })
--- end
 
 local remote = "auto"
 function M.setup(remote_addr)
@@ -66,27 +52,20 @@ function M.query()
         on_exit = function(_, status, _)
             if status == 0 then
                 -- notify(string.format("ondict good"), {msg = string.format("ondict result, output:%s", vim.inspect(output)), level = "INFO"})
+                output = vim.tbl_filter(function(line)
+                    return line ~= ""
+                end, output)
                 -- print(string.format("type output: %s, %s", type(output), vim.inspect(output)))
-                output = vimutil.trim_empty_lines(output)
                 info = vim.fn.join(output, "\n")
                 -- notify(info)
                 if info and info:len() ~= 0 then
                     notify(string.format("query [[ %s ]] from %s finished: %d", word, remote, status))
-                    -- notify(vim.inspect(vim.fn.exists("w:ondict_window")))
-                    if vim.fn.exists("w:ondict_window") ~= 0 and vim.api.nvim_win_get_var(0, "ondict_window") == true then
-                        vim.api.nvim_win_close(0, { force = false })
-                    end
-                    local bufnr, winbuf, winnr =
-                    -- opts.close_events = opts.close_events or { 'CursorMoved', 'CursorMovedI', 'InsertCharPre' }
-                        vimutil.open_floating_preview(vimutil.convert_input_to_markdown_lines(info), "markdown",
-                            {})
-                    vim.api.nvim_win_set_var(winbuf, "ondict_window", true)
-                    -- notify(string.format("bufnr: %s, (%s)winbuf: %s, winnr %s", bufnr, type(winbuf), winbuf, vim.inspect(winnr)))
+                    M.show(info)
                 else
                     notify(string.format("empty valid response for [[ %s ]] ", word))
                 end
             else
-                -- notify("ondict error") -- TODO: ERROR doesn't always show the message, why?
+                -- notify("ondict error")
             end
         end
     })
@@ -110,6 +89,112 @@ function M.install(path)
         return
     end
     notify(string.format("empty root dir, <sfile>: %s", vim.fn.expand('<sfile>')))
+end
+
+-- Reusable state
+local state = {
+    buf = nil, -- scratch buffer handle
+    win = nil, -- floating window handle
+}
+
+-- Helper: ensure we have a scratch buffer to reuse
+local function ensure_buf()
+    if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
+        return state.buf
+    end
+    local buf = vim.api.nvim_create_buf(false, true) -- [listed=false, scratch=true]
+    -- Make it not modifiable by user edits, but we'll toggle when setting lines
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
+    vim.api.nvim_set_option_value("bufhidden", "hide", { buf = buf })
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
+    vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf }) -- optional
+    state.buf = buf
+    return buf
+end
+
+-- Helper: open or reuse a floating window for the buffer
+local function open_float(buf, opts)
+    opts           = opts or {}
+
+    -- Determine size and position
+    local ui       = vim.api.nvim_list_uis()[1]
+    local max_w    = ui and ui.width or 120
+    local max_h    = ui and ui.height or 40
+
+    local width    = math.min(opts.width or 60, max_w - 2)
+    local height   = math.min(opts.height or 10, max_h - 2)
+
+    local row      = math.floor((max_h - height) / 2)
+    local col      = math.floor((max_w - width) / 2)
+
+    local win_opts = {
+        relative = "editor",
+        row = row,
+        col = col,
+        width = width,
+        height = height,
+        anchor = "NW",
+        style = "minimal",
+        border = opts.border or "rounded",
+        noautocmd = true,
+    }
+
+    if state.win and vim.api.nvim_win_is_valid(state.win) then
+        -- Reuse existing window; just set the buffer
+        vim.api.nvim_win_set_buf(state.win, buf)
+    else
+        state.win = vim.api.nvim_open_win(buf, true, win_opts)
+        -- Window-local options
+        vim.api.nvim_set_option_value("number", false, { win = state.win })
+        vim.api.nvim_set_option_value("relativenumber", false, { win = state.win })
+        vim.api.nvim_set_option_value("wrap", true, { win = state.win })
+        vim.api.nvim_set_option_value("cursorline", false, { win = state.win })
+    end
+
+    return state.win
+end
+
+-- Public: show a list of strings in the floating buffer/window
+-- lines: string[] | string
+-- opts: { width?, height?, border? }
+function M.show(lines, opts)
+    local buf = ensure_buf()
+
+    -- Normalize input to a list of lines
+    if type(lines) == "string" then
+        lines = vim.split(lines, "\n", { plain = true })
+    elseif type(lines) ~= "table" then
+        lines = { vim.inspect(lines) }
+    end
+
+    -- Update buffer content
+    vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
+
+    -- Open or reuse floating window
+    open_float(buf, opts)
+end
+
+-- Optional: close the window but keep buffer for reuse
+function M.hide()
+    if state.win and vim.api.nvim_win_is_valid(state.win) then
+        vim.api.nvim_win_close(state.win, true)
+        state.win = nil
+    end
+end
+
+-- Optional: completely dispose state (buffer + window)
+function M.dispose()
+    if state.win and vim.api.nvim_win_is_valid(state.win) then
+        vim.api.nvim_win_close(state.win, true)
+        state.win = nil
+    end
+    if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
+        vim.api.nvim_buf_delete(state.buf, { force = true })
+        state.buf = nil
+    end
 end
 
 -- for quick-test
