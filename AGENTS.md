@@ -51,6 +51,9 @@ docker run --rm --name ondict-app --publish 1345:1345 \
 ```
 
 ## Code Style & Conventions
+### Documentation
+- Everytime we add a new feature, remember to update the README.md and the Chinese version.
+- Update AGENTS.md if you recognize some general rules in the session.
 
 ### Go Standards
 - **Go version**: 1.23.0+ with toolchain 1.23.9
@@ -73,7 +76,6 @@ docker run --rm --name ondict-app --publish 1345:1345 \
 
 ### Test Structure
 - **Unit tests**: `*_test.go` files alongside implementation
-- **Test files**: `decoder/mdx_test.go`, `sources/model_test.go`, `util/utils_test.go`
 - **Coverage**: Integrated coverage reporting with `cover.out` and `cover.html`
 
 ### Test Execution
