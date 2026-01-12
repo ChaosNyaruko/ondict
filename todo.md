@@ -37,7 +37,7 @@
 - [ ] See the TODOs in the code.
 - [x] The progress bar while decoding?
 - [ ] A sync-able history system, maybe "basicAuth" is needed.
-- [ ] Automatically generate a valid configuration file, using template or Internet.
+- [x] Automatically generate a valid configuration file, using template or Internet.
 ---
 The following are less important things that I want to finish.
 - [x] Editor plugin: give users the option to setup the server in advance, for better first-query user experience. 
