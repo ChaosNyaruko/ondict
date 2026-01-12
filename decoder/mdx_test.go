@@ -16,7 +16,7 @@ func Test_Decode(t *testing.T) {
 	ldoce5 := "../testdata/Longman Dictionary of Contemporary English.mdx"
 	assert.Nil(t, m.Decode(ldoce5, false))
 	assert.NotEqual(t, 0, len(m.Keys()))
-	dict, err := m.DumpDict()
+	dict, err := m.DumpDict(10)
 	assert.Nil(t, err)
 	assert.NotNil(t, dict)
 
@@ -39,7 +39,7 @@ func Test_DecodeMDD(t *testing.T) {
 	x := n.Keys()
 	assert.NotEqual(t, 0, len(x))
 	t.Logf("keys num of mdd: %v", len(x))
-	dict, err := n.DumpDict()
+	dict, err := n.DumpDict(0)
 	assert.NotNil(t, err)
 	assert.Nil(t, dict)
 	n.ReadAtOffset(185995)

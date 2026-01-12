@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ChaosNyaruko/ondict/decoder"
 	"github.com/ChaosNyaruko/ondict/render"
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 var Gbold = "**"
@@ -26,15 +28,18 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
 		// try db first, reduce mem usage.
 		// TODO: refactor the code
-		d := &MdxDict{
-			Type:     render.LongmanEasy, // TODO: may need some other abstractions
-			MdxFile:  "vocab.db",
-			MdxDict:  nil,
-			searcher: nil,
-		}
-		if d.registerDictDB() == nil {
-			log.Infof("db loaded")
-			return
+		dbPath := filepath.Join(util.ConfigPath(), "vocab.db")
+		if _, err := os.Stat(dbPath); err == nil {
+			d := &MdxDict{
+				Type:     render.LongmanEasy, // TODO: may need some other abstractions
+				MdxFile:  "vocab.db",
+				MdxDict:  nil,
+				searcher: nil,
+			}
+			if d.registerDictDB() == nil {
+				log.Infof("db loaded")
+				return
+			}
 		}
 
 		if err := LoadConfig(); err != nil {

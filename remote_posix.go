@@ -59,8 +59,8 @@ func autoNetworkAddressPosix(goplsPath, id string) (network string, address stri
 
 func startRemotePosix(dp string, env []string, args ...string) error {
 	cmd := exec.Command(dp, args...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
+	cmd.Stderr = file
+	cmd.Stdout = file
 	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,

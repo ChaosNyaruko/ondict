@@ -7,6 +7,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/ChaosNyaruko/ondict/history"
 	"github.com/ChaosNyaruko/ondict/render"
 	"github.com/ChaosNyaruko/ondict/sources"
+	"github.com/ChaosNyaruko/ondict/util"
 )
 
 var Commit = func() string {
@@ -57,19 +59,33 @@ var remote = flag.String("remote", "", "Connect to a remote address to get infor
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
 var renderFormat = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
+var initCmd = flag.Bool("init", false, "Initialize the configuration and download default dictionary")
 
 // TODO: prev work, for better source abstractions
 var g = sources.G
 
 var his *history.History
 
+var file *os.File
+
 func init() {
-	log.SetOutput(os.Stderr)
-	log.SetLevel(log.InfoLevel)
+	file, err := os.OpenFile(filepath.Join(util.TmpDir(), "ondict.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err == nil {
+		log.SetOutput(file)
+	} else {
+		log.Info("Failed to log to file, using default stderr")
+	}
+
+	log.Info("This log will be written to a file.")
+	log.SetLevel(log.TraceLevel)
 }
 
 func main() {
 	flag.Parse()
+	if *initCmd {
+		runInit()
+		return
+	}
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
 		flag.PrintDefaults()
 		return
@@ -172,7 +188,7 @@ func main() {
 
 			if err == nil { // detect an exsitng server, just forward a request
 				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
-					log.Fatal(err)
+					fmt.Printf("resp from existing server: %v, err: %v", address, err)
 				}
 				return
 			}
@@ -192,7 +208,7 @@ func main() {
 			args := []string{
 				"-serve=true",
 				"-listen=auto",
-				"-listen.timeout=2m",
+				"-listen.timeout=10m",
 				"-e=" + *engine,
 				"-f=" + *renderFormat,
 			}
@@ -214,10 +230,11 @@ func main() {
 			netConn, err = net.DialTimeout(network, address, dialTimeout)
 			if err == nil {
 				if err := request(network, address, netConn, *engine, *renderFormat, *record); err != nil {
-					log.Fatalf("dxx")
-					log.Fatal(err)
+					fmt.Printf("request at [%v/%v] err: %v\n", network, address, err)
+					continue
+				} else {
+					return
 				}
-				return
 			}
 			log.Debugf("failed attempt #%d to connect to remote: %v\n", retry+2, err)
 			// In case our failure was a fast-failure, ensure we wait at least

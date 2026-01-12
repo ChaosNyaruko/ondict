@@ -100,7 +100,7 @@ func dump(db *sql.DB, name string) {
 	}
 	defer m.Close()
 	log.Infof("Decoding dict %q......", name)
-	words, err := m.DumpDict()
+	words, err := m.DumpDict(0)
 	if err != nil {
 		log.Fatalf("DumpDict %v err: %v", name, err)
 	}

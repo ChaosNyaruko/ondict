@@ -12,9 +12,9 @@ import (
 )
 
 type DictConfig struct {
-	Name string
-	Css  string
-	Type string
+	Name string `json:"name"`
+	Css  string `json:"css"`
+	Type string `json:"type"`
 }
 
 type Config struct {

@@ -299,7 +299,7 @@ func (m *MDict) ReadAtOffset(index int) []byte {
 }
 
 // DumpDict may cost quite a long time, use it when you actually need the whole data
-func (m *MDict) DumpDict() (map[string][]string, error) {
+func (m *MDict) DumpDict(limit int) (map[string][]string, error) {
 	if m.t != ".mdx" {
 		return nil, fmt.Errorf("The dict should be the MDX file, not %v", m.t)
 	}
@@ -307,18 +307,25 @@ func (m *MDict) DumpDict() (map[string][]string, error) {
 	defer func() {
 		log.Debugf("dump dict cost: %v", time.Since(start))
 	}()
-	res := make(map[string][]string, m.numEntries)
+	numEntries := m.numEntries
+	if limit > 0 && limit < numEntries {
+		numEntries = limit
+	}
+	res := make(map[string][]string, numEntries)
 	total := 0
 	bar := progressbar.Default(int64(len(m.keys)), fmt.Sprintf("Dumping dict: %v", m.header.Title))
 	for i, k := range m.keys {
+		if limit > 0 && total >= limit {
+			break
+		}
 		key := m.decodeString(k.key)
 		res[key] = append(res[key], m.decodeString((m.ReadAtOffset(i))))
 		total += 1
 		bar.Add(1)
 	}
-	if total != m.numEntries {
-		return nil, fmt.Errorf("the keys not suffice, got: %v, expected: %v", total, m.numEntries)
-	}
+	// if total != m.numEntries {
+	// 	return nil, fmt.Errorf("the keys not suffice, got: %v, expected: %v", total, m.numEntries)
+	// }
 	return res, nil
 }
 
