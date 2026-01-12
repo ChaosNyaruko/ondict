@@ -1,5 +1,8 @@
+![Coverage](https://img.shields.io/badge/coverage-35.0%25-red)
+
 目录
 =================
+
 
 * [简介](#简介)
 * [免责声明](#免责声明)
@@ -74,6 +77,17 @@ go install github.com/ChaosNyaruko/ondict@latest
 git clone https://github.com/ChaosNyaruko/ondict.git
 make install
 ```
+## 初始化
+安装完成后，您可以运行初始化命令来自动设置配置并下载默认词典。
+```console
+ondict -init
+```
+它将引导您完成以下步骤：
+1. 创建配置目录和文件。
+2. 下载默认的朗文当代英语词典（MDX）。
+3. 下载发音/图片数据（MDD）。
+4. 将词典转换为SQLite格式以加快启动速度（可选但推荐）。
+
 ## 使用Docker并在容器中作为HTTP服务器运行
 为了方便起见，推荐将容器中的配置目录被重新映射/挂载到您的主机配置目录，所有生成的内容（如查询历史）都会被转储到这个目录中。不会产生除此以外其他对主机文件系统的污染。
 ### 本地

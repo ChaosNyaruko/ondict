@@ -77,6 +77,18 @@ or
 git clone https://github.com/ChaosNyaruko/ondict.git
 make install
 ```
+
+## Initialization
+After installation, you can run the initialization command to set up the configuration and download the default dictionary automatically.
+```console
+ondict -init
+```
+It will guide you through:
+1. Creating the configuration directory and file.
+2. Downloading the default Longman Dictionary (MDX).
+3. Downloading the pronunciation/image data (MDD).
+4. Converting the dictionary to SQLite format for faster startup (Optional but recommended).
+
 ## Using Docker and serving as a HTTP server in the container
 For your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.
 ### Local
