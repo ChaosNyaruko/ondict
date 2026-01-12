@@ -47,6 +47,9 @@ test:
 	go tool cover -func cover.out | tail -1
 	go tool cover -html=cover.out -o cover.html
 
+coverage:
+	./update_coverage.sh
+
 play:
 	@echo $$$$
 	@echo $$$$

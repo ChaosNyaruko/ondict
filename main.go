@@ -59,6 +59,7 @@ var remote = flag.String("remote", "", "Connect to a remote address to get infor
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
 var renderFormat = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
+var initCmd = flag.Bool("init", false, "Initialize the configuration and download default dictionary")
 
 // TODO: prev work, for better source abstractions
 var g = sources.G
@@ -81,6 +82,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if *initCmd {
+		runInit()
+		return
+	}
 	if *help || flag.NFlag() == 0 || len(flag.Args()) > 0 {
 		flag.PrintDefaults()
 		return
