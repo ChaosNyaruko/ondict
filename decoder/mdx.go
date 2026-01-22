@@ -246,6 +246,18 @@ func (m *MDict) fetchNthRecordBlock(i int, bytesBefore int) []byte {
 	return decompressed
 }
 
+func (m *MDict) ReadMDDRecordAt(index int) []byte {
+	offset := m.keys[index].offset
+	start := offset
+	end := len(m.records)
+	if index < len(m.keys)-1 {
+		end = int(m.keys[index+1].offset)
+	}
+	// log.Debugf("len(m.keys)=%d, len(m.records)=%d, index: %d, start: %v, end: %v",
+	// len(m.keys), len(m.records), index, start, end)
+	return m.records[start:end]
+}
+
 func (m *MDict) ReadAtOffset(index int) []byte {
 	log.Tracef("m.keys len: %v, try to access: %v, nblock: %d[%d]", len(m.keys), index, len(m.recordBlockSizes), m.recordHeader.NumBlocks)
 	if index >= len(m.keys) {
@@ -635,7 +647,7 @@ func decompress(compType []byte, checksum []byte, before []byte) []byte {
 
 func (m *MDict) DumpData() error {
 	if m.t != ".mdd" {
-		return fmt.Errorf("The dict should be the MDX file, not %v", m.t)
+		return fmt.Errorf("The dict should be the MDD file, not %v", m.t)
 	}
 	bar := progressbar.Default(int64(m.numEntries), fmt.Sprintf("dumping mdd entries [%s%s]", m.header.Title, m.t))
 	start := time.Now()
@@ -665,7 +677,7 @@ func (m *MDict) DumpData() error {
 		if file, err := os.Create(fname); err != nil {
 			log.Fatalf("open %v err: %v", fname, err)
 		} else {
-			n, err := file.Write(m.ReadAtOffset(i))
+			n, err := file.Write(m.ReadMDDRecordAt(i))
 			log.Tracef("DumpData [%d] to file: %v, n: %v, err: %v", i, fname, n, err)
 			file.Close()
 		}

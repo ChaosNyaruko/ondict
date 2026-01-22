@@ -110,7 +110,7 @@ func runInit() {
 		}
 	}
 
-	fmt.Print("Do you want to dump default MDD resources(LDOCE5) to cache? (y/n): ")
+	fmt.Print("Do you want to dump default MDD resources(LDOCE5) to cache for web server? (y/n): ")
 	fmt.Scanln(&answer)
 	if strings.ToLower(answer) == "y" {
 		mddName := "Longman Dictionary of Contemporary English.mdd"
