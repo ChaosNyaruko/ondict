@@ -210,7 +210,8 @@ CREATE TABLE IF NOT EXISTS vocab(
 	}
 
 	log.Infof("Inserting dict to database %q.....", mdxPath)
-	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("Inserting dict to database"))
+	// TODO: UI, this may overlap with "mdd file downloading progress bar"
+	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("Inserting dict to database: %v", dbPath))
 
 	tx, err := db.Begin()
 	if err != nil {
