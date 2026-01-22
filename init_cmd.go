@@ -109,6 +109,42 @@ func runInit() {
 			log.Errorf("Failed to dump to sqlite: %v", err)
 		}
 	}
+
+	fmt.Print("Do you want to dump default MDD resources(LDOCE5) to cache? (y/n): ")
+	fmt.Scanln(&answer)
+	if strings.ToLower(answer) == "y" {
+		mddName := "Longman Dictionary of Contemporary English.mdd"
+		mddPath := filepath.Join(dictsPath, mddName)
+
+		if _, err := os.Stat(mddPath); os.IsNotExist(err) {
+			fmt.Print("MDD file not found. Download it first? (y/n): ")
+			fmt.Scanln(&answer)
+			if strings.ToLower(answer) == "y" {
+				mddUrl := "https://github.com/ChaosNyaruko/ondict/releases/download/v0.0.5/Longman.Dictionary.of.Contemporary.English.mdd"
+				log.Info("Starting background download of MDD file...")
+				if err := downloadFile(mddUrl, mddPath); err != nil {
+					log.Errorf("Failed to download MDD: %v", err)
+				} else {
+					log.Infof("MDD download completed: %s", mddPath)
+				}
+				log.Info("MDD download started in background.")
+				if _, err := os.Stat(mddPath); os.IsNotExist(err) {
+					log.Info("MDD file not downloaded, skipping dump.")
+				} else {
+					if err := dumpMDDResources(mddPath); err != nil {
+						log.Errorf("Failed to dump MDD resources: %v", err)
+					}
+				}
+			} else {
+				log.Info("Skipping MDD resource dump.")
+			}
+		} else {
+			if err := dumpMDDResources(mddPath); err != nil {
+				log.Errorf("Failed to dump MDD resources: %v", err)
+			}
+		}
+	}
+
 	wg.Wait()
 }
 
@@ -175,12 +211,12 @@ CREATE TABLE IF NOT EXISTS vocab(
 
 	log.Infof("Inserting dict to database %q.....", mdxPath)
 	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("Inserting dict to database"))
-	
+
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
-	
+
 	stmt, err := tx.Prepare("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
@@ -197,11 +233,27 @@ CREATE TABLE IF NOT EXISTS vocab(
 		}
 		bar.Add(1)
 	}
-	
+
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 
 	log.Infof("Dump success!")
+	return nil
+}
+
+func dumpMDDResources(mddPath string) error {
+	log.Infof("Dumping MDD resources from %s...", mddPath)
+	m := &decoder.MDict{}
+	err := m.Decode(mddPath, false)
+	if err != nil {
+		return fmt.Errorf("failed to decode MDD file: %v", err)
+	}
+	defer m.Close()
+
+	if err := m.DumpData(); err != nil {
+		return fmt.Errorf("failed to dump MDD data: %v", err)
+	}
+	log.Infof("MDD resources dumped successfully!")
 	return nil
 }
