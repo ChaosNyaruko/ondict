@@ -55,6 +55,8 @@ type MDict struct {
 	file             *os.File // the raw fd, to avoid store all "records" bytes, they are memory-head
 	recordHeader     recordSection
 	recordBlockSizes []recordBlock
+
+	lazy bool
 }
 
 type Header struct {
@@ -80,7 +82,7 @@ func (m *MDict) Get(word string) string {
 	log.Tracef("Get %v from MDict", word)
 	var res []string
 	for _, offset := range m.keymap[word] {
-		exp := util.ReplaceLINK(m.decodeString(m.ReadAtOffset(int(offset))))
+		exp := util.ReplaceLINK(m.decodeString(m.ReadAtIndex(int(offset))))
 		res = append(res, exp)
 	}
 	return strings.Join(res, "<br/>")
@@ -115,7 +117,7 @@ func (m *MDict) Close() error {
 	return m.file.Close()
 }
 
-func (m *MDict) Decode(fileName string, fzf bool) error {
+func (m *MDict) Decode(fileName string, lazy bool) error {
 	start := time.Now()
 	defer func() {
 		log.Debugf("decode cost: %v", time.Since(start))
@@ -126,6 +128,9 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 	}
 	if m.t = filepath.Ext(name); m.t != ".mdx" && m.t != ".mdd" {
 		return fmt.Errorf("unexpected file ext %q", m.t)
+	}
+	if lazy {
+		m.lazy = true
 	}
 	file, err := os.Open(name)
 	if err != nil {
@@ -197,7 +202,7 @@ func (m *MDict) Decode(fileName string, fzf bool) error {
 	// offset, err := file.Seek(0, io.SeekCurrent)
 	// log.Debugf("offset of Record start: %v, err: %v", offset, err)
 	x := time.Now()
-	if err := m.decodeRecordSection(file, fzf); err != nil {
+	if err := m.decodeRecordSection(file, lazy); err != nil {
 		return fmt.Errorf("decode record section: %v", err)
 	}
 	log.Debugf("decode record cost: %v", time.Since(x))
@@ -246,7 +251,7 @@ func (m *MDict) fetchNthRecordBlock(i int, bytesBefore int) []byte {
 	return decompressed
 }
 
-func (m *MDict) ReadMDDRecordAt(index int) []byte {
+func (m *MDict) quickReadAt(index int) []byte {
 	offset := m.keys[index].offset
 	start := offset
 	end := len(m.records)
@@ -258,7 +263,10 @@ func (m *MDict) ReadMDDRecordAt(index int) []byte {
 	return m.records[start:end]
 }
 
-func (m *MDict) ReadAtOffset(index int) []byte {
+func (m *MDict) ReadAtIndex(index int) []byte {
+	if !m.lazy {
+		return m.quickReadAt(index)
+	}
 	log.Tracef("m.keys len: %v, try to access: %v, nblock: %d[%d]", len(m.keys), index, len(m.recordBlockSizes), m.recordHeader.NumBlocks)
 	if index >= len(m.keys) {
 		log.Fatalf("invalid index for %s.%s", m.header.Title, m.t)
@@ -331,7 +339,7 @@ func (m *MDict) DumpDict(limit int) (map[string][]string, error) {
 			break
 		}
 		key := m.decodeString(k.key)
-		res[key] = append(res[key], m.decodeString((m.ReadAtOffset(i))))
+		res[key] = append(res[key], m.decodeString((m.ReadAtIndex(i))))
 		total += 1
 		bar.Add(1)
 	}
@@ -677,7 +685,7 @@ func (m *MDict) DumpData() error {
 		if file, err := os.Create(fname); err != nil {
 			log.Fatalf("open %v err: %v", fname, err)
 		} else {
-			n, err := file.Write(m.ReadMDDRecordAt(i))
+			n, err := file.Write(m.ReadAtIndex(i))
 			log.Tracef("DumpData [%d] to file: %v, n: %v, err: %v", i, fname, n, err)
 			file.Close()
 		}

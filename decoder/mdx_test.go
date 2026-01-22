@@ -42,6 +42,6 @@ func Test_DecodeMDD(t *testing.T) {
 	dict, err := n.DumpDict(0)
 	assert.NotNil(t, err)
 	assert.Nil(t, dict)
-	n.ReadAtOffset(185995)
+	n.ReadAtIndex(185995)
 	assert.Nil(t, n.DumpData())
 }
