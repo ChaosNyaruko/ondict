@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -24,11 +25,10 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 		cat = "bat --file-name=tmpondicttmp12345.md"
 	}
 
-	tmpFileName := "/tmp/ondictfzfoutput12345.html"
-	// TODO: "open" according to sysytem, now just for my macOS.
-	// TODO: performance, and maybe "auto" mode for easy usage.
-	// TODO: the temp html file opened by browser will not automatically find the static resources, e.g. pictures, but I don't know how to replace the whitespaces in fzf placeholder {}, which will cause failure when constructing the HTTP GET request.
-	bind := fmt.Sprintf(`--bind="enter:execute(ondict -q {} -r 1 -remote localhost:1345 -e mdx -f html> %s && open %s)"`, tmpFileName, tmpFileName)
+	openCmd := browserOpenCommand()
+	// Open the server URL directly in the browser, so static resources (images etc.) are served properly.
+	// Use sed to URL-encode spaces in the fzf placeholder {}.
+	bind := fmt.Sprintf(`--bind="enter:execute-silent(%s 'http://localhost:1345/dict?query='$(echo {} | sed 's/ /%%20/g')'&engine=mdx&format=html')"`, openCmd)
 	preview := fmt.Sprintf(`--preview="ondict -q {} -remote auto -f md -e mdx" | %s`, cat)
 	header := "--header='[press ENTER to display the result in your browser, which might have a fancier display]'"
 
@@ -59,6 +59,17 @@ func ListAllWord() {
 		}
 	})
 	// fmt.Println(filtered)
+}
+
+func browserOpenCommand() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "open"
+	case "windows":
+		return "start"
+	default:
+		return "xdg-open"
+	}
 }
 
 func isCommandAvailable(name string) bool {
