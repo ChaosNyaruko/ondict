@@ -75,42 +75,18 @@ func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
 	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
 	n.DataAtom = atom.Div
 	n.Data = "div"
-	name = strings.ReplaceAll(name, ".", "_")
-	name = strings.ReplaceAll(name, "/", "_")
-	name = strings.ReplaceAll(name, "-", "_")
-	divID := "__div__" + name
-	audioID := "__audio__" + name
 	n.Attr = append(n.Attr, []html.Attribute{
-		{Key: "id", Val: divID},
-		// {Key: "class", Val: "__clickable__"},
 		{Key: "style", Val: "cursor: pointer"},
 	}...)
-	node := newAudioTag(name, new)
-	playIconVar := fmt.Sprintf("playIcon_%s", name)
-	audioPlayerVar := fmt.Sprintf("audioPlayer_%s", name)
+	node := newAudioTag(new)
 	jsChild := html.Node{
-		Parent:      nil,
-		FirstChild:  nil,
-		LastChild:   nil,
-		PrevSibling: nil,
-		NextSibling: nil,
-		Type:        html.TextNode,
-		DataAtom:    0,
-		Data:        fmt.Sprintf(jsTempl, playIconVar, divID, audioPlayerVar, audioID, playIconVar, audioPlayerVar),
-		Namespace:   "",
-		Attr:        nil,
+		Type: html.TextNode,
+		Data: jsTempl,
 	}
 	jsNode := html.Node{
-		Parent:      nil,
-		FirstChild:  nil,
-		LastChild:   nil,
-		PrevSibling: nil,
-		NextSibling: nil,
-		Type:        html.ElementNode,
-		DataAtom:    atom.Script,
-		Data:        "script",
-		Namespace:   "",
-		Attr:        []html.Attribute{},
+		Type:     html.ElementNode,
+		DataAtom: atom.Script,
+		Data:     "script",
 	}
 	jsNode.InsertBefore(&jsChild, nil)
 	n.InsertBefore(node, nil)
@@ -130,19 +106,12 @@ func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
 	}
 }
 
-func newAudioTag(name, src string) *html.Node {
+func newAudioTag(src string) *html.Node {
 	res := html.Node{
-		Parent:      nil,
-		FirstChild:  nil,
-		LastChild:   nil,
-		PrevSibling: nil,
-		NextSibling: nil,
-		Type:        html.ElementNode,
-		DataAtom:    atom.Audio,
-		Data:        "audio",
-		Namespace:   "",
+		Type:     html.ElementNode,
+		DataAtom: atom.Audio,
+		Data:     "audio",
 		Attr: []html.Attribute{
-			{Key: "id", Val: `__audio__` + name},
 			{Key: "src", Val: src},
 		},
 	}
@@ -206,13 +175,17 @@ func IsElement(n *html.Node, ele string, class string) bool {
 	return false
 }
 
+// jsTempl uses an IIFE (Immediately Invoked Function Expression) to scope
+// variables, avoiding "redeclaration of let" errors when multiple dictionaries
+// generate scripts for the same word on one page.
 const jsTempl = `
-   let %s = document.getElementById('%s');
-   let %s = document.getElementById('%s');
-
-    %s.addEventListener('click', () => {
-        %s.play().catch(error => {
+(() => {
+    let container = document.currentScript.parentElement;
+    let audio = container.querySelector('audio');
+    container.addEventListener('click', () => {
+        audio.play().catch(error => {
             console.error('Error playing audio:', error);
         });
     });
+})();
 `

@@ -36,9 +36,8 @@ func TestHTMLRender_Render(t *testing.T) {
 			name:       "Longman source with sound link (mdx)",
 			raw:        `<a href="sound://test.mp3">sound</a>`,
 			sourceType: LongmanEasy,
-			// replaceMp3 transforms it into div with script
-			contains: []string{`__div__test`, `__audio__test`, `audio`, `script`},
-			// notContains: []string{`sound://`}, // The original href is kept in attributes, though tag changes to div
+			// replaceMp3 transforms the <a> into a <div> containing an <audio> tag and a <script>
+			contains: []string{`<audio src="/test.mp3">`, `<script>`, `cursor: pointer`},
 		},
 	}
 
