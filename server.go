@@ -128,10 +128,10 @@ func completeHandler(c *gin.Context) {
 			words = append(words, g.MdxDict.Keys()...)
 		}
 
-		var suggestions []string
+		var suggestions = make(map[string]struct{})
 		for _, word := range words {
-			if strings.HasPrefix(strings.ToLower(word), strings.ToLower(prefix)) {
-				suggestions = append(suggestions, word)
+			if _, ok := suggestions[word]; !ok && strings.HasPrefix(strings.ToLower(word), strings.ToLower(prefix)) {
+				suggestions[word] = struct{}{}
 				if len(suggestions) >= 10 {
 					break
 				}
