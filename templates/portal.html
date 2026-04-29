@@ -1,10 +1,54 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang='en' data-theme="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Online Dictionary</title>
     <style>
+        :root {
+            --color-primary: #2196F3;
+            --color-primary-dark: #1976D2;
+            --color-bg: #f5f5f5;
+            --color-surface: #ffffff;
+            --color-text: #333333;
+            --color-text-muted: #666666;
+            --color-border: #e0e0e0;
+            --color-suggestion-hover: #f0f0f0;
+            --color-footer-bg: #2196F3;
+            --color-footer-text: #ffffff;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --color-primary: #64b5f6;
+                --color-primary-dark: #42a5f5;
+                --color-bg: #121212;
+                --color-surface: #1e1e1e;
+                --color-text: #e0e0e0;
+                --color-text-muted: #9e9e9e;
+                --color-border: #333333;
+                --color-suggestion-hover: #2a2a2a;
+                --color-footer-bg: #1565c0;
+                --color-footer-text: #ffffff;
+                --shadow: 0 2px 10px rgba(0,0,0,0.4);
+            }
+        }
+
+        [data-theme="dark"] {
+            --color-primary: #64b5f6;
+            --color-primary-dark: #42a5f5;
+            --color-bg: #121212;
+            --color-surface: #1e1e1e;
+            --color-text: #e0e0e0;
+            --color-text-muted: #9e9e9e;
+            --color-border: #333333;
+            --color-suggestion-hover: #2a2a2a;
+            --color-footer-bg: #1565c0;
+            --color-footer-text: #ffffff;
+            --shadow: 0 2px 10px rgba(0,0,0,0.4);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -14,8 +58,8 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
-            color: #333;
-            background-color: #f5f5f5;
+            color: var(--color-text);
+            background-color: var(--color-bg);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -25,9 +69,9 @@
             max-width: 600px;
             margin: 2rem auto;
             padding: 2rem;
-            background: white;
+            background: var(--color-surface);
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow);
             min-height: 400px;
             display: flex;
             flex-direction: column;
@@ -35,7 +79,7 @@
 
         h1 {
             text-align: center;
-            color: #2196F3;
+            color: var(--color-primary);
             margin-bottom: 2rem;
             font-size: 2rem;
         }
@@ -63,24 +107,26 @@
 
         label {
             font-weight: 500;
-            color: #666;
+            color: var(--color-text-muted);
         }
 
         input[type="text"] {
             padding: 0.8rem;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--color-border);
             border-radius: 6px;
             font-size: 1rem;
             transition: border-color 0.3s ease;
+            background-color: var(--color-surface);
+            color: var(--color-text);
         }
 
         input[type="text"]:focus {
             outline: none;
-            border-color: #2196F3;
+            border-color: var(--color-primary);
         }
 
         input[type="submit"] {
-            background: #2196F3;
+            background: var(--color-primary);
             color: white;
             border: none;
             padding: 1rem;
@@ -94,25 +140,78 @@
         }
 
         input[type="submit"]:hover {
-            background: #1976D2;
+            background: var(--color-primary-dark);
         }
 
         footer {
             text-align: center;
             padding: 1.5rem;
-            background-color: #2196F3;
-            color: white;
+            background-color: var(--color-footer-bg);
+            color: var(--color-footer-text);
             margin-top: auto;
         }
 
         footer a {
-            color: white;
+            color: var(--color-footer-text);
             text-decoration: none;
-            border-bottom: 1px dotted white;
+            border-bottom: 1px dotted var(--color-footer-text);
         }
 
         footer a:hover {
-            border-bottom: 1px solid white;
+            border-bottom: 1px solid var(--color-footer-text);
+        }
+
+        .suggestions {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            border: 1px solid var(--color-border);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            background-color: var(--color-surface);
+            max-height: 200px;
+            overflow-y: auto;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+
+        .suggestions li {
+            padding: 0.8rem;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .suggestions li:hover,
+        .suggestions li[aria-selected="true"] {
+            background-color: var(--color-suggestion-hover);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 0.3rem 0.6rem;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--color-text-muted);
+            line-height: 1;
+            transition: border-color 0.2s ease, color 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .container {
+            position: relative;
         }
 
         @media (max-width: 640px) {
@@ -126,13 +225,32 @@
 
 <body>
     <div class="container">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
         <h1>Online Dictionary</h1>
-        <form class="search-form" action="/dict" method="get">
-            <div class="form-group">
+        <form class="search-form" id="searchForm" action="/dict" method="get">
+            <div class="form-group" id="queryGroup">
                 <label for="query">Query:</label>
-                <input type="text" id="query" name="query" placeholder="Enter a word..." required autocomplete="on"/>
+                <input
+                    type="text"
+                    id="query"
+                    name="query"
+                    placeholder="Enter a word..."
+                    required
+                    autocomplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded="false"
+                    aria-controls="suggestionsList"
+                    aria-activedescendant=""
+                />
+                <ul
+                    id="suggestionsList"
+                    class="suggestions"
+                    role="listbox"
+                    aria-label="Suggestions"
+                ></ul>
             </div>
-            
+
             <div class="form-group">
                 <label for="engine">Engine:</label>
                 <input type="text" id="engine" name="engine" value="mdx" placeholder="mdx"/>
@@ -150,178 +268,135 @@
         <p><a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a></p>
     </footer>
 
-<style>
-    .suggestions {
-        list-style-type: none;
-        margin: 0;
-        padding: 0;
-        border: 1px solid #e0e0e0;
-        border-top: none;
-        border-radius: 0 0 6px 6px;
-        background-color: white;
-        max-height: 200px;
-        overflow-y: auto;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 1000;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
+    <script>
+        // Apply saved theme immediately to avoid flash
+        const html = document.documentElement;
+        const saved = localStorage.getItem('theme');
+        if (saved) html.setAttribute('data-theme', saved);
 
-    .suggestions li {
-        padding: 0.8rem;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
+        const themeToggle = document.getElementById('themeToggle');
 
-    .suggestions li:hover, .suggestions li.active {
-        background-color: #f5f5f5;
-    }
-
-    .form-group {
-        position: relative;
-    }
-</style>
-
-<script>
-    const queryInput = document.getElementById('query');
-    const suggestionsList = document.createElement('ul');
-    suggestionsList.className = 'suggestions';
-    const formGroup = queryInput.parentNode;
-    formGroup.appendChild(suggestionsList);
-    let activeIndex = -1;
-
-    // Function to update active suggestion highlighting
-    function updateActiveSuggestion(suggestions) {
-        suggestions.forEach((item, index) => {
-            item.classList.toggle('active', index === activeIndex);
-        });
-        if (activeIndex >= 0 && activeIndex < suggestions.length) {
-            suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
-        }
-    }
-
-    // Debounce function
-    function debounce(func, delay) {
-        let timeoutId;
-        return function(...args) {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => func.apply(this, args), delay);
-        };
-    }
-
-    function updateActiveSuggestion(suggestions) {
-      suggestions.forEach((item, index) => {
-        item.classList.toggle('active', index === activeIndex);
-      });
-      if (activeIndex >= 0 && activeIndex < suggestions.length) {
-        suggestions[activeIndex].scrollIntoView({ block: 'nearest' });
-      }
-    }
-
-// Handle input events for autocomplete
-queryInput.addEventListener('input', debounce(async (e) => {
-    const prefix = e.target.value.trim();
-    suggestionsList.innerHTML = '';
-
-    if (prefix.length < 2) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/complete?prefix=${encodeURIComponent(prefix)}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const suggestions = await response.json();
-
-        if (suggestions.length === 0) {
-            return;
+        function currentThemeIsDark() {
+            const t = html.getAttribute('data-theme');
+            if (t === 'dark') return true;
+            if (t === 'light') return false;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
 
-        suggestions.forEach(word => {
-            const li = document.createElement('li');
-            li.textContent = word;
-            li.addEventListener('click', () => {
-                queryInput.value = word;
-                suggestionsList.innerHTML = '';
+        function applyTheme(dark) {
+            html.setAttribute('data-theme', dark ? 'dark' : 'light');
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            themeToggle.textContent = dark ? '☀' : '🌙';
+            themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+        }
+
+        // Set initial button label
+        applyTheme(currentThemeIsDark());
+
+        themeToggle.addEventListener('click', () => applyTheme(!currentThemeIsDark()));
+
+        const searchForm = document.getElementById('searchForm');
+        const queryInput = document.getElementById('query');
+        const suggestionsList = document.getElementById('suggestionsList');
+        let activeIndex = -1;
+
+        function updateActiveSuggestion(items) {
+            items.forEach((item, index) => {
+                const isActive = index === activeIndex;
+                item.setAttribute('aria-selected', isActive ? 'true' : 'false');
             });
-            suggestionsList.appendChild(li);
-        });
-    } catch (err) {
-        console.error('Error fetching autocomplete suggestions:', err);
-    }
-}, 800));
+            queryInput.setAttribute('aria-activedescendant',
+                activeIndex >= 0 && activeIndex < items.length
+                    ? items[activeIndex].id
+                    : ''
+            );
+            if (activeIndex >= 0 && activeIndex < items.length) {
+                items[activeIndex].scrollIntoView({ block: 'nearest' });
+            }
+        }
 
-// Handle keydown events for navigation
-queryInput.addEventListener('keydown', (e) => {
-  const suggestions = suggestionsList.querySelectorAll('li');
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
-    updateActiveSuggestion(suggestions);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    activeIndex = Math.max(activeIndex - 1, 0);
-    updateActiveSuggestion(suggestions);
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    if (activeIndex >= 0 && activeIndex < suggestions.length) {
-      queryInput.value = suggestions[activeIndex].textContent;
-      suggestionsList.innerHTML = '';
-      activeIndex = -1;
-    }
-  }
-});
-
-// Handle keydown events for navigation and form submission
-queryInput.addEventListener('keydown', (e) => {
-    const suggestions = suggestionsList.querySelectorAll('li');
-    
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        activeIndex = Math.min(activeIndex + 1, suggestions.length - 1);
-        updateActiveSuggestion(suggestions);
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        activeIndex = Math.max(activeIndex - 1, 0);
-        updateActiveSuggestion(suggestions);
-    } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (activeIndex >= 0 && activeIndex < suggestions.length) {
-            queryInput.value = suggestions[activeIndex].textContent;
+        function closeSuggestions() {
             suggestionsList.innerHTML = '';
             activeIndex = -1;
-        } else {
-            // Submit form if no suggestion is selected
-            document.querySelector('.search-form').submit();
+            queryInput.setAttribute('aria-expanded', 'false');
+            queryInput.setAttribute('aria-activedescendant', '');
         }
-    }
-});
 
-// Clear suggestions when clicking outside
-document.addEventListener('click', (e) => {
-    if (!formGroup.contains(e.target)) {
-        suggestionsList.innerHTML = '';
-        activeIndex = -1;
-    }
-});
-        // Focus the query input when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('query').focus();
-        });
+        function debounce(func, delay) {
+            let timeoutId;
+            return function(...args) {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
 
-        // Simple form validation
-        document.querySelector('.search-form').addEventListener('submit', (e) => {
-            const query = document.getElementById('query').value.trim();
-            if (!query) {
+        queryInput.addEventListener('input', debounce(async (e) => {
+            const prefix = e.target.value.trim();
+            closeSuggestions();
+
+            if (prefix.length < 2) return;
+
+            try {
+                const response = await fetch(`/complete?prefix=${encodeURIComponent(prefix)}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const suggestions = await response.json();
+                if (!suggestions || suggestions.length === 0) return;
+
+                queryInput.setAttribute('aria-expanded', 'true');
+                suggestions.forEach((word, i) => {
+                    const li = document.createElement('li');
+                    li.id = `suggestion-${i}`;
+                    li.role = 'option';
+                    li.setAttribute('aria-selected', 'false');
+                    li.textContent = word;
+                    li.addEventListener('click', () => {
+                        queryInput.value = word;
+                        closeSuggestions();
+                        searchForm.submit();
+                    });
+                    suggestionsList.appendChild(li);
+                });
+            } catch (err) {
+                console.error('Error fetching autocomplete suggestions:', err);
+            }
+        }, 300));
+
+        queryInput.addEventListener('keydown', (e) => {
+            const items = suggestionsList.querySelectorAll('li');
+            if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                alert('Please enter a word to search');
+                activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                updateActiveSuggestion(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, 0);
+                updateActiveSuggestion(items);
+            } else if (e.key === 'Escape') {
+                closeSuggestions();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIndex >= 0 && activeIndex < items.length) {
+                    queryInput.value = items[activeIndex].textContent;
+                    closeSuggestions();
+                }
+                searchForm.submit();
             }
         });
+
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('queryGroup').contains(e.target)) {
+                closeSuggestions();
+            }
+        });
+
+        searchForm.addEventListener('submit', (e) => {
+            if (!queryInput.value.trim()) {
+                e.preventDefault();
+                queryInput.focus();
+            }
+        });
+
+        queryInput.focus();
     </script>
 </body>
 </html>
-
-
