@@ -55,22 +55,21 @@ func (o output) GetDefinition() string {
 
 func loadAllCss() (string, error) {
 	var a []string
-	filepath.WalkDir(util.DictsPath(), func(s string, d fs.DirEntry, e error) error {
+	err := filepath.WalkDir(util.DictsPath(), func(s string, d fs.DirEntry, e error) error {
 		if e != nil {
 			return e
 		}
-		if filepath.Ext(d.Name()) == ".css" {
-			log.Infof("name: %v\n", filepath.Join(s, d.Name()))
-			if content, err := os.ReadFile(s); err == nil {
-				a = append(a, string(content))
-			} else {
+		if !d.IsDir() && filepath.Ext(d.Name()) == ".css" {
+			log.Infof("loading css: %v", s)
+			content, err := os.ReadFile(s)
+			if err != nil {
 				return err
 			}
-			return nil
+			a = append(a, string(content))
 		}
 		return nil
 	})
-	return strings.Join(a, "\n"), nil
+	return strings.Join(a, "\n"), err
 }
 
 func (d *MdxDict) registerDictDB() error {

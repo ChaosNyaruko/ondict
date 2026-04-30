@@ -1,3 +1,58 @@
+# TODO Plan (Issue Finder Audit)
+
+## Better source abstractions (main.go)
+**File:** `main.go:64`
+**Priority:** LOW
+**Plan:** The `var g = sources.G` alias is marked "prev work, for better source abstractions." Refactor callers to use `sources.G` directly.
+
+## Renderer should be bound to render format flags (main.go)
+**File:** `main.go:102-103`
+**Priority:** LOW
+**Plan:** `render.SeparatorOpen/Close` are package globals mutated at startup. Bind them to the renderer instead.
+
+## FZF vs. Aho-Corasick flag naming (sources/model.go)
+**File:** `sources/model.go:84-95`
+**Priority:** LOW
+**Plan:** `Register(fzf bool, …)` with `fzf=true → IExact` and `fzf=false → AhoCorasick` is backwards. Rename/invert.
+
+## Refactor completeHandler hardcoded vocab.db check (server.go)
+**File:** `server.go:123`
+**Priority:** MEDIUM
+**Plan:** `// TODO: bad code...` — introduce a `Completer` interface so both DB-backed and in-memory dicts can provide prefix completions.
+
+## Performance: WordsWithPrefix slow for large DBs (sources/db.go)
+**File:** `sources/db.go:89`
+**Priority:** LOW
+**Plan:** Add `CREATE INDEX IF NOT EXISTS idx_vocab_word ON vocab(word COLLATE NOCASE);`.
+
+## Performance: LDOCE cache blocks all readers (sources/ldoceonline.go)
+**File:** `sources/ldoceonline.go:53`
+**Priority:** LOW
+**Plan:** Use `sync.RWMutex` so concurrent reads don't block.
+
+## NormTime is dead code (history/auto.go)
+**File:** `history/auto.go:52-66`
+**Priority:** LOW
+**Plan:** Function starts with `return nil` — all parsing logic unreachable. Remove or fix SQLite datetime format.
+
+## Log rotation for TxtWriter (history/auto.go)
+**File:** `history/auto.go:153`
+**Priority:** LOW
+**Plan:** Implement size-based rotation when history file exceeds a limit.
+
+## LZO decompression not implemented (decoder/mdx.go)
+**File:** `decoder/mdx.go:641`
+**Priority:** LOW
+**Plan:** `case 1: // TODO: lzo compressed` silently produces empty output. Return an error or implement LZO.
+
+## DBDict.Get panics by design (sources/db.go)
+**File:** `sources/db.go:85-87`
+**Priority:** LOW
+**Plan:** Replace panic with an error return or documented unreachable comment.
+
+---
+# Original project TODO list
+
 - [x] in particular
 - [x] consist verb table
 - [x] Parse \<span class="PhrVbEntry"\>, e.g. consist. 

@@ -144,8 +144,8 @@ func NewTxtWriter() *TxtWriter {
 }
 
 func (w *TxtWriter) Close() error {
-	if w == nil {
-		panic("nil TxtWriter!")
+	if w == nil || w.fd == nil {
+		return nil
 	}
 	return w.fd.Close()
 }
@@ -175,8 +175,8 @@ func NewSqlite3Writer() *Sqlite3Writer {
 }
 
 func (w *Sqlite3Writer) Close() error {
-	if w == nil {
-		panic("nil Sqlite3Writer!")
+	if w == nil || w.db == nil {
+		return nil
 	}
 	return w.db.Close()
 }
@@ -209,9 +209,12 @@ func (w *Sqlite3Writer) Append(word string) error {
 		return err
 	}
 	res, err = db.Exec(`INSERT INTO history (word, count) VALUES (?, 1) ON CONFLICT(word) DO UPDATE SET count=count+1, update_time=datetime('now','localtime');`, word)
-	id, err := res.LastInsertId()
 	if err != nil {
-		log.Errorf("INSERT error: %v, %v", id, err)
+		log.Errorf("INSERT word %q error: %v", word, err)
+		return nil
+	}
+	if id, err := res.LastInsertId(); err != nil {
+		log.Errorf("LastInsertId error: %v, %v", id, err)
 	}
 
 	return nil
