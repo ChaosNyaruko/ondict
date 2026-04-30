@@ -89,14 +89,11 @@ func (h *History) Review(days string, count string) (string, error) {
 		return "", err
 	}
 	defer db.Close()
-	where := fmt.Sprintf(`WHERE 
-		update_time > datetime('now', 'localtime', '-%d days')
-		AND count >= %d `,
-		d,
-		cnt)
-	rows, err := db.Query(`SELECT * FROM history ` +
-		where +
-		`ORDER BY update_time DESC;`)
+	rows, err := db.Query(
+		`SELECT * FROM history WHERE update_time > datetime('now', 'localtime', ?) AND count >= ? ORDER BY update_time DESC`,
+		fmt.Sprintf("-%d days", d),
+		cnt,
+	)
 	if err != nil {
 		log.Errorf("query most frequently queried words error: %v", err)
 		return "", err
