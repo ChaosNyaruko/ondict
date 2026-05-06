@@ -3,6 +3,7 @@ package sources
 import (
 	"database/sql"
 	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -100,19 +101,25 @@ func (d *DBDict) WordsWithPrefix(prefix string) []string {
 
 	// NOTE: we don't very care about the security problem here.
 	// And based on this doc https://go.dev/doc/database/sql-injection, there will not be sql injection problem.
-	rows, err := db.Query("SELECT word FROM vocab WHERE word LIKE ?", pattern)
+	rows, err := db.Query("SELECT word FROM vocab WHERE word LIKE ? ORDER BY word", pattern)
 	if err != nil {
 		log.Errorf("select %q from vocab error: %v", prefix, err)
 		return nil
 	}
 	defer rows.Close()
 	var res []string
+	seen := make(map[string]struct{})
 	for rows.Next() {
 		var ro output
 		if err := rows.Scan(&ro.rawWord); err != nil {
 			log.Errorf("scan row for %q err: %v", prefix, err)
 			return res
 		}
+		lword := strings.ToLower(ro.rawWord)
+		if _, ok := seen[lword]; ok {
+			continue
+		}
+		seen[lword] = struct{}{}
 		res = append(res, ro.rawWord)
 	}
 	return res

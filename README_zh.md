@@ -185,6 +185,14 @@ ondict -i -e mdx
 ##### 解决方案
 使用hs.execute代替hs.task（注意shell转义），这是执行任务的"同步"方法。普通查询足够快，您不会注意到差异，会"立即"看到结果。参见[示例](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90)
 
+### FZF风格补全
+Web 补全接口现在支持两种模式：
+
+- 前缀模式（默认）：`GET /complete?prefix=app`
+- FZF 风格模糊模式：`GET /complete?prefix=apd&mode=fzf`
+
+模糊模式在进程内实现，不再依赖外部 `fzf` 二进制。
+
 ### 与FZF集成（实验性功能，仅支持MacOS）
 ```console
 ondict -fzf
@@ -291,5 +299,4 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 
 # 许可证
 [许可证](./LICENSE) 
-
 

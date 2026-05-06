@@ -186,6 +186,14 @@ Don't know why yet, the same word queries also works normally in [Neovim integra
 ##### WORKAROUND
 Using hs.execute instead of hs.task(Be careful with the shell-escaping), which is a "synchronous" method of executing a task. Normal query is fast enough and you won't notice the difference and will see the result "immediately". See [](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90) for example
 
+## FZF-like completion
+The web completion endpoint supports two modes:
+
+- Prefix mode (default): `GET /complete?prefix=app`
+- FZF-like fuzzy mode: `GET /complete?prefix=apd&mode=fzf`
+
+The fuzzy mode is implemented in-process and does not require the external `fzf` binary.
+
 ## Integrated with FZF (experimental and MacOS only)
 ```console
 ondict -fzf

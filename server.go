@@ -118,29 +118,8 @@ func completeHandler(c *gin.Context) {
 		c.String(200, "prefix empty")
 		return
 	}
-
-	var suggestions []string
-	if len(*sources.G) == 1 && (*sources.G)[0].MdxFile == "vocab.db" { // TODO: bad code...
-		suggestions = (*sources.G)[0].MdxDict.(*sources.DBDict).WordsWithPrefix(prefix)
-	} else {
-		var words []string
-		for _, g := range *sources.G {
-			words = append(words, g.MdxDict.Keys()...)
-		}
-
-		seen := make(map[string]struct{})
-		lprefix := strings.ToLower(prefix)
-		for _, word := range words {
-			lword := strings.ToLower(word)
-			if _, ok := seen[lword]; !ok && strings.HasPrefix(lword, lprefix) {
-				seen[lword] = struct{}{}
-				suggestions = append(suggestions, word)
-				if len(suggestions) >= 10 {
-					break
-				}
-			}
-		}
-	}
+	mode := sources.ParseCompletionMode(c.DefaultQuery("mode", "prefix"))
+	suggestions := sources.Complete(prefix, mode, 10)
 
 	res, err := json.Marshal(suggestions)
 	if err != nil {

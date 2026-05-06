@@ -337,7 +337,7 @@
             if (prefix.length < 2) return;
 
             try {
-                const response = await fetch(`/complete?prefix=${encodeURIComponent(prefix)}`);
+                const response = await fetch(`/complete?prefix=${encodeURIComponent(prefix)}&mode=fzf`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const suggestions = await response.json();
                 if (!suggestions || suggestions.length === 0) return;
