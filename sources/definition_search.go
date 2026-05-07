@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -31,6 +32,13 @@ type DefinitionMatch struct {
 
 type DefinitionSearchError struct {
 	Reason string
+}
+
+type definitionIndexRow struct {
+	rowID   int64
+	word    string
+	src     string
+	defText string
 }
 
 func (e *DefinitionSearchError) Error() string {
@@ -66,13 +74,26 @@ func openVocabDB() (*sql.DB, error) {
 
 func BuildDefinitionSearchIndex(db *sql.DB, tokenizer string) error {
 	tokenizer = normalizeDefinitionTokenizer(tokenizer)
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS search_meta(
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire sqlite conn: %w", err)
+	}
+	defer conn.Close()
+
+	restore, err := enableFastIndexBuildMode(ctx, conn)
+	if err != nil {
+		return fmt.Errorf("enable fast sqlite build mode: %w", err)
+	}
+	defer restore()
+
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS search_meta(
 		key TEXT PRIMARY KEY,
 		value TEXT NOT NULL
 	)`); err != nil {
 		return fmt.Errorf("create search_meta: %w", err)
 	}
-	if _, err := db.Exec(`DROP TABLE IF EXISTS vocab_fts`); err != nil {
+	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS vocab_fts`); err != nil {
 		return fmt.Errorf("drop vocab_fts: %w", err)
 	}
 	stmt := fmt.Sprintf(`CREATE VIRTUAL TABLE vocab_fts USING fts5(
@@ -81,7 +102,7 @@ func BuildDefinitionSearchIndex(db *sql.DB, tokenizer string) error {
 		def_text,
 		tokenize = '%s'
 	)`, tokenizer)
-	if _, err := db.Exec(stmt); err != nil {
+	if _, err := conn.ExecContext(ctx, stmt); err != nil {
 		return fmt.Errorf("create vocab_fts: %w", err)
 	}
 
@@ -90,32 +111,15 @@ func BuildDefinitionSearchIndex(db *sql.DB, tokenizer string) error {
 		return fmt.Errorf("inspect vocab schema: %w", err)
 	}
 
-	selectSQL := `SELECT word, src, def FROM vocab`
+	selectSQL := `SELECT rowid, word, src, def FROM vocab`
 	if hasDefText {
-		selectSQL = `SELECT word, src, def_text FROM vocab`
+		selectSQL = `SELECT rowid, word, src, def_text FROM vocab`
 	}
-
-	rows, err := db.Query(selectSQL)
-	if err != nil {
-		return fmt.Errorf("select vocab rows: %w", err)
-	}
-	defer rows.Close()
 
 	totalRows := 0
 	if err := db.QueryRow(`SELECT COUNT(*) FROM vocab`).Scan(&totalRows); err != nil {
 		return fmt.Errorf("count vocab rows: %w", err)
 	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("begin fts transaction: %w", err)
-	}
-	stmtInsert, err := tx.Prepare(`INSERT INTO vocab_fts(word, src, def_text) VALUES(?, ?, ?)`)
-	if err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("prepare fts insert: %w", err)
-	}
-	defer stmtInsert.Close()
 
 	bar := progressbar.NewOptions(
 		totalRows,
@@ -128,26 +132,51 @@ func BuildDefinitionSearchIndex(db *sql.DB, tokenizer string) error {
 		progressbar.OptionThrottle(65),
 	)
 
-	for rows.Next() {
-		var word, src, defText string
-		if err := rows.Scan(&word, &src, &defText); err != nil {
+	inserted := 0
+	const batchSize = 2000
+	lastRowID := int64(0)
+	for {
+		batch, err := fetchDefinitionIndexBatch(ctx, conn, selectSQL, lastRowID, batchSize, hasDefText)
+		if err != nil {
+			return err
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		tx, err := conn.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("begin fts transaction: %w", err)
+		}
+		stmtInsert, err := tx.PrepareContext(ctx, `INSERT INTO vocab_fts(word, src, def_text) VALUES(?, ?, ?)`)
+		if err != nil {
 			_ = tx.Rollback()
-			return fmt.Errorf("scan vocab row: %w", err)
+			return fmt.Errorf("prepare fts insert: %w", err)
 		}
-		if !hasDefText {
-			defText = extractVisibleText(defText)
+
+		for _, row := range batch {
+			if _, err := stmtInsert.ExecContext(ctx, row.word, row.src, row.defText); err != nil {
+				_ = stmtInsert.Close()
+				_ = tx.Rollback()
+				return fmt.Errorf("insert fts row for %q: %w", row.word, err)
+			}
+			inserted++
+			_ = bar.Add(1)
 		}
-		if _, err := stmtInsert.Exec(word, src, defText); err != nil {
+		if err := stmtInsert.Close(); err != nil {
 			_ = tx.Rollback()
-			return fmt.Errorf("insert fts row for %q: %w", word, err)
+			return fmt.Errorf("close fts insert statement: %w", err)
 		}
-		_ = bar.Add(1)
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit fts batch: %w", err)
+		}
+		lastRowID = batch[len(batch)-1].rowID
 	}
-	if err := rows.Err(); err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("iterate vocab rows: %w", err)
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin metadata transaction: %w", err)
 	}
-	if _, err := tx.Exec(`INSERT INTO search_meta(key, value) VALUES('definition_tokenizer', ?)
+	if _, err := tx.ExecContext(ctx, `INSERT INTO search_meta(key, value) VALUES('definition_tokenizer', ?)
 		ON CONFLICT(key) DO UPDATE SET value=excluded.value`, tokenizer); err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("store tokenizer metadata: %w", err)
@@ -157,6 +186,105 @@ func BuildDefinitionSearchIndex(db *sql.DB, tokenizer string) error {
 	}
 	_ = bar.Finish()
 	return nil
+}
+
+type pragmaState struct {
+	journalMode string
+	synchronous int
+	tempStore   int
+	cacheSize   int
+}
+
+func enableFastIndexBuildMode(ctx context.Context, conn *sql.Conn) (func(), error) {
+	original := pragmaState{}
+	if err := queryStringContext(ctx, conn, `PRAGMA journal_mode`, &original.journalMode); err != nil {
+		return nil, err
+	}
+	if err := queryIntContext(ctx, conn, `PRAGMA synchronous`, &original.synchronous); err != nil {
+		return nil, err
+	}
+	if err := queryIntContext(ctx, conn, `PRAGMA temp_store`, &original.tempStore); err != nil {
+		return nil, err
+	}
+	if err := queryIntContext(ctx, conn, `PRAGMA cache_size`, &original.cacheSize); err != nil {
+		return nil, err
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA synchronous = OFF`); err != nil {
+		return nil, err
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA journal_mode = MEMORY`); err != nil {
+		return nil, err
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA temp_store = MEMORY`); err != nil {
+		return nil, err
+	}
+	if _, err := conn.ExecContext(ctx, `PRAGMA cache_size = -65536`); err != nil {
+		return nil, err
+	}
+
+	restore := func() {
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA cache_size = %d`, original.cacheSize)); err != nil {
+			log.Warnf("restore PRAGMA cache_size err: %v", err)
+		}
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA temp_store = %d`, original.tempStore)); err != nil {
+			log.Warnf("restore PRAGMA temp_store err: %v", err)
+		}
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA synchronous = %d`, original.synchronous)); err != nil {
+			log.Warnf("restore PRAGMA synchronous err: %v", err)
+		}
+		if _, err := conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA journal_mode = %s`, original.journalMode)); err != nil {
+			log.Warnf("restore PRAGMA journal_mode err: %v", err)
+		}
+	}
+	return restore, nil
+}
+
+func fetchDefinitionIndexBatch(ctx context.Context, conn *sql.Conn, selectSQL string, lastRowID int64, batchSize int, hasDefText bool) ([]definitionIndexRow, error) {
+	rows, err := conn.QueryContext(ctx, selectSQL+` WHERE rowid > ? ORDER BY rowid LIMIT ?`, lastRowID, batchSize)
+	if err != nil {
+		return nil, fmt.Errorf("select vocab rows: %w", err)
+	}
+	defer rows.Close()
+
+	batch := make([]definitionIndexRow, 0, batchSize)
+	for rows.Next() {
+		var row definitionIndexRow
+		if err := rows.Scan(&row.rowID, &row.word, &row.src, &row.defText); err != nil {
+			return nil, fmt.Errorf("scan vocab row: %w", err)
+		}
+		if !hasDefText {
+			row.defText = extractVisibleText(row.defText)
+		}
+		batch = append(batch, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate vocab rows: %w", err)
+	}
+	return batch, nil
+}
+
+func queryIntContext(ctx context.Context, conn *sql.Conn, query string, dest *int) error {
+	rows, err := conn.QueryContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return sql.ErrNoRows
+	}
+	return rows.Scan(dest)
+}
+
+func queryStringContext(ctx context.Context, conn *sql.Conn, query string, dest *string) error {
+	rows, err := conn.QueryContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return sql.ErrNoRows
+	}
+	return rows.Scan(dest)
 }
 
 func vocabHasColumn(db *sql.DB, column string) (bool, error) {
