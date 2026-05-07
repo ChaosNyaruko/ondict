@@ -1,318 +1,444 @@
 <!DOCTYPE html>
-<html lang='en' data-theme="">
+<html lang="en" data-theme="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Online Dictionary</title>
+    <title>{{.Title}}</title>
     <style>
         :root {
-            --color-primary: #2196F3;
-            --color-primary-dark: #1976D2;
-            --color-bg: #f5f5f5;
-            --color-surface: #ffffff;
-            --color-text: #333333;
-            --color-text-muted: #666666;
-            --color-border: #e0e0e0;
-            --color-suggestion-hover: #f0f0f0;
-            --color-footer-bg: #2196F3;
-            --color-footer-text: #ffffff;
-            --shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root:not([data-theme="light"]) {
-                --color-primary: #64b5f6;
-                --color-primary-dark: #42a5f5;
-                --color-bg: #121212;
-                --color-surface: #1e1e1e;
-                --color-text: #e0e0e0;
-                --color-text-muted: #9e9e9e;
-                --color-border: #333333;
-                --color-suggestion-hover: #2a2a2a;
-                --color-footer-bg: #1565c0;
-                --color-footer-text: #ffffff;
-                --shadow: 0 2px 10px rgba(0,0,0,0.4);
-            }
+            --bg: #f3efe6;
+            --bg-accent: #e0d3b8;
+            --surface: rgba(255, 251, 243, 0.92);
+            --surface-strong: #fffdf8;
+            --text: #2e241c;
+            --muted: #746454;
+            --border: rgba(97, 74, 45, 0.18);
+            --accent: #9a3412;
+            --accent-strong: #7c2d12;
+            --accent-soft: rgba(154, 52, 18, 0.12);
+            --shadow: 0 24px 60px rgba(79, 56, 31, 0.16);
+            --mark: #f8d66d;
         }
 
         [data-theme="dark"] {
-            --color-primary: #64b5f6;
-            --color-primary-dark: #42a5f5;
-            --color-bg: #121212;
-            --color-surface: #1e1e1e;
-            --color-text: #e0e0e0;
-            --color-text-muted: #9e9e9e;
-            --color-border: #333333;
-            --color-suggestion-hover: #2a2a2a;
-            --color-footer-bg: #1565c0;
-            --color-footer-text: #ffffff;
-            --shadow: 0 2px 10px rgba(0,0,0,0.4);
+            --bg: #1a1714;
+            --bg-accent: #30271f;
+            --surface: rgba(35, 31, 27, 0.94);
+            --surface-strong: #231f1b;
+            --text: #f4ede2;
+            --muted: #baa892;
+            --border: rgba(255, 241, 221, 0.12);
+            --accent: #fb923c;
+            --accent-strong: #fdba74;
+            --accent-soft: rgba(251, 146, 60, 0.14);
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+            --mark: #7c5b17;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: var(--color-text);
-            background-color: var(--color-bg);
+            margin: 0;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, var(--bg-accent), transparent 38%),
+                linear-gradient(180deg, var(--bg), #f8f3ea 60%, #efe6d8 100%);
+            font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
         }
 
-        .container {
-            max-width: 600px;
-            margin: 2rem auto;
-            padding: 2rem;
-            background: var(--color-surface);
-            border-radius: 10px;
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at top left, rgba(251, 146, 60, 0.09), transparent 35%),
+                linear-gradient(180deg, var(--bg), #14110f 100%);
+        }
+
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .shell {
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 28px;
             box-shadow: var(--shadow);
-            min-height: 400px;
-            display: flex;
-            flex-direction: column;
+            overflow: hidden;
         }
 
-        h1 {
-            text-align: center;
-            color: var(--color-primary);
-            margin-bottom: 2rem;
-            font-size: 2rem;
+        .masthead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 22px 24px 8px;
+        }
+
+        .brand {
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .brand span {
+            display: block;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            font-size: 0.78rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .brand strong {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 700;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border);
+            background: var(--surface-strong);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .hero {
+            padding: 28px 24px 36px;
+            display: grid;
+            grid-template-columns: 1.25fr 0.75fr;
+            gap: 28px;
+            align-items: start;
+        }
+
+        .hero-copy h1 {
+            margin: 0 0 14px;
+            font-size: clamp(2.4rem, 6vw, 4.5rem);
+            line-height: 0.95;
+        }
+
+        .hero-copy p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1.05rem;
+            max-width: 42ch;
+        }
+
+        .search-card {
+            background: var(--surface-strong);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 20px;
         }
 
         .search-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            flex: 1;
-            justify-content: flex-start;
-            margin-bottom: 2rem;
+            display: grid;
+            gap: 16px;
         }
 
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            position: relative;
-            margin-bottom: 1rem;
+        .mode-switch {
+            display: inline-flex;
+            gap: 8px;
+            padding: 6px;
+            background: var(--accent-soft);
+            border-radius: 999px;
+            width: fit-content;
         }
 
-        .form-group:first-child {
-            margin-bottom: 1.5rem;
+        .mode-switch label {
+            cursor: pointer;
         }
 
-        label {
-            font-weight: 500;
-            color: var(--color-text-muted);
+        .mode-switch input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .mode-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        .mode-switch input:checked + .mode-pill {
+            background: var(--surface-strong);
+            color: var(--text);
+            box-shadow: inset 0 0 0 1px var(--border);
+        }
+
+        .field label,
+        details summary,
+        .support-card h2 {
+            display: block;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            font-size: 0.84rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px;
         }
 
         input[type="text"] {
-            padding: 0.8rem;
-            border: 2px solid var(--color-border);
-            border-radius: 6px;
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: transparent;
+            color: var(--text);
+            padding: 15px 16px;
             font-size: 1rem;
-            transition: border-color 0.3s ease;
-            background-color: var(--color-surface);
-            color: var(--color-text);
+            font-family: ui-sans-serif, system-ui, sans-serif;
         }
 
         input[type="text"]:focus {
-            outline: none;
-            border-color: var(--color-primary);
+            outline: 2px solid transparent;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-soft);
         }
 
-        input[type="submit"] {
-            background: var(--color-primary);
-            color: white;
+        .submit-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .hint {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        .submit {
             border: none;
-            padding: 1rem;
-            border-radius: 6px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+            color: #fff;
+            padding: 14px 22px;
             font-size: 1rem;
+            font-family: ui-sans-serif, system-ui, sans-serif;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-top: 1rem;
-            min-height: 48px;
-            width: 100%;
         }
 
-        input[type="submit"]:hover {
-            background: var(--color-primary-dark);
+        .advanced {
+            border-top: 1px solid var(--border);
+            padding-top: 8px;
         }
 
-        footer {
-            text-align: center;
-            padding: 1.5rem;
-            background-color: var(--color-footer-bg);
-            color: var(--color-footer-text);
-            margin-top: auto;
+        details summary {
+            cursor: pointer;
+            list-style: none;
         }
 
-        footer a {
-            color: var(--color-footer-text);
-            text-decoration: none;
-            border-bottom: 1px dotted var(--color-footer-text);
-        }
-
-        footer a:hover {
-            border-bottom: 1px solid var(--color-footer-text);
-        }
+        details summary::-webkit-details-marker { display: none; }
 
         .suggestions {
-            list-style-type: none;
-            margin: 0;
+            list-style: none;
+            margin: 8px 0 0;
             padding: 0;
-            border: 1px solid var(--color-border);
-            border-top: none;
-            border-radius: 0 0 6px 6px;
-            background-color: var(--color-surface);
-            max-height: 200px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--surface-strong);
+            max-height: 220px;
             overflow-y: auto;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            box-shadow: var(--shadow);
         }
 
         .suggestions li {
-            padding: 0.8rem;
+            padding: 12px 14px;
             cursor: pointer;
-            transition: background-color 0.15s ease;
+            font-family: ui-sans-serif, system-ui, sans-serif;
         }
 
         .suggestions li:hover,
         .suggestions li[aria-selected="true"] {
-            background-color: var(--color-suggestion-hover);
+            background: var(--accent-soft);
         }
 
-        .theme-toggle {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: none;
-            border: 1px solid var(--color-border);
-            border-radius: 6px;
-            padding: 0.3rem 0.6rem;
-            cursor: pointer;
-            font-size: 1rem;
-            color: var(--color-text-muted);
-            line-height: 1;
-            transition: border-color 0.2s ease, color 0.2s ease;
+        .support-card {
+            padding: 22px;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            background: linear-gradient(180deg, var(--surface-strong), rgba(255,255,255,0.2));
         }
 
-        .theme-toggle:hover {
-            border-color: var(--color-primary);
-            color: var(--color-primary);
+        .support-card p,
+        .support-card li,
+        footer {
+            color: var(--muted);
+            font-family: ui-sans-serif, system-ui, sans-serif;
         }
 
-        .container {
-            position: relative;
+        .support-card ul {
+            margin: 14px 0 0;
+            padding-left: 18px;
+        }
+
+        footer {
+            padding: 0 24px 24px;
+            font-size: 0.95rem;
+        }
+
+        footer a {
+            color: inherit;
+        }
+
+        @media (max-width: 860px) {
+            .hero {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 640px) {
-            .container {
-                margin: 1rem;
-                padding: 1rem;
+            .page {
+                padding: 14px;
+            }
+
+            .masthead,
+            .hero,
+            footer {
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+
+            .submit-row {
+                align-items: stretch;
+            }
+
+            .submit {
+                width: 100%;
             }
         }
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
-        <h1>Online Dictionary</h1>
-        <form class="search-form" id="searchForm" action="/dict" method="get">
-            <div class="form-group" id="queryGroup">
-                <label for="query">Query:</label>
-                <input
-                    type="text"
-                    id="query"
-                    name="query"
-                    placeholder="Enter a word..."
-                    required
-                    autocomplete="off"
-                    role="combobox"
-                    aria-autocomplete="list"
-                    aria-expanded="false"
-                    aria-controls="suggestionsList"
-                    aria-activedescendant=""
-                />
-                <ul
-                    id="suggestionsList"
-                    class="suggestions"
-                    role="listbox"
-                    aria-label="Suggestions"
-                ></ul>
-            </div>
+    <div class="page">
+        <div class="shell">
+            <header class="masthead">
+                <a class="brand" href="/">
+                    <span>Dictionary Workbench</span>
+                    <strong>Ondict</strong>
+                </a>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Theme</button>
+            </header>
 
-            <div class="form-group">
-                <label for="engine">Engine:</label>
-                <input type="text" id="engine" name="engine" value="mdx" placeholder="mdx"/>
-            </div>
+            <section class="hero">
+                <div class="hero-copy">
+                    <h1>Look up words, or search by meaning.</h1>
+                    <p>
+                        Headword search jumps straight to the entry. Definition search scans the SQLite full-text index and returns candidate words with context snippets.
+                    </p>
+                </div>
 
-            <input type="hidden" name="format" value="html" />
-            <input type="hidden" name="record" value="1" />
-            <input type="submit" value="Search"/>
-        </form>
+                <div class="search-card">
+                    <form class="search-form" id="searchForm" action="/search" method="get">
+                        <div class="mode-switch" role="radiogroup" aria-label="Search mode">
+                            <label>
+                                <input type="radio" name="mode" value="headword" {{if or (eq .SearchMode "") (eq .SearchMode "headword")}}checked{{end}}>
+                                <span class="mode-pill">Headword</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="mode" value="definition" {{if eq .SearchMode "definition"}}checked{{end}}>
+                                <span class="mode-pill">Definition</span>
+                            </label>
+                        </div>
+
+                        <div class="field" id="queryGroup">
+                            <label for="query">Search</label>
+                            <input
+                                type="text"
+                                id="query"
+                                name="query"
+                                value="{{.Query}}"
+                                placeholder="doctor, heart attack, write formally..."
+                                autocomplete="off"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-expanded="false"
+                                aria-controls="suggestionsList"
+                                aria-activedescendant=""
+                                required
+                            >
+                            <ul id="suggestionsList" class="suggestions" role="listbox" aria-label="Suggestions"></ul>
+                        </div>
+
+                        <details class="advanced">
+                            <summary>Advanced options</summary>
+                            <div class="field">
+                                <label for="engine">Engine</label>
+                                <input type="text" id="engine" name="engine" value="{{if .Engine}}{{.Engine}}{{else}}mdx{{end}}">
+                            </div>
+                        </details>
+
+                        <input type="hidden" name="format" value="html">
+                        <input type="hidden" name="record" value="1">
+
+                        <div class="submit-row">
+                            <p class="hint">Autocomplete stays on for headword mode and turns off for definition mode.</p>
+                            <button class="submit" type="submit">Search</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="hero" style="padding-top: 0;">
+                <div class="support-card">
+                    <h2>What changed</h2>
+                    <p>The HTML server now has a consistent shell across home, results, and entry pages, so you can browse like a small web app instead of jumping between unrelated pages.</p>
+                </div>
+                <div class="support-card">
+                    <h2>Tips</h2>
+                    <ul>
+                        <li>Use headword mode for fast dictionary lookup.</li>
+                        <li>Use definition mode when you know the concept but not the word.</li>
+                        <li>If definition search says the index is missing, rebuild `vocab.db` with the dump/init flow.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <footer>
+                Ondict is open source. <a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a>
+            </footer>
+        </div>
     </div>
 
-    <footer>
-        <p>This is an open-source project</p>
-        <p>Author: ChaosNyaruko</p>
-        <p><a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a></p>
-    </footer>
-
     <script>
-        // Apply saved theme immediately to avoid flash
         const html = document.documentElement;
-        const saved = localStorage.getItem('theme');
-        if (saved) html.setAttribute('data-theme', saved);
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) html.setAttribute('data-theme', savedTheme);
 
         const themeToggle = document.getElementById('themeToggle');
-
         function currentThemeIsDark() {
-            const t = html.getAttribute('data-theme');
-            if (t === 'dark') return true;
-            if (t === 'light') return false;
+            const explicit = html.getAttribute('data-theme');
+            if (explicit === 'dark') return true;
+            if (explicit === 'light') return false;
             return window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
-
         function applyTheme(dark) {
             html.setAttribute('data-theme', dark ? 'dark' : 'light');
             localStorage.setItem('theme', dark ? 'dark' : 'light');
-            themeToggle.textContent = dark ? '☀' : '🌙';
-            themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+            themeToggle.textContent = dark ? 'Light' : 'Dark';
         }
-
-        // Set initial button label
         applyTheme(currentThemeIsDark());
-
         themeToggle.addEventListener('click', () => applyTheme(!currentThemeIsDark()));
 
         const searchForm = document.getElementById('searchForm');
         const queryInput = document.getElementById('query');
+        const queryGroup = document.getElementById('queryGroup');
         const suggestionsList = document.getElementById('suggestionsList');
+        const modeInputs = Array.from(document.querySelectorAll('input[name="mode"]'));
         let activeIndex = -1;
 
-        function updateActiveSuggestion(items) {
-            items.forEach((item, index) => {
-                const isActive = index === activeIndex;
-                item.setAttribute('aria-selected', isActive ? 'true' : 'false');
-            });
-            queryInput.setAttribute('aria-activedescendant',
-                activeIndex >= 0 && activeIndex < items.length
-                    ? items[activeIndex].id
-                    : ''
-            );
-            if (activeIndex >= 0 && activeIndex < items.length) {
-                items[activeIndex].scrollIntoView({ block: 'nearest' });
-            }
+        function currentMode() {
+            const checked = modeInputs.find((input) => input.checked);
+            return checked ? checked.value : 'headword';
         }
 
         function closeSuggestions() {
@@ -322,32 +448,45 @@
             queryInput.setAttribute('aria-activedescendant', '');
         }
 
-        function debounce(func, delay) {
-            let timeoutId;
-            return function(...args) {
-                clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => func.apply(this, args), delay);
+        function updateActiveSuggestion(items) {
+            items.forEach((item, index) => {
+                const isActive = index === activeIndex;
+                item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            queryInput.setAttribute(
+                'aria-activedescendant',
+                activeIndex >= 0 && activeIndex < items.length ? items[activeIndex].id : ''
+            );
+        }
+
+        function debounce(fn, delay) {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn(...args), delay);
             };
         }
 
-        queryInput.addEventListener('input', debounce(async (e) => {
-            const prefix = e.target.value.trim();
-            closeSuggestions();
+        modeInputs.forEach((input) => {
+            input.addEventListener('change', closeSuggestions);
+        });
 
-            if (prefix.length < 2) return;
+        queryInput.addEventListener('input', debounce(async (event) => {
+            const prefix = event.target.value.trim();
+            closeSuggestions();
+            if (currentMode() !== 'headword' || prefix.length < 2) return;
 
             try {
                 const response = await fetch(`/complete?prefix=${encodeURIComponent(prefix)}&mode=fzf`);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const suggestions = await response.json();
                 if (!suggestions || suggestions.length === 0) return;
 
                 queryInput.setAttribute('aria-expanded', 'true');
-                suggestions.forEach((word, i) => {
+                suggestions.forEach((word, index) => {
                     const li = document.createElement('li');
-                    li.id = `suggestion-${i}`;
+                    li.id = `suggestion-${index}`;
                     li.role = 'option';
-                    li.setAttribute('aria-selected', 'false');
                     li.textContent = word;
                     li.addEventListener('click', () => {
                         queryInput.value = word;
@@ -356,43 +495,35 @@
                     });
                     suggestionsList.appendChild(li);
                 });
-            } catch (err) {
-                console.error('Error fetching autocomplete suggestions:', err);
+            } catch (error) {
+                console.error('autocomplete error', error);
             }
-        }, 300));
+        }, 220));
 
-        queryInput.addEventListener('keydown', (e) => {
+        queryInput.addEventListener('keydown', (event) => {
+            if (currentMode() !== 'headword') return;
             const items = suggestionsList.querySelectorAll('li');
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
                 activeIndex = Math.min(activeIndex + 1, items.length - 1);
                 updateActiveSuggestion(items);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
                 activeIndex = Math.max(activeIndex - 1, 0);
                 updateActiveSuggestion(items);
-            } else if (e.key === 'Escape') {
+            } else if (event.key === 'Escape') {
                 closeSuggestions();
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (activeIndex >= 0 && activeIndex < items.length) {
-                    queryInput.value = items[activeIndex].textContent;
-                    closeSuggestions();
-                }
+            } else if (event.key === 'Enter' && activeIndex >= 0 && activeIndex < items.length) {
+                event.preventDefault();
+                queryInput.value = items[activeIndex].textContent;
+                closeSuggestions();
                 searchForm.submit();
             }
         });
 
-        document.addEventListener('click', (e) => {
-            if (!document.getElementById('queryGroup').contains(e.target)) {
+        document.addEventListener('click', (event) => {
+            if (!queryGroup.contains(event.target)) {
                 closeSuggestions();
-            }
-        });
-
-        searchForm.addEventListener('submit', (e) => {
-            if (!queryInput.value.trim()) {
-                e.preventDefault();
-                queryInput.focus();
             }
         });
 

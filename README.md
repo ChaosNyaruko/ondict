@@ -66,6 +66,7 @@ There are some similar products. They are all mature products, but may not suit 
 - **Online** query support based on [Longman online dictionary](https://ldoceonline.com)
 - Integrated with (n)vim, feel free to use it in whatever editor you are using!
 - In the offline mode(do not need extra online queries itself), MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
+- When `vocab.db` is built, offline definitions can also be searched by keyword through SQLite FTS.
 
 # Installation
 ## Build from source(Recommended)
@@ -87,7 +88,7 @@ It will guide you through:
 1. Creating the configuration directory and file.
 2. Downloading the default Longman Dictionary (MDX).
 3. Downloading the pronunciation/image data (MDD).
-4. Converting the dictionary to SQLite format for faster startup (Optional but recommended).
+4. Converting the dictionary to SQLite format for faster startup and definition search (Optional but recommended).
 
 ## Using Docker and serving as a HTTP server in the container
 For your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.
@@ -107,6 +108,11 @@ go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 It is used to install a "standalone" CLI tool that can decode MDX files, and dump them into a sqlite3 datebase file. See [schema](./schema.sql) for more (the "vocab" table).
 
 If you just want a decoder to parse your MDX files, this would be enough!
+
+You can also choose the tokenizer used by the definition-search index:
+```console
+dumpdict -f path/to/dict.mdx -fts-tokenizer trigram
+```
 
 # Usage
 ## Help
@@ -137,6 +143,10 @@ Or just open your browser, visit localhost:1345 and you'll see!
 
 If you are visiting the URL with a web browser, setting format to "html" is recommended. The browser will automatically render a more beautiful page than it is in the "CLI" interface.
 
+The HTML server home page now has two modes:
+- Headword mode: jump directly to the entry page
+- Definition mode: search the SQLite FTS index and browse result cards
+
 You can also deploy it on your server, as an upstream of Nginx/, or just exposing it with a suitable ip/port.
 
 You can run `make serve` locally for an easy example. My front-end skill is poor, so the page is ugly and rough, don't hate it :(. 
@@ -156,6 +166,11 @@ ondict -q <word> [-e anything]
 ondict -q <word> -e mdx
 ```
 ![Gif](./assets/e1_mdx.gif)
+
+#### definition search (SQLite-backed MDX):
+```console
+ondict -q "kidney problem" -search-def -e mdx
+```
 
 
 ### One-shot query, but from remote server
@@ -194,6 +209,9 @@ The web completion endpoint supports two modes:
 
 The fuzzy mode is implemented in-process and does not require the external `fzf` binary.
 
+The definition results page is served at:
+- `GET /search?query=heart+attack&mode=definition&format=html`
+
 ## Integrated with FZF (experimental and MacOS only)
 ```console
 ondict -fzf
@@ -201,6 +219,29 @@ ondict -fzf
 You should have [FZF](https://github.com/junegunn/fzf) installed and have your ondict server listening on localhost:1345 (for now, developing)
 ![Gif](./assets/ondict_fzf.gif)
 
+
+## Configuration
+`config.json` can include tokenizer settings for the definition-search index:
+
+```json
+{
+  "dicts": [
+    {
+      "name": "Longman Dictionary of Contemporary English",
+      "type": "LONGMAN/Easy"
+    }
+  ],
+  "search": {
+    "definition_index": {
+      "tokenizer": "unicode61"
+    }
+  }
+}
+```
+
+Supported tokenizer values:
+- `unicode61`: default, best for English/token and phrase search
+- `trigram`: useful for substring-style matching and some CJK scenarios, but queries shorter than 3 characters are limited
 
 ## <a name="neovim"> </a>How to use it in Neovim
 

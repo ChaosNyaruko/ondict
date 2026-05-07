@@ -1,8 +1,6 @@
 package sources
 
 import (
-	"database/sql"
-	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -21,8 +19,7 @@ func NewDBIExact() Searcher {
 }
 
 func (e *DBIExact) GetRawOutputs(input string) []RawOutput {
-	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-	db, err := sql.Open("sqlite3", "file:"+dbName)
+	db, err := openVocabDB()
 	if err != nil {
 		log.Errorf("open db err: %v", err)
 		return nil
@@ -55,8 +52,7 @@ type DBDict struct {
 
 func (d *DBDict) Keys() []string {
 	// basically called by fzf filter
-	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-	db, err := sql.Open("sqlite3", "file:"+dbName)
+	db, err := openVocabDB()
 	if err != nil {
 		log.Errorf("open db err: %v", err)
 		return nil
@@ -89,8 +85,7 @@ func (d *DBDict) Get(s string) string {
 
 func (d *DBDict) WordsWithPrefix(prefix string) []string {
 	// TODO: very slow if the db is large.
-	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-	db, err := sql.Open("sqlite3", "file:"+dbName)
+	db, err := openVocabDB()
 	if err != nil {
 		log.Errorf("open db err: %v", err)
 		return nil

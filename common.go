@@ -27,6 +27,7 @@ func request(network, target string, netConn net.Conn, e, f string, r int) error
 	}
 	scheme := "http"
 	hostname := "fakedomain"
+	path := "/dict"
 
 	https := false
 	var host, port string
@@ -52,7 +53,18 @@ func request(network, target string, netConn net.Conn, e, f string, r int) error
 			hostname = host
 		}
 	}
-	res, err := httpc.Get(fmt.Sprintf("%v://%v/dict?query=%s&engine=%s&format=%s&record=%d", scheme, hostname, url.QueryEscape(*word), e, f, r&0x2))
+	if *searchDef {
+		path = "/search"
+	}
+	values := url.Values{}
+	values.Set("query", *word)
+	values.Set("engine", e)
+	values.Set("format", f)
+	values.Set("record", fmt.Sprintf("%d", r&0x2))
+	if *searchDef {
+		values.Set("mode", "definition")
+	}
+	res, err := httpc.Get(fmt.Sprintf("%v://%v%s?%s", scheme, hostname, path, values.Encode()))
 	if err != nil {
 		return err
 	}

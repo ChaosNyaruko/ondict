@@ -3,18 +3,13 @@
 package main // go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 
 import (
-	"database/sql"
 	"flag"
-	"fmt"
 	"io/fs"
 	"path/filepath"
 
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
-	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/ChaosNyaruko/ondict/decoder"
+	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
@@ -33,6 +28,7 @@ func (i *List) Set(value string) error {
 
 var files List
 var srcDirs List
+var definitionTokenizer = flag.String("fts-tokenizer", "unicode61", "Tokenizer used by the SQLite definition search index: unicode61 or trigram")
 
 // var dir= flag.String("q", "", "Specify the word that you want to query")
 
@@ -49,31 +45,9 @@ func main() {
 		log.Fatalf("no file or directory specified")
 	}
 	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-	db, err := sql.Open("sqlite3", "file:"+dbName)
-	if err != nil {
-		log.Errorf("open db err: %v", err)
-		return
-	}
-	defer db.Close()
-
-	pingErr := db.Ping()
-	if pingErr != nil {
-		log.Fatal(pingErr)
-	}
-	log.Infof("Connected!")
-
-	res, err := db.Exec(`DROP TABLE IF EXISTS vocab;
-CREATE TABLE IF NOT EXISTS vocab(
-    word TEXT NOT NULL COLLATE NOCASE,
-    src TEXT NOT NULL DEFAULT "",
-    def TEXT NOT NULL DEFAULT ""
-)`)
-	id, err := res.LastInsertId()
-	if err != nil {
-		log.Errorf("INSERT error: %v, %v", id, err)
-	}
+	var mdxPaths []string
 	for _, name := range files {
-		dump(db, name)
+		mdxPaths = append(mdxPaths, name)
 	}
 	for _, dir := range srcDirs {
 		root, err := filepath.Abs(dir)
@@ -85,46 +59,12 @@ CREATE TABLE IF NOT EXISTS vocab(
 				return e
 			}
 			if filepath.Ext(d.Name()) == ".mdx" {
-				dump(db, s)
+				mdxPaths = append(mdxPaths, s)
 			}
 			return nil
 		})
 	}
-}
-
-func dump(db *sql.DB, name string) {
-	m := &decoder.MDict{}
-	err := m.Decode(name, false)
-	if err != nil {
-		log.Fatalf("Failed to decode mdx file[%v], err: %v", name, err)
+	if err := sources.DumpMDXFilesToSQLite(dbName, mdxPaths, 0, *definitionTokenizer); err != nil {
+		log.Fatalf("dump sqlite err: %v", err)
 	}
-	defer m.Close()
-	log.Infof("Decoding dict %q......", name)
-	words, err := m.DumpDict(0)
-	if err != nil {
-		log.Fatalf("DumpDict %v err: %v", name, err)
-	}
-	log.Infof("insert dict to datebase %q.....", name)
-	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("insert dict to datebase %s", name))
-	for k, vs := range words {
-		for _, v := range vs {
-			result, err := db.Exec("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)", k, name, v)
-			if err != nil {
-				log.Errorf("insert word %v, err: %v", k, err)
-				continue
-			}
-			id, err := result.LastInsertId()
-			if err != nil {
-				log.Errorf("LastInsertId err word %v, err: %v", k, err)
-				continue
-			} else {
-				log.Debugf("LastInsertId word %v: %v", k, id)
-			}
-		}
-		bar.Add(1)
-	}
-	// if necessary:
-	// CREATE INDEX i_word on vocab(word), or do it yourself,
-	// this will make the query or the "prefix completer" faster.
-	log.Infof("Dump %q success!", name)
 }

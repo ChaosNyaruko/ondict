@@ -4,6 +4,10 @@
       "name": "Longman Dictionary of Contemporary English",
       "type": "LONGMAN/Easy"
     }
-  ]
+  ],
+  "search": {
+    "definition_index": {
+      "tokenizer": "unicode61"
+    }
+  }
 }
-

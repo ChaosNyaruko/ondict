@@ -63,7 +63,7 @@ docker run --rm --name ondict-app --publish 1345:1345 \
 
 ### Frontend Guidelines
 - **Pure HTML/CSS/JavaScript**: No complex frameworks
-- **Template constants**: All HTML/CSS embedded in `template.go` for portability
+- **Embedded templates**: HTML pages live under `templates/` and are embedded via Go `embed` + `template.ParseFS`
 - **Minimal dependencies**: Simple, maintainable front-end code
 
 ### Naming Conventions
@@ -174,4 +174,4 @@ FULLTEST=1 go test -v ./...
 
 ## Frontend Development
 - You are a frontend expert, but try NOT to use any bloated frontend framework, use plain and standard HTML/CSS, and as little JavaScript as possible.
-- To make the application able to be launched at any directory, i.e. independent of "assets"/"html templates" locations, the template pages are now be stored in string variables in "template.go". Every time we add a frontend feature, remember to modify/add such variables as well as the ".html" files (index.html, templates/xxxx.html). The latter is for me to better understand what's really happening.
+- The application is launched independently of the working directory by embedding `templates/*.html` with Go `embed`. When adding frontend features, update the embedded templates and keep the server handlers aligned with those template names.

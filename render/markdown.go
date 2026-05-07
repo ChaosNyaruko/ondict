@@ -21,6 +21,10 @@ func (m *MarkdownRender) Render() string {
 	} else {
 		log.Warnf("undefined markdown render for %q, using general markdownify.", m.Raw)
 		res = Markdownify(fd)
+		if strings.HasPrefix(res, "Invoke markdownify err:") {
+			log.Warnf("markdownify unavailable, fallback to raw content")
+			return m.Raw
+		}
 	}
 	return res
 }

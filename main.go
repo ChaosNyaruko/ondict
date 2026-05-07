@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -41,6 +42,7 @@ var defaultIdleTimeout = 876000 * time.Hour // 100 years
 var help = flag.Bool("h", false, "Show this help doc")
 var ver = flag.Bool("version", false, "Show current version of ondict")
 var word = flag.String("q", "", "Specify the word that you want to query")
+var searchDef = flag.Bool("search-def", false, "Search keywords in definitions instead of exact headword lookup (SQLite-backed MDX only)")
 
 var record = flag.Int("r", 0, "Specify this query should be recorded in the log, only take effect with -q. \n0: Not recording\n1: Record it locally \n2: Tell the remote server to record it\n3: Record on both sides (If there is a -remote specified)")
 
@@ -248,8 +250,12 @@ func main() {
 	}
 
 	// one-shot query, without making a request to "remote", remote is empty
-	if *engine == "mdx" {
+	if *engine == "mdx" || *searchDef {
 		g.Load(!*ahoFuzzy, *dumpMDD, *lazy)
+	}
+	if *searchDef {
+		fmt.Println(queryDefinition(*word, *renderFormat, *record&0x1 != 0))
+		return
 	}
 	fmt.Println(query(*word, *engine, *renderFormat, *record&0x1 != 0))
 }
@@ -270,6 +276,32 @@ func query(word string, e string, f string, r bool) string {
 		return sources.QueryMDX(word, f)
 	}
 	return sources.GetFromLDOCE(word)
+}
+
+func queryDefinition(word string, f string, r bool) string {
+	if r {
+		if err := his.Append(word); err != nil {
+			log.Debugf("record %v err: %v", word, err)
+		}
+	}
+	matches, err := sources.SearchDefinitions(word, 20)
+	if err != nil {
+		return fmt.Sprintf("definition search error: %v", err)
+	}
+	if len(matches) == 0 {
+		return fmt.Sprintf("no definition matches for %q", word)
+	}
+	lines := make([]string, 0, len(matches))
+	for i, match := range matches {
+		snippet := strings.ReplaceAll(match.Snippet, "<mark>", "")
+		snippet = strings.ReplaceAll(snippet, "</mark>", "")
+		if match.Src != "" {
+			lines = append(lines, fmt.Sprintf("%d. %s (%s)\n   %s", i+1, match.Word, filepath.Base(match.Src), snippet))
+		} else {
+			lines = append(lines, fmt.Sprintf("%d. %s\n   %s", i+1, match.Word, snippet))
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func Restore() {

@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -23,6 +24,22 @@ import (
 type proxy struct {
 	e       *gin.Engine
 	timeout *time.Timer
+}
+
+type pageData struct {
+	Title      string
+	Query      string
+	Engine     string
+	SearchMode string
+	Error      string
+	EntryHTML  template.HTML
+	Results    []definitionMatchView
+}
+
+type definitionMatchView struct {
+	Word        string
+	Src         string
+	SnippetHTML template.HTML
 }
 
 func (p *proxy) Run(l net.Listener) error {
@@ -50,13 +67,89 @@ func queryWord(c *gin.Context) {
 	f, _ := c.GetQuery("format")
 	r, _ := c.GetQuery("record")
 
+	if f != "html" {
+		c.String(http.StatusOK, query(word, e, f, r != "0"))
+		return
+	}
+
+	if e == "" {
+		e = "mdx"
+	}
 	res := query(word, e, f, r != "0")
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(res))
+	c.HTML(http.StatusOK, "dict.html", pageData{
+		Title:      pageTitle(word),
+		Query:      word,
+		Engine:     e,
+		SearchMode: "headword",
+		EntryHTML:  template.HTML(res),
+	})
 }
 
 func index(c *gin.Context) {
-	c.HTML(200, "portal.html", nil)
+	c.HTML(http.StatusOK, "portal.html", pageData{
+		Title:      "Ondict",
+		Engine:     "mdx",
+		SearchMode: "headword",
+	})
+}
+
+func searchHandler(c *gin.Context) {
+	queryText := strings.TrimSpace(c.Query("query"))
+	mode := strings.ToLower(strings.TrimSpace(c.DefaultQuery("mode", "definition")))
+	engine := c.DefaultQuery("engine", "mdx")
+	format := c.DefaultQuery("format", "html")
+	record := c.Query("record")
+
+	if mode == "" {
+		mode = "definition"
+	}
+	if mode == "headword" {
+		target := fmt.Sprintf("/dict?query=%s&engine=%s&format=%s&record=%s",
+			url.QueryEscape(queryText),
+			url.QueryEscape(engine),
+			url.QueryEscape(format),
+			url.QueryEscape(record),
+		)
+		if format == "html" {
+			c.Redirect(http.StatusFound, target)
+			return
+		}
+		c.String(http.StatusOK, query(queryText, engine, format, record != "0"))
+		return
+	}
+
+	if format != "html" {
+		c.String(http.StatusOK, queryDefinition(queryText, format, record != "0"))
+		return
+	}
+
+	data := pageData{
+		Title:      pageTitle(queryText),
+		Query:      queryText,
+		Engine:     engine,
+		SearchMode: "definition",
+	}
+	if record != "0" && queryText != "" {
+		if err := his.Append(queryText); err != nil {
+			log.Debugf("record definition search %q err: %v", queryText, err)
+		}
+	}
+	if queryText != "" {
+		matches, err := sources.SearchDefinitions(queryText, 20)
+		if err != nil {
+			data.Error = err.Error()
+		} else {
+			data.Results = make([]definitionMatchView, 0, len(matches))
+			for _, match := range matches {
+				data.Results = append(data.Results, definitionMatchView{
+					Word:        match.Word,
+					Src:         match.Src,
+					SnippetHTML: template.HTML(match.Snippet),
+				})
+			}
+		}
+	}
+	c.HTML(http.StatusOK, "search.html", data)
 }
 
 //go:embed templates/*
@@ -79,6 +172,7 @@ func NewProxy() *proxy {
 	r.GET("/", index)
 	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 	r.GET("/dict", queryWord)
+	r.GET("/search", searchHandler)
 	r.GET("/review", review)
 	r.GET("/complete", completeHandler)
 	return &proxy{
@@ -127,4 +221,12 @@ func completeHandler(c *gin.Context) {
 		return
 	}
 	c.Data(200, "application/json", res)
+}
+
+func pageTitle(query string) string {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return "Ondict"
+	}
+	return query + " - Ondict"
 }
