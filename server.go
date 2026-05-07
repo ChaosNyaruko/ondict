@@ -95,13 +95,13 @@ func index(c *gin.Context) {
 
 func searchHandler(c *gin.Context) {
 	queryText := strings.TrimSpace(c.Query("query"))
-	mode := strings.ToLower(strings.TrimSpace(c.DefaultQuery("mode", "definition")))
+	mode := strings.ToLower(strings.TrimSpace(c.DefaultQuery("mode", "headword")))
 	engine := c.DefaultQuery("engine", "mdx")
 	format := c.DefaultQuery("format", "html")
 	record := c.Query("record")
 
 	if mode == "" {
-		mode = "definition"
+		mode = "headword"
 	}
 	if mode == "headword" {
 		target := fmt.Sprintf("/dict?query=%s&engine=%s&format=%s&record=%s",

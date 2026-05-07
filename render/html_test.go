@@ -39,6 +39,13 @@ func TestHTMLRender_Render(t *testing.T) {
 			// replaceMp3 transforms the <a> into a <div> containing an <audio> tag and a <script>
 			contains: []string{`<audio src="/test.mp3">`, `<script>`, `cursor: pointer`},
 		},
+		{
+			name:        "Longman source renders fragment without document wrapper",
+			raw:         `<div class="entry">hello</div>`,
+			sourceType:  LongmanEasy,
+			contains:    []string{`<div class="entry">hello</div>`},
+			notContains: []string{`<html`, `<body`, `<head`},
+		},
 	}
 
 	for _, tt := range tests {

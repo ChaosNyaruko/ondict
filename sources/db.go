@@ -29,7 +29,7 @@ func (e *DBIExact) GetRawOutputs(input string) []RawOutput {
 
 	// NOTE: we don't very care about the security problem here.
 	// And based on this doc https://go.dev/doc/database/sql-injection, there will not be sql injection problem.
-	rows, err := db.Query("SELECT * FROM vocab WHERE word = ?", input)
+	rows, err := db.Query("SELECT word, src, def FROM vocab WHERE word = ?", input)
 	if err != nil {
 		log.Errorf("select from vocab error: %v", err)
 		return nil

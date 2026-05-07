@@ -71,3 +71,16 @@ func TestSearchHandlerHeadwordRedirect(t *testing.T) {
 	require.Equal(t, http.StatusFound, rec.Code)
 	require.Contains(t, rec.Header().Get("Location"), "/dict?query=doctor")
 }
+
+func TestSearchHandlerDefaultsToHeadwordRedirect(t *testing.T) {
+	prepareSearchDB(t)
+	his = nil
+	proxy := NewProxy()
+
+	req := httptest.NewRequest(http.MethodGet, "/search?query=doctor&format=html&record=0", nil)
+	rec := httptest.NewRecorder()
+	proxy.e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusFound, rec.Code)
+	require.Contains(t, rec.Header().Get("Location"), "/dict?query=doctor")
+}

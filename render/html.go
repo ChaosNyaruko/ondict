@@ -37,13 +37,41 @@ func (h *HTMLRender) Render() string {
 		log.Fatal(err)
 	}
 	h.dfs(doc, 0, nil, "")
-	var b bytes.Buffer
-	err = html.Render(&b, doc)
+	body := findElement(doc, atom.Body, "body")
+	if body == nil {
+		body = doc
+	}
+	rendered, err := renderChildren(body)
 	if err != nil {
 		log.Debugf("html.Render err: %v", err)
 		return h.Raw
 	}
-	return b.String()
+	return rendered
+}
+
+func renderChildren(n *html.Node) (string, error) {
+	var b bytes.Buffer
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if err := html.Render(&b, c); err != nil {
+			return "", err
+		}
+	}
+	return b.String(), nil
+}
+
+func findElement(n *html.Node, atomName atom.Atom, data string) *html.Node {
+	if n == nil {
+		return nil
+	}
+	if n.Type == html.ElementNode && (n.DataAtom == atomName || n.Data == data) {
+		return n
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if found := findElement(c, atomName, data); found != nil {
+			return found
+		}
+	}
+	return nil
 }
 
 func modifyImgSrc(n *html.Node) {
