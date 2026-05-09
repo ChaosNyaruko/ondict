@@ -147,7 +147,7 @@ curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 
 HTML server 还提供独立的 Word Bank 页面：`/words`。
 你可以在词条页或释义搜索结果卡片上保存想学习的新词，然后到 `/words` 里复习、重新打开词条或移除单词。
-Word Bank 独立于普通查询历史，数据保存在 Ondict 配置目录中。
+Word Bank 独立于普通查询历史，数据保存在 Ondict 配置目录下的 `wordbank.db` 中。
 
 您也可以将其部署在您的服务器上，作为Nginx的上游，或者直接用合适的ip/端口暴露它。
 
@@ -204,16 +204,24 @@ ondict -i -e mdx
 ##### 解决方案
 使用hs.execute代替hs.task（注意shell转义），这是执行任务的"同步"方法。普通查询足够快，您不会注意到差异，会"立即"看到结果。参见[示例](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90)
 
-### FZF风格补全
-Web 补全接口现在支持两种模式：
+### 自动补全与释义搜索
+
+#### 自动补全
+Web 补全接口支持两种模式：
 
 - 前缀模式（默认）：`GET /complete?prefix=app`
 - FZF 风格模糊模式：`GET /complete?prefix=apd&mode=fzf`
 
-模糊模式在进程内实现，不再依赖外部 `fzf` 二进制。
+模糊模式在进程内实现，不再依赖外部 `fzf` 二进制。HTML 首页的搜索框在 Headword 模式下会自动调用该接口；切换到 Definition 模式时自动补全关闭。
 
-释义结果页接口：
-- `GET /search?query=heart+attack&mode=definition&format=html`
+#### 释义反向搜索页
+当 `vocab.db` 已构建后，可通过以下地址访问释义搜索结果页：
+
+```
+GET /search?query=heart+attack&mode=definition&format=html
+```
+
+页面会列出匹配释义的词条卡片，每张卡片可直接跳转到词条页，也可一键保存到 Word Bank。
 
 ## 配置
 `config.json` 现在可以带上释义搜索索引配置：
@@ -318,7 +326,8 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 │   ├── oald9.css
 │   ├── oald9.mddx
 │   └── oald9.mdx
-└── history.table
+├── history.table
+└── wordbank.db
 ```
 ## config.json示例
 ```json
