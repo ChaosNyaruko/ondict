@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <style>
+        :root {
+            --bg: #f3efe6;
+            --bg-accent: #e0d3b8;
+            --surface: rgba(255, 251, 243, 0.92);
+            --surface-strong: #fffdf8;
+            --text: #2e241c;
+            --muted: #746454;
+            --border: rgba(97, 74, 45, 0.18);
+            --accent: #9a3412;
+            --accent-strong: #7c2d12;
+            --accent-soft: rgba(154, 52, 18, 0.12);
+            --shadow: 0 24px 60px rgba(79, 56, 31, 0.16);
+        }
+        [data-theme="dark"] {
+            --bg: #1a1714;
+            --bg-accent: #30271f;
+            --surface: rgba(35, 31, 27, 0.94);
+            --surface-strong: #231f1b;
+            --text: #f4ede2;
+            --muted: #baa892;
+            --border: rgba(255, 241, 221, 0.12);
+            --accent: #fb923c;
+            --accent-strong: #fdba74;
+            --accent-soft: rgba(251, 146, 60, 0.14);
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, var(--bg-accent), transparent 38%),
+                linear-gradient(180deg, var(--bg), #f8f3ea 60%, #efe6d8 100%);
+            font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        }
+        .page { max-width: 980px; margin: 0 auto; padding: 24px; }
+        .shell {
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .masthead, .searchbar, .words, .empty, footer { padding-left: 24px; padding-right: 24px; }
+        .masthead {
+            display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 20px; padding-bottom: 14px;
+        }
+        .brand { color: var(--text); text-decoration: none; }
+        .brand span {
+            display: block; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.78rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+        }
+        .brand strong { font-size: 2rem; }
+        .masthead-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .nav-link,
+        .theme-toggle {
+            border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); padding: 10px 14px; border-radius: 999px; cursor: pointer; font: inherit;
+        }
+        .nav-link { text-decoration: none; font-family: ui-sans-serif, system-ui, sans-serif; }
+        .searchbar { padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+        .search-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .query-wrap { flex: 1; min-width: 260px; }
+        input[type="text"] {
+            width: 100%; border: 1px solid var(--border); border-radius: 16px; background: transparent; color: var(--text); padding: 15px 16px; font-size: 1rem; font-family: ui-sans-serif, system-ui, sans-serif;
+        }
+        .submit {
+            border: none; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #fff; padding: 14px 22px; font-size: 1rem; font-family: ui-sans-serif, system-ui, sans-serif; cursor: pointer;
+        }
+        .words { padding-top: 24px; padding-bottom: 28px; }
+        .words h1 { margin: 0 0 8px; font-size: clamp(2rem, 4vw, 3rem); }
+        .meta, .word-meta, .empty, footer {
+            color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif;
+        }
+        .meta { margin: 0 0 22px; }
+        .word-list { display: grid; gap: 14px; }
+        .word-card {
+            display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 20px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface-strong);
+        }
+        .word-card h2 { margin: 0 0 6px; font-size: 1.45rem; }
+        .word-card h2 a { color: var(--text); text-decoration: none; }
+        .word-card h2 a:hover { text-decoration: underline; }
+        .word-meta { margin: 0; font-size: 0.9rem; }
+        .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .wordbank-form { margin: 0; }
+        .secondary,
+        .danger {
+            border: 1px solid var(--border); border-radius: 999px; background: var(--accent-soft); color: var(--text); padding: 10px 14px; font-family: ui-sans-serif, system-ui, sans-serif; cursor: pointer; text-decoration: none;
+        }
+        .danger { background: transparent; color: var(--muted); }
+        .empty { padding-top: 28px; padding-bottom: 32px; }
+        footer { padding-top: 0; padding-bottom: 24px; }
+        footer a { color: inherit; }
+        @media (max-width: 640px) {
+            .page { padding: 14px; }
+            .masthead, .searchbar, .words, .empty, footer { padding-left: 18px; padding-right: 18px; }
+            .submit { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="shell">
+            <header class="masthead">
+                <a class="brand" href="/">
+                    <span>Dictionary Workbench</span>
+                    <strong>Ondict</strong>
+                </a>
+                <div class="masthead-actions">
+                    <a class="nav-link" href="/">Home</a>
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Theme</button>
+                </div>
+            </header>
+
+            <section class="searchbar">
+                <form class="search-form" action="/search" method="get">
+                    <div class="query-wrap">
+                        <input type="text" name="query" placeholder="Search another word..." autocomplete="off" required>
+                    </div>
+                    <input type="hidden" name="mode" value="headword">
+                    <input type="hidden" name="engine" value="{{if .Engine}}{{.Engine}}{{else}}mdx{{end}}">
+                    <input type="hidden" name="format" value="html">
+                    <input type="hidden" name="record" value="1">
+                    <button class="submit" type="submit">Search</button>
+                </form>
+            </section>
+
+            {{if .Words}}
+            <section class="words">
+                <h1>Word Bank</h1>
+                <p class="meta">A dedicated list for words you want to learn or review.</p>
+                <div class="word-list">
+                    {{range .Words}}
+                    <article class="word-card">
+                        <div>
+                            <h2><a href="/dict?query={{.Name | urlquery}}&engine=mdx&format=html">{{.Name}}</a></h2>
+                            <p class="word-meta">Added {{.CreateTime}} · Updated {{.UpdateTime}}</p>
+                        </div>
+                        <div class="actions">
+                            <a class="secondary" href="/dict?query={{.Name | urlquery}}&engine=mdx&format=html">Open entry</a>
+                            <form class="wordbank-form" action="/words/remove" method="post">
+                                <input type="hidden" name="word" value="{{.Name}}">
+                                <input type="hidden" name="next" value="/words">
+                                <button class="danger" type="submit">Remove</button>
+                            </form>
+                        </div>
+                    </article>
+                    {{end}}
+                </div>
+            </section>
+            {{else}}
+            <section class="empty">
+                <h1>Word Bank</h1>
+                <p>Your word bank is empty. Open an entry page or definition search result, then save words you want to learn.</p>
+            </section>
+            {{end}}
+
+            <footer>
+                Ondict is open source. <a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a>
+            </footer>
+        </div>
+    </div>
+    <script>
+        const html = document.documentElement;
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) html.setAttribute('data-theme', savedTheme);
+        const themeToggle = document.getElementById('themeToggle');
+        function currentThemeIsDark() {
+            const explicit = html.getAttribute('data-theme');
+            if (explicit === 'dark') return true;
+            if (explicit === 'light') return false;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        function applyTheme(dark) {
+            html.setAttribute('data-theme', dark ? 'dark' : 'light');
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            themeToggle.textContent = dark ? 'Light' : 'Dark';
+        }
+        applyTheme(currentThemeIsDark());
+        themeToggle.addEventListener('click', () => applyTheme(!currentThemeIsDark()));
+    </script>
+</body>
+</html>

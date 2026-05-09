@@ -63,9 +63,12 @@
             display: block; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.78rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
         }
         .brand strong { font-size: 2rem; }
+        .masthead-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .nav-link,
         .theme-toggle {
             border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); padding: 10px 14px; border-radius: 999px; cursor: pointer; font: inherit;
         }
+        .nav-link { text-decoration: none; font-family: ui-sans-serif, system-ui, sans-serif; }
         .searchbar { padding-bottom: 18px; border-bottom: 1px solid var(--border); }
         .search-form { display: grid; gap: 14px; }
         .top-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -94,10 +97,17 @@
         .results h1 { margin: 0 0 8px; font-size: clamp(2rem, 4vw, 3rem); }
         .result-list { display: grid; gap: 14px; margin-top: 20px; }
         .result-card {
-            display: block; padding: 18px 20px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface-strong); text-decoration: none; color: inherit;
+            display: grid; gap: 10px; padding: 18px 20px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface-strong); color: inherit;
         }
         .result-card:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); }
-        .result-card h2 { margin: 0 0 8px; font-size: 1.45rem; }
+        .result-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .result-title-row a { color: var(--text); text-decoration: none; }
+        .result-title-row a:hover { text-decoration: underline; }
+        .result-card h2 { margin: 0; font-size: 1.45rem; }
+        .wordbank-form { margin: 0; }
+        .small-submit {
+            border: 1px solid var(--border); border-radius: 999px; background: var(--accent-soft); color: var(--text); padding: 9px 13px; font-family: ui-sans-serif, system-ui, sans-serif; cursor: pointer;
+        }
         .src { margin: 0 0 10px; color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem; }
         .snippet { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.7; }
         mark { background: var(--mark); color: inherit; padding: 0 0.12em; border-radius: 0.2em; }
@@ -122,7 +132,10 @@
                     <span>Dictionary Workbench</span>
                     <strong>Ondict</strong>
                 </a>
-                <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Theme</button>
+                <div class="masthead-actions">
+                    <a class="nav-link" href="/words">Word Bank</a>
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Theme</button>
+                </div>
             </header>
 
             <section class="searchbar">
@@ -175,11 +188,18 @@
                 {{if .Results}}
                 <div class="result-list">
                     {{range .Results}}
-                    <a class="result-card" href="/dict?query={{.Word | urlquery}}&engine=mdx&format=html">
-                        <h2>{{.Word}}</h2>
+                    <div class="result-card">
+                        <div class="result-title-row">
+                            <a href="/dict?query={{.Word | urlquery}}&engine=mdx&format=html"><h2>{{.Word}}</h2></a>
+                            <form class="wordbank-form" action="/words/add" method="post">
+                                <input type="hidden" name="word" value="{{.Word}}">
+                                <input type="hidden" name="next" value="/search?query={{$.Query | urlquery}}&mode={{$.SearchMode | urlquery}}&engine={{$.Engine | urlquery}}&format=html">
+                                <button class="small-submit" type="submit">Add</button>
+                            </form>
+                        </div>
                         {{if .Src}}<p class="src">{{.Src}}</p>{{end}}
                         <p class="snippet">{{.SnippetHTML}}</p>
-                    </a>
+                    </div>
                     {{end}}
                 </div>
                 {{else}}

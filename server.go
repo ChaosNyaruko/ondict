@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/util"
+	"github.com/ChaosNyaruko/ondict/wordbank"
 )
 
 type proxy struct {
@@ -34,6 +36,8 @@ type pageData struct {
 	Error      string
 	EntryHTML  template.HTML
 	Results    []definitionMatchView
+	Words      []wordbank.Word
+	InWordBank bool
 }
 
 type definitionMatchView struct {
@@ -75,6 +79,10 @@ func queryWord(c *gin.Context) {
 	if e == "" {
 		e = "mdx"
 	}
+	inWordBank, err := wordbank.Contains(word)
+	if err != nil {
+		log.Debugf("check word bank %q err: %v", word, err)
+	}
 	res := query(word, e, f, r != "0")
 	c.HTML(http.StatusOK, "dict.html", pageData{
 		Title:      pageTitle(word),
@@ -82,6 +90,7 @@ func queryWord(c *gin.Context) {
 		Engine:     e,
 		SearchMode: "headword",
 		EntryHTML:  template.HTML(res),
+		InWordBank: inWordBank,
 	})
 }
 
@@ -152,6 +161,46 @@ func searchHandler(c *gin.Context) {
 	c.HTML(http.StatusOK, "search.html", data)
 }
 
+func wordsHandler(c *gin.Context) {
+	words, err := wordbank.List()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("list word bank: %v", err))
+		return
+	}
+	c.HTML(http.StatusOK, "words.html", pageData{
+		Title:      "Word Bank - Ondict",
+		Engine:     "mdx",
+		SearchMode: "headword",
+		Words:      words,
+	})
+}
+
+func addWordHandler(c *gin.Context) {
+	word := c.PostForm("word")
+	if err := wordbank.Add(word); err != nil {
+		if errors.Is(err, wordbank.ErrEmptyWord) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, "word is empty")
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("add word: %v", err))
+		return
+	}
+	c.Redirect(http.StatusSeeOther, safeNext(c.PostForm("next")))
+}
+
+func removeWordHandler(c *gin.Context) {
+	word := c.PostForm("word")
+	if err := wordbank.Remove(word); err != nil {
+		if errors.Is(err, wordbank.ErrEmptyWord) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, "word is empty")
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("remove word: %v", err))
+		return
+	}
+	c.Redirect(http.StatusSeeOther, safeNext(c.PostForm("next")))
+}
+
 //go:embed templates/*
 var templateFS embed.FS
 
@@ -173,6 +222,9 @@ func NewProxy() *proxy {
 	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 	r.GET("/dict", queryWord)
 	r.GET("/search", searchHandler)
+	r.GET("/words", wordsHandler)
+	r.POST("/words/add", addWordHandler)
+	r.POST("/words/remove", removeWordHandler)
 	r.GET("/review", review)
 	r.GET("/complete", completeHandler)
 	return &proxy{
@@ -229,4 +281,11 @@ func pageTitle(query string) string {
 		return "Ondict"
 	}
 	return query + " - Ondict"
+}
+
+func safeNext(next string) string {
+	if strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+		return next
+	}
+	return "/words"
 }

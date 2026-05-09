@@ -147,6 +147,10 @@ The HTML server home page now has two modes:
 - Headword mode: jump directly to the entry page
 - Definition mode: search the SQLite FTS index and browse result cards
 
+The HTML server also includes a dedicated Word Bank page at `/words`.
+Use the buttons on entry pages or definition search result cards to save words you want to learn, then open `/words` to review, revisit, or remove them.
+Word Bank is stored separately from normal query history in the Ondict config directory.
+
 You can also deploy it on your server, as an upstream of Nginx/, or just exposing it with a suitable ip/port.
 
 You can run `make serve` locally for an easy example. My front-end skill is poor, so the page is ugly and rough, don't hate it :(. 

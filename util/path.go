@@ -19,6 +19,10 @@ func HistoryDB() string {
 	return filepath.Join(ConfigPath(), "history.db")
 }
 
+func WordBankDB() string {
+	return filepath.Join(ConfigPath(), "wordbank.db")
+}
+
 func DictsPath() string {
 	return filepath.Join(ConfigPath(), "dicts")
 }

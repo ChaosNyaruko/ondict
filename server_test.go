@@ -6,9 +6,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ChaosNyaruko/ondict/sources"
+	"github.com/ChaosNyaruko/ondict/wordbank"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 	"github.com/stretchr/testify/require"
@@ -83,4 +85,61 @@ func TestSearchHandlerDefaultsToHeadwordRedirect(t *testing.T) {
 
 	require.Equal(t, http.StatusFound, rec.Code)
 	require.Contains(t, rec.Header().Get("Location"), "/dict?query=doctor")
+}
+
+func TestWordsHandlerHTML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	require.NoError(t, wordbank.Add("apple"))
+	his = nil
+	proxy := NewProxy()
+
+	req := httptest.NewRequest(http.MethodGet, "/words", nil)
+	rec := httptest.NewRecorder()
+	proxy.e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	require.Contains(t, body, "Word Bank")
+	require.Contains(t, body, "apple")
+	require.Contains(t, body, "/words/remove")
+}
+
+func TestWordBankAddAndRemoveHandlers(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	his = nil
+	proxy := NewProxy()
+
+	addReq := httptest.NewRequest(http.MethodPost, "/words/add", strings.NewReader("word=apple&next=/words"))
+	addReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addRec := httptest.NewRecorder()
+	proxy.e.ServeHTTP(addRec, addReq)
+
+	require.Equal(t, http.StatusSeeOther, addRec.Code)
+	require.Equal(t, "/words", addRec.Header().Get("Location"))
+	contains, err := wordbank.Contains("apple")
+	require.NoError(t, err)
+	require.True(t, contains)
+
+	removeReq := httptest.NewRequest(http.MethodPost, "/words/remove", strings.NewReader("word=apple&next=/words"))
+	removeReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	removeRec := httptest.NewRecorder()
+	proxy.e.ServeHTTP(removeRec, removeReq)
+
+	require.Equal(t, http.StatusSeeOther, removeRec.Code)
+	contains, err = wordbank.Contains("apple")
+	require.NoError(t, err)
+	require.False(t, contains)
+}
+
+func TestDictHandlerShowsWordBankButton(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	his = nil
+	proxy := NewProxy()
+
+	req := httptest.NewRequest(http.MethodGet, "/dict?query=apple&engine=mdx&format=html&record=0", nil)
+	rec := httptest.NewRecorder()
+	proxy.e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "Add to Word Bank")
 }

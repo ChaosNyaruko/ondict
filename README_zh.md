@@ -145,6 +145,10 @@ curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 - Headword：直接进入词条页
 - Definition：查询 SQLite FTS 索引并浏览结果卡片
 
+HTML server 还提供独立的 Word Bank 页面：`/words`。
+你可以在词条页或释义搜索结果卡片上保存想学习的新词，然后到 `/words` 里复习、重新打开词条或移除单词。
+Word Bank 独立于普通查询历史，数据保存在 Ondict 配置目录中。
+
 您也可以将其部署在您的服务器上，作为Nginx的上游，或者直接用合适的ip/端口暴露它。
 
 您可以在本地运行`make serve`来查看简单示例。由于我的前端技能有限，页面可能比较简陋，请见谅 :(。
