@@ -55,7 +55,11 @@ func (o output) GetDefinition() string {
 
 func loadAllCss() (string, error) {
 	var a []string
-	err := filepath.WalkDir(util.DictsPath(), func(s string, d fs.DirEntry, e error) error {
+	dictsPath := util.DictsPath()
+	if _, err := os.Stat(dictsPath); os.IsNotExist(err) {
+		return "", nil
+	}
+	err := filepath.WalkDir(dictsPath, func(s string, d fs.DirEntry, e error) error {
 		if e != nil {
 			return e
 		}
