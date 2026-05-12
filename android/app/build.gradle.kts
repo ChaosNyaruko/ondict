@@ -74,9 +74,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile     = file(System.getenv("KEYSTORE_PATH")     ?: "../ondict-release.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD")      ?: "ondictpass"
+            keyAlias      = System.getenv("KEY_ALIAS")              ?: "ondict"
+            keyPassword   = System.getenv("KEY_PASSWORD")           ?: "ondictpass"
+        }
+    }
+
     buildTypes {
+        debug {
+            // debug builds are auto-signed with a debug key — no config needed
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            signingConfig   = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
