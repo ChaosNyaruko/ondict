@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/ChaosNyaruko/ondict/internal/tmpl"
 	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/util"
 	"github.com/ChaosNyaruko/ondict/wordbank"
@@ -201,15 +201,11 @@ func removeWordHandler(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, safeNext(c.PostForm("next")))
 }
 
-//go:embed templates/*
-var templateFS embed.FS
-
 func NewProxy() *proxy {
 	r := gin.Default()
 
 	// 从嵌入的文件系统加载模板
-	tpl := template.Must(template.ParseFS(templateFS, "templates/*.html"))
-	r.SetHTMLTemplate(tpl)
+	r.SetHTMLTemplate(tmpl.Must())
 	// Set up cookie-based sessions
 	store := cookie.NewStore([]byte("secret-key"))
 	r.Use(sessions.Sessions("session", store))

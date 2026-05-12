@@ -7,6 +7,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var overrideConfigPath string
+var overrideTmpPath string
+
+// SetPaths overrides the default config and cache directories.
+// Call this before any other util functions, e.g. from a mobile entry point.
+func SetPaths(configPath, tmpPath string) {
+	overrideConfigPath = configPath
+	overrideTmpPath = tmpPath
+}
+
 func HistoryFile() string {
 	return filepath.Join(ConfigPath(), "history.json")
 }
@@ -28,6 +38,12 @@ func DictsPath() string {
 }
 
 func ConfigPath() string {
+	if overrideConfigPath != "" {
+		if err := os.MkdirAll(overrideConfigPath, 0o755); err != nil {
+			log.Fatalf("Mkdir err: %v", err)
+		}
+		return overrideConfigPath
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
@@ -40,6 +56,12 @@ func ConfigPath() string {
 }
 
 func TmpDir() string {
+	if overrideTmpPath != "" {
+		if err := os.MkdirAll(overrideTmpPath, 0o755); err != nil {
+			log.Fatalf("Mkdir err: %v", err)
+		}
+		return overrideTmpPath
+	}
 	home, err := os.UserCacheDir()
 	if err != nil {
 		log.Fatal(err)

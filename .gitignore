@@ -2,7 +2,17 @@
 mdict_parser
 .DS_Store
 .luarc.json
-ondict
+/ondict
 cover.html
 cover.out
 *.log
+.gocache/
+
+# Android generated files
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/app/libs/mobile.aar
+android/app/libs/mobile-sources.jar

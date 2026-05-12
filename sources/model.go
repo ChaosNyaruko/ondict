@@ -16,8 +16,11 @@ var mu sync.Mutex // owns history
 var history map[string]string = make(map[string]string)
 var historyFile string
 
-func init() {
-	historyFile = util.HistoryFile()
+func getHistoryFile() string {
+	if historyFile == "" {
+		historyFile = util.HistoryFile()
+	}
+	return historyFile
 }
 
 type Dict interface {

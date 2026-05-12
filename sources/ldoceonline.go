@@ -63,13 +63,13 @@ func GetFromLDOCE(word string) string {
 }
 
 func Restore() {
-	data, err := os.ReadFile(historyFile)
+	data, err := os.ReadFile(getHistoryFile())
 	if err != nil {
 		log.Debugf("open file history err: %v", err)
 		return
 	}
 	if err := json.Unmarshal(data, &history); err != nil {
-		log.Errorf("failed to unmarshal history from %v: %v", historyFile, err)
+		log.Errorf("failed to unmarshal history from %v: %v", getHistoryFile(), err)
 		return
 	}
 	log.Debugf("history: %v", history)
@@ -80,7 +80,7 @@ func Store() {
 	if err != nil {
 		log.Fatal("marshal err ", err)
 	}
-	f, err := os.Create(historyFile)
+	f, err := os.Create(getHistoryFile())
 	if err != nil {
 		log.Fatal("create file err", err)
 	}

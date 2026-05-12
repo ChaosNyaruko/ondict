@@ -19,6 +19,29 @@ import (
 var Gbold = "**"
 var Gitalic = "*"
 
+// OnMDDDumped is an optional callback invoked after MDD resources are
+// successfully extracted. Set this before calling G.Load() to write a
+// marker file on mobile so the dump is skipped on subsequent launches.
+var OnMDDDumped func()
+
+// mddFiles holds loaded MDD decoders for on-demand file extraction.
+// Populated during G.Load() when mdd=false (lazy/mobile mode).
+var mddFiles []*decoder.MDict
+var mddMu sync.Mutex
+
+// GetMDDFile looks up a resource file (e.g. "GB_hello0205.mp3") across all
+// loaded MDD dictionaries and returns its raw bytes. Returns nil if not found.
+func GetMDDFile(name string) []byte {
+	mddMu.Lock()
+	defer mddMu.Unlock()
+	for _, mdd := range mddFiles {
+		if data := mdd.GetFile(name); data != nil {
+			return data
+		}
+	}
+	return nil
+}
+
 type Dicts []*MdxDict
 
 var G = &Dicts{}
@@ -114,10 +137,28 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool, lazy bool) Dict {
 				} else {
 					log.Infof("[INFO] successfully decode %v.mdd", filePath)
 					if err := mdd.DumpData(); err != nil {
-						log.Fatalf("dump mdd err: %v", err)
+						log.Errorf("dump mdd err: %v", err)
+					} else if OnMDDDumped != nil {
+						OnMDDDumped()
 					}
 				}
 			}()
+		} else {
+			// Lazy mode: load MDD for on-demand file serving without dumping.
+			mddPath := filePath + ".mdd"
+			if _, err := os.Stat(mddPath); err == nil {
+				go func() {
+					mdd := &decoder.MDict{}
+					if err := mdd.Decode(mddPath, true); err != nil {
+						log.Errorf("lazy load %v.mdd err: %v", filePath, err)
+						return
+					}
+					mddMu.Lock()
+					mddFiles = append(mddFiles, mdd)
+					mddMu.Unlock()
+					log.Infof("lazy MDD loaded: %v", mddPath)
+				}()
+			}
 		}
 		if err != nil {
 			log.Fatalf("Failed to load mdx file[%v], err: %v", filePath, err)
