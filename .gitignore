@@ -2,7 +2,7 @@
 mdict_parser
 .DS_Store
 .luarc.json
-ondict
+/ondict
 cover.html
 cover.out
 *.log
