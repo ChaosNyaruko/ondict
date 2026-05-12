@@ -4,11 +4,19 @@ plugins {
 
 // ---------- gomobile build configuration ----------
 val ondictRepoDir = file("../../")              // relative: android/app/ -> repo root
-val goPath         = "/Users/yqg/go"
-val androidHome    = "/Users/yqg/Library/Android/sdk"
-val ndkVersion     = "30.0.14904198"
-val gomobileBin    = "$goPath/bin/gomobile"
-val outputAar      = layout.projectDirectory.file("libs/mobile.aar").asFile
+val home          = System.getenv("HOME") ?: error("HOME env var not set")
+val goPath        = System.getenv("GOPATH") ?: "$home/go"
+val androidHome   = System.getenv("ANDROID_HOME")
+    ?: System.getenv("ANDROID_SDK_ROOT")
+    ?: "$home/Library/Android/sdk"
+val ndkVersion    = System.getenv("ANDROID_NDK_VERSION")
+    ?: file("$androidHome/ndk").listFiles()
+        ?.filter { it.isDirectory }
+        ?.maxByOrNull { it.name }
+        ?.name
+    ?: error("NDK not found under $androidHome/ndk — install it via Android Studio SDK Manager")
+val gomobileBin   = "$goPath/bin/gomobile"
+val outputAar     = layout.projectDirectory.file("libs/mobile.aar").asFile
 
 tasks.register<Exec>("gomobileBind") {
     description = "Compile the Go mobile package into mobile.aar using gomobile bind"
@@ -36,6 +44,7 @@ tasks.register<Exec>("gomobileBind") {
     inputs.dir(ondictRepoDir.resolve("internal"))
     inputs.dir(ondictRepoDir.resolve("wordbank"))
     inputs.dir(ondictRepoDir.resolve("history"))
+    inputs.dir(ondictRepoDir.resolve("internal/tmpl/templates"))
     outputs.file(outputAar)
 }
 

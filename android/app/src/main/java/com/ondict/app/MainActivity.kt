@@ -8,14 +8,25 @@ import androidx.appcompat.app.AppCompatActivity
 import mobile.Mobile
 import java.net.HttpURLConnection
 import java.net.URL
+
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private val port: Long = 1345
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // First run: no dictionaries configured yet — go to setup screen
+        if (!DictManager.hasConfig(this)) {
+            SetupActivity.start(this)
+            // Don't finish() — stay in back stack so returning from setup
+            // lands here and starts the server normally
+        }
+
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
+
         // Handle back gesture/button: navigate WebView history before closing
         val backCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
@@ -29,10 +40,14 @@ class MainActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): Boolean {
+                // Intercept the /import path to open SetupActivity
+                if (request.url.path == "/import") {
+                    SetupActivity.start(this@MainActivity)
+                    return true
+                }
                 return false
             }
             override fun onPageFinished(view: WebView, url: String) {
-                // Keep the callback enabled only when there is history to go back to
                 backCallback.isEnabled = view.canGoBack()
             }
         }
@@ -49,6 +64,7 @@ class MainActivity : AppCompatActivity() {
             }
         }.start()
     }
+
     private fun waitForServer() {
         val url = URL("http://127.0.0.1:$port")
         repeat(30) {
@@ -56,9 +72,9 @@ class MainActivity : AppCompatActivity() {
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 500
                 conn.readTimeout = 500
-                conn.responseCode // throws if not ready
+                conn.responseCode
                 conn.disconnect()
-                return // server is up
+                return
             } catch (e: Exception) {
                 Thread.sleep(500)
             }
