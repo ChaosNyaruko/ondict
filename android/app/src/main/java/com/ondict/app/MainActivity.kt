@@ -3,6 +3,7 @@ import android.os.Bundle
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import mobile.Mobile
 import java.net.HttpURLConnection
@@ -15,6 +16,14 @@ class MainActivity : AppCompatActivity() {
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
+        // Handle back gesture/button: navigate WebView history before closing
+        val backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                webView.goBack()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback)
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView,
@@ -22,8 +31,13 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 return false
             }
+            override fun onPageFinished(view: WebView, url: String) {
+                // Keep the callback enabled only when there is history to go back to
+                backCallback.isEnabled = view.canGoBack()
+            }
         }
         setContentView(webView)
+
         // Start the Go HTTP server in a background thread, then load once ready
         Thread {
             Mobile.startServer(filesDir.absolutePath, cacheDir.absolutePath, port)
@@ -49,9 +63,5 @@ class MainActivity : AppCompatActivity() {
                 Thread.sleep(500)
             }
         }
-    }
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack()
-        else super.onBackPressed()
     }
 }
