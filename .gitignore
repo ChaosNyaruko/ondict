@@ -6,6 +6,7 @@ ondict
 cover.html
 cover.out
 *.log
+.gocache/
 
 # gomobile build artifacts
 jni/
