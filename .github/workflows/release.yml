@@ -56,9 +56,69 @@ jobs:
           name: ondict-${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ env.BINARY }}
 
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "ndk;$(ls $ANDROID_SDK_ROOT/ndk 2>/dev/null | sort -V | tail -1 || echo '30.0.14904198')" \
+            "platforms;android-36" || \
+          sdkmanager "ndk-bundle" "platforms;android-36"
+
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          gomobile init
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/ondict-release.jks
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PATH:     android/ondict-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_HOME:      ${{ env.ANDROID_SDK_ROOT }}
+        run: |
+          cd android
+          ./gradlew assembleRelease
+          VERSION=$(git describe --tags)
+          cp app/build/outputs/apk/release/app-release.apk \
+             ../ondict-android-${VERSION}.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ondict-android
+          path: ondict-android-*.apk
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, build-android]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
