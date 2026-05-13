@@ -12,22 +12,94 @@ import java.io.InputStream
  */
 object DictManager {
 
+    data class DictEntry(
+        val name: String,
+        val type: String,
+        val enabled: Boolean,
+        val hasFile: Boolean,   // .mdx exists on disk
+        val hasMdd: Boolean     // .mdd exists on disk
+    )
+
     fun dictsDir(context: Context): File =
         File(context.filesDir, "dicts").also { it.mkdirs() }
 
     fun configFile(context: Context): File =
         File(context.filesDir, "config.json")
 
-    /** Returns true if at least one dictionary is configured. */
+    /** Returns true if at least one dictionary is configured and enabled. */
     fun hasConfig(context: Context): Boolean {
         val f = configFile(context)
         if (!f.exists()) return false
         return try {
             val obj = JSONObject(f.readText())
-            obj.getJSONArray("dicts").length() > 0
+            val dicts = obj.getJSONArray("dicts")
+            (0 until dicts.length()).any { i ->
+                val d = dicts.getJSONObject(i)
+                d.optBoolean("enabled", true)
+            }
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Returns all known dicts — both configured ones and any .mdx files
+     * found on disk that aren't in config yet (auto-detected).
+     */
+    fun listAllDicts(context: Context): List<DictEntry> {
+        val dir = dictsDir(context)
+        val config = readConfig(context)
+        val configuredDicts = config.getJSONArray("dicts")
+
+        // Build map of configured entries: name -> DictEntry
+        val configured = mutableMapOf<String, DictEntry>()
+        for (i in 0 until configuredDicts.length()) {
+            val obj = configuredDicts.getJSONObject(i)
+            val name = obj.getString("name")
+            configured[name] = DictEntry(
+                name    = name,
+                type    = obj.optString("type", "LONGMAN/Easy"),
+                enabled = obj.optBoolean("enabled", true),
+                hasFile = File(dir, "$name.mdx").exists(),
+                hasMdd  = File(dir, "$name.mdd").exists()
+            )
+        }
+
+        // Auto-detect .mdx files on disk not yet in config
+        dir.listFiles { f -> f.extension.lowercase() == "mdx" }
+            ?.forEach { file ->
+                val name = file.nameWithoutExtension
+                if (name !in configured) {
+                    configured[name] = DictEntry(
+                        name    = name,
+                        type    = "LONGMAN/Easy",
+                        enabled = false,   // not yet enabled — user must confirm
+                        hasFile = true,
+                        hasMdd  = File(dir, "$name.mdd").exists()
+                    )
+                }
+            }
+
+        // Return in config order first, then any newly detected ones at end
+        val configuredNames = (0 until configuredDicts.length())
+            .map { configuredDicts.getJSONObject(it).getString("name") }
+        val rest = configured.keys.filter { it !in configuredNames }
+        return (configuredNames + rest).mapNotNull { configured[it] }
+    }
+
+    /** Saves the full ordered list of DictEntry back to config.json. */
+    fun saveDicts(context: Context, dicts: List<DictEntry>) {
+        val config = readConfig(context)
+        val arr = JSONArray()
+        dicts.forEach { d ->
+            arr.put(JSONObject().apply {
+                put("name", d.name)
+                put("type", d.type)
+                put("enabled", d.enabled)
+            })
+        }
+        config.put("dicts", arr)
+        configFile(context).writeText(config.toString(2))
     }
 
     /**
@@ -37,58 +109,42 @@ object DictManager {
      */
     fun importDict(
         context: Context,
-        fileName: String,       // e.g. "LDOCE.mdx"
+        fileName: String,
         input: InputStream,
         dictType: String = "LONGMAN/Easy"
     ) {
-        // Write the file
         val dest = File(dictsDir(context), fileName)
         dest.outputStream().use { out -> input.copyTo(out) }
 
-        // Only register .mdx files in config (not .mdd — they're auto-detected)
+        // Only register .mdx files in config (.mdd is auto-paired)
         if (!fileName.endsWith(".mdx", ignoreCase = true)) return
 
         val baseName = fileName.removeSuffix(".mdx").removeSuffix(".MDX")
-        val config = readConfig(context)
-        val dicts = config.getJSONArray("dicts")
+        val all = listAllDicts(context).toMutableList()
 
-        // Remove existing entry with same name if present
-        val updated = JSONArray()
-        for (i in 0 until dicts.length()) {
-            val entry = dicts.getJSONObject(i)
-            if (entry.getString("name") != baseName) updated.put(entry)
+        // If already present, update type and enable it; otherwise append
+        val idx = all.indexOfFirst { it.name == baseName }
+        if (idx >= 0) {
+            all[idx] = all[idx].copy(type = dictType, enabled = true, hasFile = true)
+        } else {
+            all.add(DictEntry(
+                name    = baseName,
+                type    = dictType,
+                enabled = true,
+                hasFile = true,
+                hasMdd  = File(dictsDir(context), "$baseName.mdd").exists()
+            ))
         }
-        updated.put(JSONObject().apply {
-            put("name", baseName)
-            put("type", dictType)
-        })
-        config.put("dicts", updated)
-        configFile(context).writeText(config.toString(2))
-    }
-
-    /** Lists all configured dictionaries as (name, type) pairs. */
-    fun listDicts(context: Context): List<Pair<String, String>> {
-        val dicts = readConfig(context).getJSONArray("dicts")
-        return (0 until dicts.length()).map { i ->
-            val obj = dicts.getJSONObject(i)
-            obj.getString("name") to obj.getString("type")
-        }
+        saveDicts(context, all)
     }
 
     /** Removes a dictionary entry from config (does not delete the file). */
     fun removeDict(context: Context, name: String) {
-        val config = readConfig(context)
-        val dicts = config.getJSONArray("dicts")
-        val updated = JSONArray()
-        for (i in 0 until dicts.length()) {
-            val entry = dicts.getJSONObject(i)
-            if (entry.getString("name") != name) updated.put(entry)
-        }
-        config.put("dicts", updated)
-        configFile(context).writeText(config.toString(2))
+        val all = listAllDicts(context).filter { it.name != name }
+        saveDicts(context, all)
     }
 
-    private fun readConfig(context: Context): JSONObject {
+    fun readConfig(context: Context): JSONObject {
         val f = configFile(context)
         return if (f.exists()) {
             try { JSONObject(f.readText()) } catch (e: Exception) { defaultConfig() }

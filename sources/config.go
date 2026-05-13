@@ -12,9 +12,10 @@ import (
 )
 
 type DictConfig struct {
-	Name string `json:"name"`
-	Css  string `json:"css"`
-	Type string `json:"type"`
+	Name    string `json:"name"`
+	Css     string `json:"css"`
+	Type    string `json:"type"`
+	Enabled *bool  `json:"enabled,omitempty"` // nil means true (backwards compatible)
 }
 
 type DefinitionIndexConfig struct {
@@ -71,6 +72,11 @@ func LoadConfig() error {
 		return nil
 	}
 	for _, d := range c.Dicts {
+		// nil means enabled (backwards compatible with old configs without the field)
+		if d.Enabled != nil && !*d.Enabled {
+			log.Infof("skipping disabled dict: %v", d.Name)
+			continue
+		}
 		dict := &MdxDict{}
 		dict.MdxFile = filepath.Join(util.DictsPath(), d.Name)
 		dict.Type = d.Type
