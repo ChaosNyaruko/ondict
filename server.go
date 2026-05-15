@@ -44,23 +44,29 @@ func reviewHandler(c *gin.Context) {
 	c.String(200, "%v", words)
 }
 
-func (s *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !s.timeout.Stop() {
-		select {
-		case t := <-s.timeout.C:
-			log.Debugf("drained from timer: %v", t)
-		default:
+func idleResetMiddleware(p *proxy) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if p.timeout != nil {
+			if !p.timeout.Stop() {
+				select {
+				case t := <-p.timeout.C:
+					log.Debugf("drained from timer: %v", t)
+				default:
+				}
+			}
+			if *idleTimeout > 0 {
+				p.timeout.Reset(*idleTimeout)
+			}
 		}
+		c.Next()
 	}
-	if *idleTimeout > 0 {
-		s.timeout.Reset(*idleTimeout)
-	}
-	s.e.ServeHTTP(w, r)
 }
 
 func NewProxy() *proxy {
+	p := &proxy{}
 	r := httpserver.New(httpserver.Options{
 		History:    his,
+		Middleware: []gin.HandlerFunc{idleResetMiddleware(p)},
 		EnableAuth: true,
 		AuthSetup: func(r *gin.Engine) {
 			store := cookie.NewStore([]byte("secret-key"))
@@ -78,7 +84,8 @@ func NewProxy() *proxy {
 	// This runs before NoRoute so cached files are served instantly.
 	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 
-	return &proxy{e: r}
+	p.e = r
+	return p
 }
 
 func ParseAddr(listen string) (network string, address string) {

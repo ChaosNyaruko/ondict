@@ -34,6 +34,9 @@ type Options struct {
 	// EnableAuth is true.
 	AuthSetup func(r *gin.Engine)
 
+	// Middleware is applied globally before any routes are registered.
+	Middleware []gin.HandlerFunc
+
 	// ResourceHandler is registered as NoRoute to serve static assets
 	// (audio, images) on unmatched paths. If nil, no NoRoute is registered
 	// and the caller is responsible for serving assets (e.g. via static middleware).
@@ -64,6 +67,10 @@ type DefinitionMatchView struct {
 func New(opts Options) *gin.Engine {
 	r := gin.Default()
 	r.SetHTMLTemplate(tmpl.Must())
+
+	for _, mw := range opts.Middleware {
+		r.Use(mw)
+	}
 
 	if opts.EnableAuth && opts.AuthSetup != nil {
 		opts.AuthSetup(r)
