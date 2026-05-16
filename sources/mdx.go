@@ -83,6 +83,8 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 			}
 			if d.registerDictDB() == nil {
 				log.Infof("[timing] vocab.db loaded in %v — skipping MDX decode", time.Since(t0))
+				// Still need to load MDD files for on-demand audio/image serving.
+				loadMDDFiles()
 				return
 			}
 			log.Warnf("vocab.db exists but registerDictDB failed; falling back to MDX")
@@ -131,6 +133,38 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	})
 	log.Infof("stuck at Load")
 	return nil
+}
+
+// loadMDDFiles reads config and lazily loads each .mdd file into mddFiles for
+// on-demand audio/image serving. Called even on the SQLite fast-path so that
+// MddFileHandler can serve resources without falling back to MDX decode.
+func loadMDDFiles() {
+	c, err := ReadConfig()
+	if err != nil {
+		log.Warnf("loadMDDFiles: could not read config: %v", err)
+		return
+	}
+	for _, dc := range c.Dicts {
+		if dc.Enabled != nil && !*dc.Enabled {
+			continue
+		}
+		mddPath := filepath.Join(util.DictsPath(), dc.Name+".mdd")
+		if _, err := os.Stat(mddPath); err != nil {
+			continue // no .mdd for this dict
+		}
+		p := mddPath // capture for goroutine
+		go func() {
+			mdd := &decoder.MDict{}
+			if err := mdd.Decode(p, true); err != nil {
+				log.Errorf("lazy load %v err: %v", p, err)
+				return
+			}
+			mddMu.Lock()
+			mddFiles = append(mddFiles, mdd)
+			mddMu.Unlock()
+			log.Infof("lazy MDD loaded: %v", p)
+		}()
+	}
 }
 
 // copyFile copies src to dst, creating dst if it doesn't exist.
