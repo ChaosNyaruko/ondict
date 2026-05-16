@@ -111,6 +111,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.ANDROID_NDK_VERSION }}
         run: |
           cd android
+          ./gradlew gomobileBind
           ./gradlew assembleRelease
           VERSION=$(git describe --tags)
           cp app/build/outputs/apk/release/app-release.apk \
