@@ -362,11 +362,36 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
     },
     {
       "name": "Longman Dictionary of Contemporary English",
-      "type": "LONGMAN/Easy"
+      "type": "LONGMAN/Easy",
+      "css": "Longman Dictionary of Contemporary English"
     },
     {
-      "name": "oald9"
+      "name": "oald9",
+      "css": "oald9"
     }
+  ]
+}
+```
+
+## CSS加载
+
+`config.json` 中的每个词典条目可以包含一个可选的 `"css"` 字段，其值为位于 `dicts/` 目录中的 CSS 文件的**名称（不含 `.css` 扩展名）**。服务器在以HTML格式渲染词典条目时，会将匹配的CSS注入 `<style>` 标签中，从而应用MDX词典的专属样式。
+
+CSS按以下优先级进行解析：
+
+1. **明确指定的 `"css"` 字段** – 例如 `"css": "oald9"` 会加载 `dicts/oald9.css`。
+2. **已知前缀自动检测** – 名称中包含 `LDOCE5` 的词典会自动使用 `LM5style.css`，无需任何配置。
+3. **全局默认值** – `config.json` 顶层的 `"default_css"` 键作为最后的兜底，例如 `"default_css": "LM5style"`。
+4. **不做任何处理** – 如果无法解析到CSS，或文件不存在，则该条目不会附加任何额外样式。
+
+包含全局默认值的示例：
+
+```json
+{
+  "default_css": "LM5style",
+  "dicts": [
+    { "name": "LDOCE5++ V 1-35", "type": "LONGMAN5/Online" },
+    { "name": "oald9", "css": "oald9" }
   ]
 }
 ```

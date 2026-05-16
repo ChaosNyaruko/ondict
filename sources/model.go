@@ -31,6 +31,7 @@ type Dict interface {
 type RawOutput interface {
 	GetMatch() string
 	GetDefinition() string
+	GetSrc() string
 }
 
 type Searcher interface {
@@ -54,6 +55,10 @@ func (o output) GetMatch() string {
 
 func (o output) GetDefinition() string {
 	return o.def
+}
+
+func (o output) GetSrc() string {
+	return o.src
 }
 
 func loadAllCss() (string, error) {

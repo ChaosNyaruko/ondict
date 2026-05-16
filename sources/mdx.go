@@ -20,6 +20,12 @@ import (
 var Gbold = "**"
 var Gitalic = "*"
 
+// cssMap maps a full MDX file path (as stored in the vocab.db `src` column)
+// to the resolved CSS content for that dictionary.  Populated once during
+// Load() from config so it is available in both the SQLite fast-path and the
+// regular MDX path.
+var cssMap = map[string]string{}
+
 // OnMDDDumped is an optional callback invoked after MDD resources are
 // successfully extracted. Set this before calling G.Load() to write a
 // marker file on mobile so the dump is skipped on subsequent launches.
@@ -47,6 +53,25 @@ type Dicts []*MdxDict
 
 var G = &Dicts{}
 var once sync.Once
+
+// buildCssMap reads config and builds cssMap: full .mdx path → CSS content.
+// Safe to call multiple times; it simply overwrites the package-level map.
+func buildCssMap(c Config) {
+	m := make(map[string]string, len(c.Dicts))
+	for _, d := range c.Dicts {
+		if d.Enabled != nil && !*d.Enabled {
+			continue
+		}
+		css := resolveCss(d, c.DefaultCss)
+		if css == "" {
+			continue
+		}
+		mdxPath := filepath.Join(util.DictsPath(), d.Name+".mdx")
+		m[mdxPath] = css
+		log.Infof("cssMap: %q → %d bytes of CSS", mdxPath, len(css))
+	}
+	cssMap = m
+}
 
 func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
@@ -83,6 +108,10 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 			}
 			if d.registerDictDB() == nil {
 				log.Infof("[timing] vocab.db loaded in %v — skipping MDX decode", time.Since(t0))
+				// Build CSS map so QueryMDX can inject per-dict styles via src.
+				if c, err := ReadConfig(); err == nil {
+					buildCssMap(c)
+				}
 				// Still need to load MDD files for on-demand audio/image serving.
 				loadMDDFiles()
 				return
@@ -97,6 +126,10 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 
 		if err := LoadConfig(); err != nil {
 			log.Fatalf("load config err: %v", err)
+		}
+		// Build CSS map (also used by QueryMDX via cssMap for the src-keyed lookup).
+		if c, err := ReadConfig(); err == nil {
+			buildCssMap(c)
 		}
 		log.Infof("stuck at Register")
 		for _, d := range *g {
@@ -188,37 +221,61 @@ func copyFile(src, dst string) error {
 
 func QueryMDX(word string, f string) string {
 	type mdxResult struct {
-		defs []string
+		raw  RawOutput
 		t    string // SourceType
+		dict *MdxDict
 	}
 	var defs []mdxResult
 	for _, dict := range *G {
-		defs = append(defs, mdxResult{dict.Get(word), dict.Type})
-		log.Debugf("def of %q, %v: %q", dict.MdxFile, defs, word)
+		for _, ro := range dict.getBest(word) {
+			defs = append(defs, mdxResult{ro, dict.Type, dict})
+		}
+		log.Debugf("def of %q from %q", word, dict.MdxFile)
 	}
+
+	// cssForResult returns the CSS content to inject for a given result.
+	// Priority:
+	//   1. DB path: cssMap keyed by src (full .mdx path stored in vocab row).
+	//   2. MDX path (first run): dict.Css set by LoadConfig/resolveCss.
+	cssForResult := func(r mdxResult) string {
+		if css := cssMap[r.raw.GetSrc()]; css != "" {
+			return css
+		}
+		return r.dict.Css
+	}
+
 	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
 		var res []string
-		for _, dict := range defs {
-			for _, def := range dict.defs {
-				h := render.HTMLRender{Raw: def, SourceType: dict.t}
-				rs := fmt.Sprintf("<div>%s</div> ", h.Render())
-				res = append(res, rs)
+		for _, d := range defs {
+			def := d.raw.GetDefinition()
+			if def == "" {
+				continue
 			}
+			h := render.HTMLRender{Raw: def, SourceType: d.t}
+			css := cssForResult(d)
+			var style string
+			if css != "" {
+				style = fmt.Sprintf("<style>%s</style>", css)
+			}
+			rs := fmt.Sprintf("<div>%s%s</div> ", style, h.Render())
+			res = append(res, rs)
 		}
 		return strings.Join(res, "<br><br>")
 	}
 
 	log.Debugf("query: %v, format: %v", word, f)
 	var res string
-	for _, dict := range defs {
-		for _, def := range dict.defs {
-			ren := &render.MarkdownRender{
-				Raw:        def,
-				SourceType: dict.t,
-			}
-			res += "\n----\n" + ren.Render()
+	for _, d := range defs {
+		def := d.raw.GetDefinition()
+		if def == "" {
+			continue
 		}
+		ren := &render.MarkdownRender{
+			Raw:        def,
+			SourceType: d.t,
+		}
+		res += "\n----\n" + ren.Render()
 	}
 	return res
 }
@@ -291,8 +348,11 @@ type MdxDict struct {
 	Type string
 	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
 	MdxFile  string
-	MdxDict  Dict // TODO: it's "embedded" in the searcher, maybe we can remove it to reduce mem usage when apply non-plain search algorithms.
+	MdxDict  Dict // TODO: it's "embedded" in the searcher, maybe we can reduce mem usage when apply non-plain search algorithms.
 	searcher Searcher
+	// Css holds the resolved CSS content to inject when rendering HTML output.
+	// Empty string means no per-dict CSS will be injected.
+	Css string
 }
 
 func (d *MdxDict) Get(word string) []string {
@@ -315,4 +375,23 @@ func (d *MdxDict) Get(word string) []string {
 		}
 	}
 	return defs
+}
+
+// getBest applies the same longest-match filtering as Get but returns the
+// winning RawOutput values so callers retain src and other metadata.
+func (d *MdxDict) getBest(word string) []RawOutput {
+	results := d.searcher.GetRawOutputs(word)
+	if len(results) == 0 {
+		return nil
+	}
+	var best []RawOutput
+	for _, res := range results {
+		m := res.GetMatch()
+		if len(best) == 0 || len(m) > len(best[0].GetMatch()) {
+			best = []RawOutput{res}
+		} else if len(m) == len(best[0].GetMatch()) {
+			best = append(best, res)
+		}
+	}
+	return best
 }

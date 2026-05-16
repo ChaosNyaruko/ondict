@@ -351,11 +351,42 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
     },
     {
       "name": "Longman Dictionary of Contemporary English",
-      "type": "LONGMAN/Easy"
+      "type": "LONGMAN/Easy",
+      "css": "Longman Dictionary of Contemporary English"
     },
     {
-      "name": "oald9"
+      "name": "oald9",
+      "css": "oald9"
     }
+  ]
+}
+```
+
+## CSS loading
+
+Each dictionary entry in `config.json` may carry an optional `"css"` field whose
+value is the **stem** (no `.css` extension) of a CSS file located in the `dicts/`
+directory.  When the server renders a dictionary entry as HTML it injects the
+matching CSS inside a `<style>` block so that MDX-specific formatting is applied.
+
+CSS is resolved for every dictionary in this priority order:
+
+1. **Explicit `"css"` field** – e.g. `"css": "oald9"` loads `dicts/oald9.css`.
+2. **Known-prefix auto-detect** – dict names containing `LDOCE5` automatically
+   use `LM5style.css` without any config change.
+3. **Global default** – the top-level `"default_css"` key in `config.json` is
+   tried as a last resort, e.g. `"default_css": "LM5style"`.
+4. **Nothing** – if no CSS is resolved, or the file does not exist, the entry is
+   rendered without extra styles.
+
+Example with a global default:
+
+```json
+{
+  "default_css": "LM5style",
+  "dicts": [
+    { "name": "LDOCE5++ V 1-35", "type": "LONGMAN5/Online" },
+    { "name": "oald9", "css": "oald9" }
   ]
 }
 ```

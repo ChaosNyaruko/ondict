@@ -13,6 +13,7 @@ type MockResult struct {
 
 func (m MockResult) GetMatch() string      { return m.match }
 func (m MockResult) GetDefinition() string { return m.def }
+func (m MockResult) GetSrc() string        { return "" }
 
 type MockSearcher struct {
 	results []MockResult
