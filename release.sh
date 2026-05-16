@@ -10,8 +10,17 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 ANDROID_DIR="$REPO_DIR/android"
 APK_PATH="$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk"
 
+# Use Android Studio's bundled JDK if JAVA_HOME isn't already set.
+AS_JDK="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+if [ -z "$JAVA_HOME" ] && [ -d "$AS_JDK" ]; then
+    export JAVA_HOME="$AS_JDK"
+    export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+
 # ---- Signing credentials (override via env vars in CI) ----
-export KEYSTORE_PATH="${KEYSTORE_PATH:-$ANDROID_DIR/ondict-release.jks}"
+export KEYSTORE_PATH="${KEYSTORE_PATH:-$REPO_DIR/ondict-release.jks}"
 export KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-ondictpass}"
 export KEY_ALIAS="${KEY_ALIAS:-ondict}"
 export KEY_PASSWORD="${KEY_PASSWORD:-ondictpass}"
@@ -30,6 +39,7 @@ go test ./...
 # ---- 2. Build signed release APK ----
 echo "==> Building signed release APK..."
 cd "$ANDROID_DIR"
+./gradlew :app:gomobileBind
 ./gradlew assembleRelease
 
 echo ""

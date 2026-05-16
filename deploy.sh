@@ -6,7 +6,16 @@ set -e
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 ANDROID_DIR="$REPO_DIR/android"
-ADB="$HOME/Library/Android/sdk/platform-tools/adb"
+ADB="${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}"
+
+# Use Android Studio's bundled JDK if JAVA_HOME isn't already set.
+AS_JDK="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+if [ -z "$JAVA_HOME" ] && [ -d "$AS_JDK" ]; then
+    export JAVA_HOME="$AS_JDK"
+    export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 
 # ---- 1. Check emulator/device is connected ----
 echo "==> Checking device..."
@@ -20,14 +29,15 @@ echo "==> Running Go tests..."
 cd "$REPO_DIR"
 go test ./...
 
-# ---- 3. Gradle build + install (gomobileBind runs automatically if needed) ----
+# ---- 3. Gradle build + install ----
 echo "==> Building and installing APK..."
 cd "$ANDROID_DIR"
 if [ "$1" = "--force" ]; then
-    ./gradlew :app:gomobileBind --rerun-tasks installDebug
+    ./gradlew :app:gomobileBind --rerun-tasks
 else
-    ./gradlew installDebug
+    ./gradlew :app:gomobileBind
 fi
+./gradlew installDebug
 
 # ---- 4. Launch the app ----
 echo "==> Launching app..."
