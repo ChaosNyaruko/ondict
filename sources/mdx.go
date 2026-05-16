@@ -51,8 +51,29 @@ var once sync.Once
 func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
 		t0 := time.Now()
-		// Use the SQLite vocab.db when it was fully written on a previous run.
 		dbPath := util.VocabDB()
+
+		// On mobile, vocab.db moved from files/ (ConfigPath) to cache/ (TmpDir).
+		// Migrate it once so users don't have to re-dump after upgrading.
+		if dbPath != filepath.Join(util.ConfigPath(), "vocab.db") {
+			oldPath := filepath.Join(util.ConfigPath(), "vocab.db")
+			if _, err := os.Stat(oldPath); err == nil && !IsDumpComplete(dbPath) {
+				log.Infof("migrating vocab.db from %s to %s", oldPath, dbPath)
+				if err := os.Rename(oldPath, dbPath); err != nil {
+					// Rename across filesystems (files/ → cache/) won't work — copy instead.
+					if copyErr := copyFile(oldPath, dbPath); copyErr != nil {
+						log.Warnf("vocab.db migration failed: %v", copyErr)
+					} else {
+						_ = os.Remove(oldPath)
+						log.Infof("vocab.db migrated successfully")
+					}
+				} else {
+					log.Infof("vocab.db migrated successfully")
+				}
+			}
+		}
+
+		// Use the SQLite vocab.db when it was fully written on a previous run.
 		if IsDumpComplete(dbPath) {
 			d := &MdxDict{
 				Type:     render.LongmanEasy, // TODO: may need some other abstractions
@@ -62,6 +83,8 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 			}
 			if d.registerDictDB() == nil {
 				log.Infof("[timing] vocab.db loaded in %v — skipping MDX decode", time.Since(t0))
+				// Still need to load MDD files for on-demand audio/image serving.
+				loadMDDFiles()
 				return
 			}
 			log.Warnf("vocab.db exists but registerDictDB failed; falling back to MDX")
@@ -110,6 +133,57 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	})
 	log.Infof("stuck at Load")
 	return nil
+}
+
+// loadMDDFiles reads config and lazily loads each .mdd file into mddFiles for
+// on-demand audio/image serving. Called even on the SQLite fast-path so that
+// MddFileHandler can serve resources without falling back to MDX decode.
+func loadMDDFiles() {
+	c, err := ReadConfig()
+	if err != nil {
+		log.Warnf("loadMDDFiles: could not read config: %v", err)
+		return
+	}
+	for _, dc := range c.Dicts {
+		if dc.Enabled != nil && !*dc.Enabled {
+			continue
+		}
+		mddPath := filepath.Join(util.DictsPath(), dc.Name+".mdd")
+		if _, err := os.Stat(mddPath); err != nil {
+			continue // no .mdd for this dict
+		}
+		p := mddPath // capture for goroutine
+		go func() {
+			mdd := &decoder.MDict{}
+			if err := mdd.Decode(p, true); err != nil {
+				log.Errorf("lazy load %v err: %v", p, err)
+				return
+			}
+			mddMu.Lock()
+			mddFiles = append(mddFiles, mdd)
+			mddMu.Unlock()
+			log.Infof("lazy MDD loaded: %v", p)
+		}()
+	}
+}
+
+// copyFile copies src to dst, creating dst if it doesn't exist.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	if _, err := out.ReadFrom(in); err != nil {
+		_ = os.Remove(dst)
+		return err
+	}
+	return out.Sync()
 }
 
 func QueryMDX(word string, f string) string {

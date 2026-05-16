@@ -10,6 +10,7 @@ Table of Contents
 * [Prerequisites](#prerequisites)
 * [Features](#features)
 * [Installation](#installation)
+   * [Android](#android)
 * [Usage](#usage)
    * [Help](#help)
    * [Examples](#examples)
@@ -67,6 +68,7 @@ There are some similar products. They are all mature products, but may not suit 
 - Integrated with (n)vim, feel free to use it in whatever editor you are using!
 - In the offline mode(do not need extra online queries itself), MDX engine is supported. The online engine may be more comprehensive and updated, but they are slow since an HTTP request is made for the first time. The offline mode, however, can work without internet connection, but pre-loaded [dictionary files](#offline) are needed.
 - When `vocab.db` is built, offline definitions can also be searched by keyword through SQLite FTS.
+- **Android app** — a native APK that runs the full dictionary server on-device. Import your MDX files directly on the phone; the app auto-builds a SQLite cache so subsequent launches are fast.
 
 # Installation
 ## Build from source(Recommended)
@@ -90,8 +92,28 @@ It will guide you through:
 3. Downloading the pronunciation/image data (MDD).
 4. Converting the dictionary to SQLite format for faster startup and definition search (Optional but recommended).
 
-## Using Docker and serving as a HTTP server in the container
-For your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.
+## <a name="android"></a>Android
+
+Download the latest APK from the [Releases page](https://github.com/ChaosNyaruko/ondict/releases/latest) and install it on your phone.
+
+> **Requirements**: Android 11+ (API 36 target). Enable "Install from unknown sources" in your phone settings if installing outside the Play Store.
+
+### How it works
+
+The Android app embeds the full Go dictionary server via [gomobile](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile). On launch it starts a local HTTP server on `127.0.0.1:1345` and displays the web UI in a WebView — the same interface as the desktop web mode.
+
+### Dictionary setup
+
+1. Open the app and tap **Import Dict** (or the menu button)
+2. Select your `.mdx` file from local storage
+3. Set the dictionary type (e.g. `LONGMAN/Easy`, `MDX`)
+4. Restart the app — on first launch with a new dictionary the app builds a SQLite cache in the background; subsequent launches load from SQLite and start in under a second
+
+### Data storage
+
+All user data (imported dictionaries, word bank, query history) is stored in the app's private storage and **survives app updates**. Only uninstalling the app removes the data.
+
+## Using Docker and serving as a HTTP server in the containerFor your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.
 ### Local
 ```console
 docker build . -t ondict
