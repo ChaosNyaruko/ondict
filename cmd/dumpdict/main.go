@@ -44,7 +44,7 @@ func main() {
 	if len(files) == 0 && len(srcDirs) == 0 {
 		log.Fatalf("no file or directory specified")
 	}
-	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
+	dbName := util.VocabDB()
 	var mdxPaths []string
 	for _, name := range files {
 		mdxPaths = append(mdxPaths, name)

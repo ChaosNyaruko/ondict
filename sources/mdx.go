@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -19,6 +20,29 @@ import (
 var Gbold = "**"
 var Gitalic = "*"
 
+// OnMDDDumped is an optional callback invoked after MDD resources are
+// successfully extracted. Set this before calling G.Load() to write a
+// marker file on mobile so the dump is skipped on subsequent launches.
+var OnMDDDumped func()
+
+// mddFiles holds loaded MDD decoders for on-demand file extraction.
+// Populated during G.Load() when mdd=false (lazy/mobile mode).
+var mddFiles []*decoder.MDict
+var mddMu sync.Mutex
+
+// GetMDDFile looks up a resource file (e.g. "GB_hello0205.mp3") across all
+// loaded MDD dictionaries and returns its raw bytes. Returns nil if not found.
+func GetMDDFile(name string) []byte {
+	mddMu.Lock()
+	defer mddMu.Unlock()
+	for _, mdd := range mddFiles {
+		if data := mdd.GetFile(name); data != nil {
+			return data
+		}
+	}
+	return nil
+}
+
 type Dicts []*MdxDict
 
 var G = &Dicts{}
@@ -26,10 +50,10 @@ var once sync.Once
 
 func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
-		// try db first, reduce mem usage.
-		// TODO: refactor the code
-		dbPath := filepath.Join(util.ConfigPath(), "vocab.db")
-		if _, err := os.Stat(dbPath); err == nil {
+		t0 := time.Now()
+		// Use the SQLite vocab.db when it was fully written on a previous run.
+		dbPath := util.VocabDB()
+		if IsDumpComplete(dbPath) {
 			d := &MdxDict{
 				Type:     render.LongmanEasy, // TODO: may need some other abstractions
 				MdxFile:  "vocab.db",
@@ -37,9 +61,15 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 				searcher: nil,
 			}
 			if d.registerDictDB() == nil {
-				log.Infof("db loaded")
+				log.Infof("[timing] vocab.db loaded in %v — skipping MDX decode", time.Since(t0))
 				return
 			}
+			log.Warnf("vocab.db exists but registerDictDB failed; falling back to MDX")
+		} else if _, err := os.Stat(dbPath); err == nil {
+			// Partial/corrupt db from a previous crashed dump — remove it so we
+			// start fresh and re-trigger the background dump below.
+			log.Warnf("vocab.db is incomplete, removing and rebuilding")
+			_ = os.Remove(dbPath)
 		}
 
 		if err := LoadConfig(); err != nil {
@@ -49,7 +79,34 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 		for _, d := range *g {
 			d.Register(fzf, mdd, lazy)
 		}
-		log.Debugf("loading g")
+		log.Infof("[timing] MDX Register took %v", time.Since(t0))
+
+		// Background: dump all MDX files to vocab.db so the next launch is faster.
+		go func() {
+			c, err := ReadConfig()
+			if err != nil {
+				log.Warnf("auto-dump: could not read config: %v", err)
+				return
+			}
+			var mdxPaths []string
+			for _, dc := range c.Dicts {
+				if dc.Enabled != nil && !*dc.Enabled {
+					continue
+				}
+				mdxPaths = append(mdxPaths, filepath.Join(util.DictsPath(), dc.Name+".mdx"))
+			}
+			if len(mdxPaths) == 0 {
+				return
+			}
+			log.Infof("auto-dump: starting background MDX→SQLite dump for %d dict(s)", len(mdxPaths))
+			tDump := time.Now()
+			if err := DumpMDXFilesToSQLite(dbPath, mdxPaths, 0, c.Search.DefinitionIndex.Tokenizer); err != nil {
+				log.Errorf("auto-dump: failed: %v", err)
+				_ = os.Remove(dbPath) // don't leave a broken db
+				return
+			}
+			log.Infof("auto-dump: vocab.db ready in %v — next launch will use SQLite", time.Since(tDump))
+		}()
 	})
 	log.Infof("stuck at Load")
 	return nil
@@ -114,10 +171,28 @@ func loadDecodedMdx(filePath string, fzf bool, mdd bool, lazy bool) Dict {
 				} else {
 					log.Infof("[INFO] successfully decode %v.mdd", filePath)
 					if err := mdd.DumpData(); err != nil {
-						log.Fatalf("dump mdd err: %v", err)
+						log.Errorf("dump mdd err: %v", err)
+					} else if OnMDDDumped != nil {
+						OnMDDDumped()
 					}
 				}
 			}()
+		} else {
+			// Lazy mode: load MDD for on-demand file serving without dumping.
+			mddPath := filePath + ".mdd"
+			if _, err := os.Stat(mddPath); err == nil {
+				go func() {
+					mdd := &decoder.MDict{}
+					if err := mdd.Decode(mddPath, true); err != nil {
+						log.Errorf("lazy load %v.mdd err: %v", filePath, err)
+						return
+					}
+					mddMu.Lock()
+					mddFiles = append(mddFiles, mdd)
+					mddMu.Unlock()
+					log.Infof("lazy MDD loaded: %v", mddPath)
+				}()
+			}
 		}
 		if err != nil {
 			log.Fatalf("Failed to load mdx file[%v], err: %v", filePath, err)

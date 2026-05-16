@@ -34,11 +34,11 @@
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            min-height: 100vh;
             color: var(--text);
             background:
                 radial-gradient(circle at top left, var(--bg-accent), transparent 38%),
                 linear-gradient(180deg, var(--bg), #f8f3ea 60%, #efe6d8 100%);
+            background-attachment: fixed;
             font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
         }
         .page { max-width: 980px; margin: 0 auto; padding: 24px; }
@@ -49,6 +49,8 @@
             border-radius: 28px;
             box-shadow: var(--shadow);
             overflow: hidden;
+            display: inline-block;
+            width: 100%;
         }
         .masthead, .searchbar, .words, .empty, footer { padding-left: 24px; padding-right: 24px; }
         .masthead {
@@ -95,8 +97,8 @@
             border: 1px solid var(--border); border-radius: 999px; background: var(--accent-soft); color: var(--text); padding: 10px 14px; font-family: ui-sans-serif, system-ui, sans-serif; cursor: pointer; text-decoration: none;
         }
         .danger { background: transparent; color: var(--muted); }
-        .empty { padding-top: 28px; padding-bottom: 32px; }
-        footer { padding-top: 0; padding-bottom: 24px; }
+        .empty { padding-top: 20px; padding-bottom: 20px; }
+        footer { padding-top: 0; padding-bottom: 20px; }
         footer a { color: inherit; }
         @media (max-width: 640px) {
             .page { padding: 14px; }
@@ -115,6 +117,7 @@
                 </a>
                 <div class="masthead-actions">
                     <a class="nav-link" href="/">Home</a>
+                    <a class="nav-link" href="/import">Import Dict</a>
                     <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Theme</button>
                 </div>
             </header>

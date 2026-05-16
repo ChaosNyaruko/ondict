@@ -1,8 +1,6 @@
 module github.com/ChaosNyaruko/ondict
 
-go 1.23.0
-
-toolchain go1.23.9
+go 1.25.0
 
 require (
 	github.com/BobuSumisu/aho-corasick v1.0.3
@@ -52,7 +50,8 @@ require (
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	golang.org/x/arch v0.16.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/mobile v0.0.0-20260508232728-bebd421c7fa8 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect

@@ -28,9 +28,6 @@ type HTMLRender struct {
 }
 
 func (h *HTMLRender) Render() string {
-	if !strings.HasPrefix(h.SourceType, "LONGMAN") {
-		return h.Raw
-	}
 	info := strings.NewReader(h.Raw)
 	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
 	if err != nil {
@@ -79,11 +76,10 @@ func modifyImgSrc(n *html.Node) {
 		log.Fatalf("Error: an img element is expected")
 	}
 	for i, a := range n.Attr {
-		if a.Key == "src" {
-			n.Attr[i].Val = "tmp/" + a.Val
+		if a.Key == "src" && !strings.HasPrefix(a.Val, "/") && !strings.HasPrefix(a.Val, "http") {
+			n.Attr[i].Val = "/" + a.Val
 		}
 	}
-	// log.Debugf("modifyImgSrc %#v", n)
 }
 
 func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
@@ -141,6 +137,7 @@ func newAudioTag(src string) *html.Node {
 		Data:     "audio",
 		Attr: []html.Attribute{
 			{Key: "src", Val: src},
+			{Key: "preload", Val: "none"},
 		},
 	}
 	return &res
@@ -155,7 +152,8 @@ func (h *HTMLRender) modifyHref(n *html.Node) {
 				n.Attr[i].Val = new
 			} else if strings.HasPrefix(a.Val, "sound://") {
 				name := strings.TrimSuffix(strings.TrimPrefix(a.Val, "sound://"), ".mp3")
-				new := fmt.Sprintf("/%s", strings.TrimPrefix(a.Val, "sound://"))
+				audioFile := strings.TrimPrefix(a.Val, "sound://")
+				new := fmt.Sprintf("/%s", audioFile)
 				if strings.HasSuffix(h.SourceType, "Online") {
 					n.Attr[i].Val = new
 				} else {
@@ -177,7 +175,7 @@ func (h *HTMLRender) dfs(n *html.Node, level int, parent *html.Node, ft string) 
 		return ""
 	}
 	if IsElement(n, "img", "") {
-		// modifyImgSrc(n)
+		modifyImgSrc(n)
 		return ""
 	}
 

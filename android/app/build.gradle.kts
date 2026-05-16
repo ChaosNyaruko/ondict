@@ -1,0 +1,115 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+// ---------- gomobile build configuration ----------
+val ondictRepoDir = file("../../")              // relative: android/app/ -> repo root
+val home          = System.getenv("HOME") ?: error("HOME env var not set")
+val goPath        = System.getenv("GOPATH") ?: "$home/go"
+val androidHome   = System.getenv("ANDROID_HOME")
+    ?: System.getenv("ANDROID_SDK_ROOT")
+    ?: "$home/Library/Android/sdk"
+val ndkVersion    = System.getenv("ANDROID_NDK_VERSION")
+    ?: file("$androidHome/ndk").listFiles()
+        ?.filter { it.isDirectory }
+        ?.maxByOrNull { it.name }
+        ?.name
+    ?: error("NDK not found under $androidHome/ndk — install it via Android Studio SDK Manager")
+val gomobileBin   = "$goPath/bin/gomobile"
+val outputAar     = layout.projectDirectory.file("libs/mobile.aar").asFile
+
+tasks.register<Exec>("gomobileBind") {
+    description = "Compile the Go mobile package into mobile.aar using gomobile bind"
+    group       = "build"
+
+    workingDir = ondictRepoDir
+    environment("ANDROID_HOME",     androidHome)
+    environment("ANDROID_NDK_HOME", "$androidHome/ndk/$ndkVersion")
+    environment("PATH",             "${System.getenv("PATH")}:$goPath/bin")
+    environment("HOME",             System.getenv("HOME") ?: "")
+
+    commandLine(
+        gomobileBin, "bind",
+        "-target", "android/arm64",
+        "-androidapi", "36",
+        "-o", outputAar.absolutePath,
+        "./mobile/"
+    )
+
+    inputs.dir(ondictRepoDir.resolve("mobile"))
+    inputs.dir(ondictRepoDir.resolve("sources"))
+    inputs.dir(ondictRepoDir.resolve("decoder"))
+    inputs.dir(ondictRepoDir.resolve("render"))
+    inputs.dir(ondictRepoDir.resolve("util"))
+    inputs.dir(ondictRepoDir.resolve("internal"))
+    inputs.dir(ondictRepoDir.resolve("wordbank"))
+    inputs.dir(ondictRepoDir.resolve("history"))
+    inputs.dir(ondictRepoDir.resolve("internal/tmpl/templates"))
+    outputs.file(outputAar)
+}
+
+// Run gomobileBind automatically before every Android build
+tasks.whenTaskAdded {
+    if (name == "preBuild") {
+        dependsOn("gomobileBind")
+    }
+}
+// --------------------------------------------------
+
+android {
+    namespace = "com.ondict.app"
+    compileSdk {
+        version = release(36) {
+            minorApiLevel = 1
+        }
+    }
+
+    defaultConfig {
+        applicationId = "com.ondict.app"
+        minSdk = 36
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile     = file(System.getenv("KEYSTORE_PATH")     ?: "../ondict-release.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD")      ?: "ondictpass"
+            keyAlias      = System.getenv("KEY_ALIAS")              ?: "ondict"
+            keyPassword   = System.getenv("KEY_PASSWORD")           ?: "ondictpass"
+        }
+    }
+
+    buildTypes {
+        debug {
+            // debug builds are auto-signed with a debug key — no config needed
+        }
+        release {
+            isMinifyEnabled = true
+            signingConfig   = signingConfigs.getByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.material)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.junit)
+}

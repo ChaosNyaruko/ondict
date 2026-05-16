@@ -8,7 +8,6 @@ import (
 	stdhtml "html"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/schollz/progressbar/v3"
@@ -65,7 +64,7 @@ func ActiveDefinitionTokenizer() string {
 }
 
 func vocabDBPath() string {
-	return filepath.Join(util.ConfigPath(), "vocab.db")
+	return util.VocabDB()
 }
 
 func openVocabDB() (*sql.DB, error) {

@@ -88,6 +88,26 @@ func (m *MDict) Get(word string) string {
 	return strings.Join(res, "<br/>")
 }
 
+// GetFile looks up a resource file by name in an MDD dictionary and returns
+// its raw bytes. The name should be the filename as it appears in the MDD
+// (e.g. "GB_hello0205.mp3"), without the leading backslash.
+// Returns nil if not found.
+func (m *MDict) GetFile(name string) []byte {
+	m.DumpKeys()
+	// MDD keys are stored with a leading backslash and backslash separators.
+	// Try both the raw name and the backslash-prefixed form.
+	candidates := []string{
+		"\\" + strings.ReplaceAll(name, "/", "\\"),
+		name,
+	}
+	for _, candidate := range candidates {
+		if offsets, ok := m.keymap[candidate]; ok && len(offsets) > 0 {
+			return m.ReadAtIndex(int(offsets[0]))
+		}
+	}
+	return nil
+}
+
 func (m *MDict) DumpKeys() {
 	m.once.Do(func() {
 		m.keymap = make(map[string][]uint64, m.numEntries)
