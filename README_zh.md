@@ -66,6 +66,7 @@
 - 基于[朗文在线词典](https://ldoceonline.com)的**在线**查询支持
 - 与(n)vim集成，随意在您使用的任何编辑器中使用！
 - 在离线模式下，支持MDX引擎。在线引擎可能更全面和更新，但由于首次需要进行HTTP请求，所以速度较慢。而离线模式可以在没有网络连接的情况下工作，但需要预先加载[词典文件](#离线)。
+- 当 `vocab.db` 已构建时，还可以用 SQLite FTS 在释义内容里反向搜索关键词。
 
 # 安装
 ## 从源码构建（推荐）
@@ -86,7 +87,7 @@ ondict -init
 1. 创建配置目录和文件。
 2. 下载默认的朗文当代英语词典（MDX）。
 3. 下载发音/图片数据（MDD）。
-4. 将词典转换为SQLite格式以加快启动速度（可选但推荐）。
+4. 将词典转换为SQLite格式，以加快启动速度并启用释义搜索（可选但推荐）。
 
 ## 使用Docker并在容器中作为HTTP服务器运行
 为了方便起见，推荐将容器中的配置目录被重新映射/挂载到您的主机配置目录，所有生成的内容（如查询历史）都会被转储到这个目录中。不会产生除此以外其他对主机文件系统的污染。
@@ -107,6 +108,11 @@ go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 如果你并不需要一个完整的server或词典工具，只是想解析一下MDX文件拿到里面的内容，你可以使用上述命令安装一个dumpdict工具。
 
 这个工具主要功能是解析MDX文件，并把它们记录到一个sqlite3数据库的文件中。
+
+也可以指定释义搜索索引的 tokenizer：
+```console
+dumpdict -f path/to/dict.mdx -fts-tokenizer trigram
+```
 
 可以参考[这个文件](./schema.sql)中的vocab表结构进行查看，或二次开发！
 
@@ -135,6 +141,14 @@ curl "http://localhost:1345/?query=apple&engine=mdx&format=x"
 
 如果您使用网页浏览器访问URL，建议将format设置为"html"。浏览器将自动渲染出比"CLI"界面更美观的页面。
 
+现在 HTML 首页支持两种模式：
+- Headword：直接进入词条页
+- Definition：查询 SQLite FTS 索引并浏览结果卡片
+
+HTML server 还提供独立的 Word Bank 页面：`/words`。
+你可以在词条页或释义搜索结果卡片上保存想学习的新词，然后到 `/words` 里复习、重新打开词条或移除单词。
+Word Bank 独立于普通查询历史，数据保存在 Ondict 配置目录下的 `wordbank.db` 中。
+
 您也可以将其部署在您的服务器上，作为Nginx的上游，或者直接用合适的ip/端口暴露它。
 
 您可以在本地运行`make serve`来查看简单示例。由于我的前端技能有限，页面可能比较简陋，请见谅 :(。
@@ -156,6 +170,11 @@ ondict -q <word> [-e anything]
 ondict -q <word> -e mdx
 ```
 ![Gif](./assets/e1_mdx.gif)
+
+#### 释义反向搜索（需要 SQLite 词库）：
+```console
+ondict -q "kidney problem" -search-def -e mdx
+```
 
 ### 从远程服务器进行单次查询
 ```console
@@ -184,6 +203,48 @@ ondict -i -e mdx
 
 ##### 解决方案
 使用hs.execute代替hs.task（注意shell转义），这是执行任务的"同步"方法。普通查询足够快，您不会注意到差异，会"立即"看到结果。参见[示例](https://github.com/ChaosNyaruko/dotfiles/blob/mini/hammerspoon/init.lua#L90)
+
+### 自动补全与释义搜索
+
+#### 自动补全
+Web 补全接口支持两种模式：
+
+- 前缀模式（默认）：`GET /complete?prefix=app`
+- FZF 风格模糊模式：`GET /complete?prefix=apd&mode=fzf`
+
+模糊模式在进程内实现，不再依赖外部 `fzf` 二进制。HTML 首页的搜索框在 Headword 模式下会自动调用该接口；切换到 Definition 模式时自动补全关闭。
+
+#### 释义反向搜索页
+当 `vocab.db` 已构建后，可通过以下地址访问释义搜索结果页：
+
+```
+GET /search?query=heart+attack&mode=definition&format=html
+```
+
+页面会列出匹配释义的词条卡片，每张卡片可直接跳转到词条页，也可一键保存到 Word Bank。
+
+## 配置
+`config.json` 现在可以带上释义搜索索引配置：
+
+```json
+{
+  "dicts": [
+    {
+      "name": "Longman Dictionary of Contemporary English",
+      "type": "LONGMAN/Easy"
+    }
+  ],
+  "search": {
+    "definition_index": {
+      "tokenizer": "unicode61"
+    }
+  }
+}
+```
+
+支持的 tokenizer：
+- `unicode61`：默认值，更适合英文单词/短语搜索
+- `trigram`：更适合子串风格匹配，也更适合部分 CJK 场景，但 3 个字符以下的查询能力有限
 
 ### 与FZF集成（实验性功能，仅支持MacOS）
 ```console
@@ -265,7 +326,8 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 │   ├── oald9.css
 │   ├── oald9.mddx
 │   └── oald9.mdx
-└── history.table
+├── history.table
+└── wordbank.db
 ```
 ## config.json示例
 ```json
@@ -291,5 +353,3 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 
 # 许可证
 [许可证](./LICENSE) 
-
-

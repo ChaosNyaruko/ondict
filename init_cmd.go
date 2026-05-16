@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,8 +13,6 @@ import (
 	"github.com/ChaosNyaruko/ondict/decoder"
 	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/util"
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 )
@@ -38,6 +35,11 @@ func runInit() {
 				{
 					Name: "Longman Dictionary of Contemporary English",
 					Type: "LONGMAN/Easy",
+				},
+			},
+			Search: sources.SearchConfig{
+				DefinitionIndex: sources.DefinitionIndexConfig{
+					Tokenizer: sources.DefinitionTokenizerUnicode61,
 				},
 			},
 		}
@@ -104,8 +106,30 @@ func runInit() {
 	fmt.Print("Do you want to dump the dictionary to SQLite for faster startup? (y/n): ")
 	fmt.Scanln(&answer)
 	if strings.ToLower(answer) == "y" {
+		tokenizer := sources.DefinitionTokenizerUnicode61
+		fmt.Printf("Choose definition search tokenizer (%s/%s, default %s): ", sources.DefinitionTokenizerUnicode61, sources.DefinitionTokenizerTrigram, tokenizer)
+		var tokenizerAnswer string
+		fmt.Scanln(&tokenizerAnswer)
+		switch strings.ToLower(strings.TrimSpace(tokenizerAnswer)) {
+		case "", sources.DefinitionTokenizerUnicode61:
+			tokenizer = sources.DefinitionTokenizerUnicode61
+		case sources.DefinitionTokenizerTrigram:
+			tokenizer = sources.DefinitionTokenizerTrigram
+		default:
+			log.Warnf("Unknown tokenizer %q, fallback to %s", tokenizerAnswer, tokenizer)
+		}
+
+		if cfg, err := sources.ReadConfig(); err == nil {
+			cfg.Search.DefinitionIndex.Tokenizer = tokenizer
+			if data, err := json.MarshalIndent(cfg, "", "  "); err == nil {
+				if err := os.WriteFile(configFile, data, 0644); err != nil {
+					log.Warnf("Failed to persist tokenizer choice to config: %v", err)
+				}
+			}
+		}
+
 		dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-		if err := dumpToSqlite(mdxPath, dbName, 0); err != nil {
+		if err := dumpToSqlite(mdxPath, dbName, 0, tokenizer); err != nil {
 			log.Errorf("Failed to dump to sqlite: %v", err)
 		}
 	}
@@ -173,72 +197,11 @@ func downloadFile(url, dest string) error {
 	return err
 }
 
-func dumpToSqlite(mdxPath string, dbPath string, limit int) error {
+func dumpToSqlite(mdxPath string, dbPath string, limit int, tokenizer string) error {
 	log.Infof("Dumping to %s...", dbPath)
-
-	db, err := sql.Open("sqlite3", "file:"+dbPath)
-	if err != nil {
-		return fmt.Errorf("open db err: %v", err)
-	}
-	defer db.Close()
-
-	if err := db.Ping(); err != nil {
+	if err := sources.DumpMDXFilesToSQLite(dbPath, []string{mdxPath}, limit, tokenizer); err != nil {
 		return err
 	}
-
-	_, err = db.Exec(`DROP TABLE IF EXISTS vocab;
-CREATE TABLE IF NOT EXISTS vocab(
-    word TEXT NOT NULL COLLATE NOCASE,
-    src TEXT NOT NULL DEFAULT "",
-    def TEXT NOT NULL DEFAULT ""
-)`)
-	if err != nil {
-		return fmt.Errorf("create table error: %v", err)
-	}
-
-	m := &decoder.MDict{}
-	err = m.Decode(mdxPath, false)
-	if err != nil {
-		return fmt.Errorf("failed to decode mdx file[%v], err: %v", mdxPath, err)
-	}
-	defer m.Close()
-
-	log.Infof("Decoding dict %q......", mdxPath)
-	words, err := m.DumpDict(limit)
-	if err != nil {
-		return fmt.Errorf("DumpDict %v err: %v", mdxPath, err)
-	}
-
-	log.Infof("Inserting dict to database %q.....", mdxPath)
-	// TODO: UI, this may overlap with "mdd file downloading progress bar"
-	bar := progressbar.Default(int64(len(words)), fmt.Sprintf("Inserting dict to database: %v", dbPath))
-
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
-	stmt, err := tx.Prepare("INSERT INTO vocab (word, src, def) VALUES (?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	for k, vs := range words {
-		for _, v := range vs {
-			_, err := stmt.Exec(k, mdxPath, v)
-			if err != nil {
-				log.Errorf("insert word %v, err: %v", k, err)
-				continue
-			}
-		}
-		bar.Add(1)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
 	log.Infof("Dump success!")
 	return nil
 }

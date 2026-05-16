@@ -3,10 +3,12 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -18,11 +20,30 @@ import (
 
 	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/util"
+	"github.com/ChaosNyaruko/ondict/wordbank"
 )
 
 type proxy struct {
 	e       *gin.Engine
 	timeout *time.Timer
+}
+
+type pageData struct {
+	Title      string
+	Query      string
+	Engine     string
+	SearchMode string
+	Error      string
+	EntryHTML  template.HTML
+	Results    []definitionMatchView
+	Words      []wordbank.Word
+	InWordBank bool
+}
+
+type definitionMatchView struct {
+	Word        string
+	Src         string
+	SnippetHTML template.HTML
 }
 
 func (p *proxy) Run(l net.Listener) error {
@@ -50,13 +71,134 @@ func queryWord(c *gin.Context) {
 	f, _ := c.GetQuery("format")
 	r, _ := c.GetQuery("record")
 
+	if f != "html" {
+		c.String(http.StatusOK, query(word, e, f, r != "0"))
+		return
+	}
+
+	if e == "" {
+		e = "mdx"
+	}
+	inWordBank, err := wordbank.Contains(word)
+	if err != nil {
+		log.Debugf("check word bank %q err: %v", word, err)
+	}
 	res := query(word, e, f, r != "0")
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(res))
+	c.HTML(http.StatusOK, "dict.html", pageData{
+		Title:      pageTitle(word),
+		Query:      word,
+		Engine:     e,
+		SearchMode: "headword",
+		EntryHTML:  template.HTML(res),
+		InWordBank: inWordBank,
+	})
 }
 
 func index(c *gin.Context) {
-	c.HTML(200, "portal.html", nil)
+	c.HTML(http.StatusOK, "portal.html", pageData{
+		Title:      "Ondict",
+		Engine:     "mdx",
+		SearchMode: "headword",
+	})
+}
+
+func searchHandler(c *gin.Context) {
+	queryText := strings.TrimSpace(c.Query("query"))
+	mode := strings.ToLower(strings.TrimSpace(c.DefaultQuery("mode", "headword")))
+	engine := c.DefaultQuery("engine", "mdx")
+	format := c.DefaultQuery("format", "html")
+	record := c.Query("record")
+
+	if mode == "" {
+		mode = "headword"
+	}
+	if mode == "headword" {
+		target := fmt.Sprintf("/dict?query=%s&engine=%s&format=%s&record=%s",
+			url.QueryEscape(queryText),
+			url.QueryEscape(engine),
+			url.QueryEscape(format),
+			url.QueryEscape(record),
+		)
+		if format == "html" {
+			c.Redirect(http.StatusFound, target)
+			return
+		}
+		c.String(http.StatusOK, query(queryText, engine, format, record != "0"))
+		return
+	}
+
+	if format != "html" {
+		c.String(http.StatusOK, queryDefinition(queryText, format, record != "0"))
+		return
+	}
+
+	data := pageData{
+		Title:      pageTitle(queryText),
+		Query:      queryText,
+		Engine:     engine,
+		SearchMode: "definition",
+	}
+	if record != "0" && queryText != "" {
+		if err := his.Append(queryText); err != nil {
+			log.Debugf("record definition search %q err: %v", queryText, err)
+		}
+	}
+	if queryText != "" {
+		matches, err := sources.SearchDefinitions(queryText, 20)
+		if err != nil {
+			data.Error = err.Error()
+		} else {
+			data.Results = make([]definitionMatchView, 0, len(matches))
+			for _, match := range matches {
+				data.Results = append(data.Results, definitionMatchView{
+					Word:        match.Word,
+					Src:         match.Src,
+					SnippetHTML: template.HTML(match.Snippet),
+				})
+			}
+		}
+	}
+	c.HTML(http.StatusOK, "search.html", data)
+}
+
+func wordsHandler(c *gin.Context) {
+	words, err := wordbank.List()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("list word bank: %v", err))
+		return
+	}
+	c.HTML(http.StatusOK, "words.html", pageData{
+		Title:      "Word Bank - Ondict",
+		Engine:     "mdx",
+		SearchMode: "headword",
+		Words:      words,
+	})
+}
+
+func addWordHandler(c *gin.Context) {
+	word := c.PostForm("word")
+	if err := wordbank.Add(word); err != nil {
+		if errors.Is(err, wordbank.ErrEmptyWord) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, "word is empty")
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("add word: %v", err))
+		return
+	}
+	c.Redirect(http.StatusSeeOther, safeNext(c.PostForm("next")))
+}
+
+func removeWordHandler(c *gin.Context) {
+	word := c.PostForm("word")
+	if err := wordbank.Remove(word); err != nil {
+		if errors.Is(err, wordbank.ErrEmptyWord) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, "word is empty")
+			return
+		}
+		c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("remove word: %v", err))
+		return
+	}
+	c.Redirect(http.StatusSeeOther, safeNext(c.PostForm("next")))
 }
 
 //go:embed templates/*
@@ -79,6 +221,10 @@ func NewProxy() *proxy {
 	r.GET("/", index)
 	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 	r.GET("/dict", queryWord)
+	r.GET("/search", searchHandler)
+	r.GET("/words", wordsHandler)
+	r.POST("/words/add", addWordHandler)
+	r.POST("/words/remove", removeWordHandler)
 	r.GET("/review", review)
 	r.GET("/complete", completeHandler)
 	return &proxy{
@@ -118,26 +264,8 @@ func completeHandler(c *gin.Context) {
 		c.String(200, "prefix empty")
 		return
 	}
-
-	var suggestions []string
-	if len(*sources.G) == 1 && (*sources.G)[0].MdxFile == "vocab.db" { // TODO: bad code...
-		suggestions = (*sources.G)[0].MdxDict.(*sources.DBDict).WordsWithPrefix(prefix)
-	} else {
-		var words []string
-		for _, g := range *sources.G {
-			words = append(words, g.MdxDict.Keys()...)
-		}
-
-		var suggestions []string
-		for _, word := range words {
-			if strings.HasPrefix(strings.ToLower(word), strings.ToLower(prefix)) {
-				suggestions = append(suggestions, word)
-				if len(suggestions) >= 10 {
-					break
-				}
-			}
-		}
-	}
+	mode := sources.ParseCompletionMode(c.DefaultQuery("mode", "prefix"))
+	suggestions := sources.Complete(prefix, mode, 10)
 
 	res, err := json.Marshal(suggestions)
 	if err != nil {
@@ -145,4 +273,19 @@ func completeHandler(c *gin.Context) {
 		return
 	}
 	c.Data(200, "application/json", res)
+}
+
+func pageTitle(query string) string {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return "Ondict"
+	}
+	return query + " - Ondict"
+}
+
+func safeNext(next string) string {
+	if strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+		return next
+	}
+	return "/words"
 }

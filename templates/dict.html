@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <style>
+        :root {
+            --bg: #f3efe6;
+            --bg-accent: #e0d3b8;
+            --surface: rgba(255, 251, 243, 0.92);
+            --surface-strong: #fffdf8;
+            --text: #2e241c;
+            --muted: #746454;
+            --border: rgba(97, 74, 45, 0.18);
+            --accent: #9a3412;
+            --accent-strong: #7c2d12;
+            --accent-soft: rgba(154, 52, 18, 0.12);
+            --shadow: 0 24px 60px rgba(79, 56, 31, 0.16);
+        }
+
+        [data-theme="dark"] {
+            --bg: #1a1714;
+            --bg-accent: #30271f;
+            --surface: rgba(35, 31, 27, 0.94);
+            --surface-strong: #231f1b;
+            --text: #f4ede2;
+            --muted: #baa892;
+            --border: rgba(255, 241, 221, 0.12);
+            --accent: #fb923c;
+            --accent-strong: #fdba74;
+            --accent-soft: rgba(251, 146, 60, 0.14);
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, var(--bg-accent), transparent 38%),
+                linear-gradient(180deg, var(--bg), #f8f3ea 60%, #efe6d8 100%);
+            font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+        }
+        .page { max-width: 1180px; margin: 0 auto; padding: 24px; }
+        .shell {
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .masthead, .searchbar, .entry-wrap, footer { padding-left: 24px; padding-right: 24px; }
+        .masthead {
+            display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 20px; padding-bottom: 14px;
+        }
+        .brand { color: var(--text); text-decoration: none; }
+        .brand span {
+            display: block; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.78rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+        }
+        .brand strong { font-size: 2rem; }
+        .masthead-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .nav-link,
+        .theme-toggle {
+            border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); padding: 10px 14px; border-radius: 999px; cursor: pointer; font: inherit;
+        }
+        .nav-link { text-decoration: none; font-family: ui-sans-serif, system-ui, sans-serif; }
+        .searchbar { padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+        .search-form { display: grid; gap: 14px; }
+        .top-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .mode-switch { display: inline-flex; gap: 8px; padding: 6px; background: var(--accent-soft); border-radius: 999px; width: fit-content; }
+        .mode-switch input { position: absolute; opacity: 0; pointer-events: none; }
+        .mode-pill {
+            display: inline-flex; align-items: center; padding: 10px 14px; border-radius: 999px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem; color: var(--muted);
+        }
+        .mode-switch input:checked + .mode-pill {
+            background: var(--surface-strong); color: var(--text); box-shadow: inset 0 0 0 1px var(--border);
+        }
+        .query-wrap { position: relative; flex: 1; min-width: 260px; }
+        input[type="text"] {
+            width: 100%; border: 1px solid var(--border); border-radius: 16px; background: transparent; color: var(--text); padding: 15px 16px; font-size: 1rem; font-family: ui-sans-serif, system-ui, sans-serif;
+        }
+        .submit {
+            border: none; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #fff; padding: 14px 22px; font-size: 1rem; font-family: ui-sans-serif, system-ui, sans-serif; cursor: pointer;
+        }
+        .suggestions {
+            list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-strong); max-height: 220px; overflow-y: auto; position: absolute; left: 0; right: 0; z-index: 10;
+        }
+        .suggestions li { padding: 12px 14px; cursor: pointer; font-family: ui-sans-serif, system-ui, sans-serif; }
+        .suggestions li:hover, .suggestions li[aria-selected="true"] { background: var(--accent-soft); }
+        .entry-wrap { padding-top: 24px; padding-bottom: 28px; }
+        .entry-title-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+        .entry-header h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); }
+        .entry-header p {
+            margin: 0 0 22px; color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif;
+        }
+        .wordbank-form { margin: 0; }
+        .secondary {
+            border: 1px solid var(--border); border-radius: 999px; background: var(--accent-soft); color: var(--text); padding: 12px 16px; font-family: ui-sans-serif, system-ui, sans-serif; cursor: pointer;
+        }
+        .secondary[disabled] { cursor: default; opacity: 0.72; }
+        .entry-card {
+            background: var(--surface-strong);
+            border: 1px solid var(--border);
+            border-radius: 26px;
+            padding: clamp(18px, 3vw, 34px);
+            overflow-x: auto;
+        }
+        .entry-card img { max-width: 100%; height: auto; }
+        .entry-card audio { width: 100%; margin: 12px 0; }
+        .entry-card table { max-width: 100%; }
+        footer { padding-top: 0; padding-bottom: 24px; font-family: ui-sans-serif, system-ui, sans-serif; color: var(--muted); }
+        footer a { color: inherit; }
+        @media (max-width: 640px) {
+            .page { padding: 14px; }
+            .masthead, .searchbar, .entry-wrap, footer { padding-left: 18px; padding-right: 18px; }
+            .submit { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="shell">
+            <header class="masthead">
+                <a class="brand" href="/">
+                    <span>Dictionary Workbench</span>
+                    <strong>Ondict</strong>
+                </a>
+                <div class="masthead-actions">
+                    <a class="nav-link" href="/words">Word Bank</a>
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Theme</button>
+                </div>
+            </header>
+
+            <section class="searchbar">
+                <form class="search-form" id="searchForm" action="/search" method="get">
+                    <div class="top-row">
+                        <div class="mode-switch" role="radiogroup" aria-label="Search mode">
+                            <label>
+                                <input type="radio" name="mode" value="headword" checked>
+                                <span class="mode-pill">Headword</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="mode" value="definition">
+                                <span class="mode-pill">Definition</span>
+                            </label>
+                        </div>
+                        <div class="query-wrap" id="queryGroup">
+                            <input
+                                type="text"
+                                id="query"
+                                name="query"
+                                value="{{.Query}}"
+                                placeholder="Search for another entry..."
+                                autocomplete="off"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-expanded="false"
+                                aria-controls="suggestionsList"
+                                aria-activedescendant=""
+                                required
+                            >
+                            <ul id="suggestionsList" class="suggestions" role="listbox" aria-label="Suggestions"></ul>
+                        </div>
+                        <button class="submit" type="submit">Search</button>
+                    </div>
+                    <input type="hidden" name="engine" value="{{if .Engine}}{{.Engine}}{{else}}mdx{{end}}">
+                    <input type="hidden" name="format" value="html">
+                    <input type="hidden" name="record" value="1">
+                </form>
+            </section>
+
+            <section class="entry-wrap">
+                <div class="entry-header">
+                    <div class="entry-title-row">
+                        <h1>{{.Query}}</h1>
+                        {{if .Query}}
+                        <form class="wordbank-form" action="/words/add" method="post">
+                            <input type="hidden" name="word" value="{{.Query}}">
+                            <input type="hidden" name="next" value="/dict?query={{.Query | urlquery}}&engine={{.Engine | urlquery}}&format=html">
+                            <button class="secondary" type="submit" {{if .InWordBank}}disabled{{end}}>
+                                {{if .InWordBank}}In Word Bank{{else}}Add to Word Bank{{end}}
+                            </button>
+                        </form>
+                        {{end}}
+                    </div>
+                    <p>Dictionary entry view. Switch to definition mode above when you know the meaning but not the word.</p>
+                </div>
+                <article class="entry-card">
+                    {{.EntryHTML}}
+                </article>
+            </section>
+
+            <footer>
+                Ondict is open source. <a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a>
+            </footer>
+        </div>
+    </div>
+    <script>
+        const html = document.documentElement;
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) html.setAttribute('data-theme', savedTheme);
+        const themeToggle = document.getElementById('themeToggle');
+        function currentThemeIsDark() {
+            const explicit = html.getAttribute('data-theme');
+            if (explicit === 'dark') return true;
+            if (explicit === 'light') return false;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        function applyTheme(dark) {
+            html.setAttribute('data-theme', dark ? 'dark' : 'light');
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            themeToggle.textContent = dark ? 'Light' : 'Dark';
+        }
+        applyTheme(currentThemeIsDark());
+        themeToggle.addEventListener('click', () => applyTheme(!currentThemeIsDark()));
+
+        const searchForm = document.getElementById('searchForm');
+        const queryInput = document.getElementById('query');
+        const queryGroup = document.getElementById('queryGroup');
+        const suggestionsList = document.getElementById('suggestionsList');
+        const modeInputs = Array.from(document.querySelectorAll('input[name="mode"]'));
+        let activeIndex = -1;
+        function currentMode() {
+            const checked = modeInputs.find((input) => input.checked);
+            return checked ? checked.value : 'headword';
+        }
+        function closeSuggestions() {
+            suggestionsList.innerHTML = '';
+            activeIndex = -1;
+            queryInput.setAttribute('aria-expanded', 'false');
+            queryInput.setAttribute('aria-activedescendant', '');
+        }
+        function updateActiveSuggestion(items) {
+            items.forEach((item, index) => item.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false'));
+            queryInput.setAttribute('aria-activedescendant', activeIndex >= 0 && activeIndex < items.length ? items[activeIndex].id : '');
+        }
+        function debounce(fn, delay) {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn(...args), delay);
+            };
+        }
+        modeInputs.forEach((input) => input.addEventListener('change', closeSuggestions));
+        queryInput.addEventListener('input', debounce(async (event) => {
+            const prefix = event.target.value.trim();
+            closeSuggestions();
+            if (currentMode() !== 'headword' || prefix.length < 2) return;
+            try {
+                const response = await fetch(`/complete?prefix=${encodeURIComponent(prefix)}&mode=fzf`);
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const suggestions = await response.json();
+                if (!suggestions || suggestions.length === 0) return;
+                queryInput.setAttribute('aria-expanded', 'true');
+                suggestions.forEach((word, index) => {
+                    const li = document.createElement('li');
+                    li.id = `suggestion-${index}`;
+                    li.role = 'option';
+                    li.textContent = word;
+                    li.addEventListener('click', () => {
+                        queryInput.value = word;
+                        closeSuggestions();
+                        searchForm.submit();
+                    });
+                    suggestionsList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('autocomplete error', error);
+            }
+        }, 220));
+        queryInput.addEventListener('keydown', (event) => {
+            if (currentMode() !== 'headword') return;
+            const items = suggestionsList.querySelectorAll('li');
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                updateActiveSuggestion(items);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, 0);
+                updateActiveSuggestion(items);
+            } else if (event.key === 'Escape') {
+                closeSuggestions();
+            } else if (event.key === 'Enter' && activeIndex >= 0 && activeIndex < items.length) {
+                event.preventDefault();
+                queryInput.value = items[activeIndex].textContent;
+                closeSuggestions();
+                searchForm.submit();
+            }
+        });
+        document.addEventListener('click', (event) => {
+            if (!queryGroup.contains(event.target)) closeSuggestions();
+        });
+    </script>
+</body>
+</html>

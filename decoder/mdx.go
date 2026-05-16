@@ -95,7 +95,10 @@ func (m *MDict) DumpKeys() {
 			log.Warnf("dumpKeys: num entries number does not match: keys have[%d], numEntries:%v",
 				len(m.keys), m.numEntries)
 		}
-		bar := progressbar.Default(int64(m.numEntries), fmt.Sprintf("dumping keys for %v(%v)", m.header.Title, m.t))
+		bar := progressbar.NewOptions(int(m.numEntries),
+			progressbar.OptionSetWriter(os.Stderr),
+			progressbar.OptionSetDescription(fmt.Sprintf("dumping keys for %v(%v)", m.header.Title, m.t)),
+		)
 		for i, k := range m.keys {
 			key := m.decodeString(k.key)
 			_ = bar.Add(1)
@@ -333,7 +336,10 @@ func (m *MDict) DumpDict(limit int) (map[string][]string, error) {
 	}
 	res := make(map[string][]string, numEntries)
 	total := 0
-	bar := progressbar.Default(int64(len(m.keys)), fmt.Sprintf("Dumping dict: %v", m.header.Title))
+	bar := progressbar.NewOptions(len(m.keys),
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionSetDescription(fmt.Sprintf("Dumping dict: %v", m.header.Title)),
+	)
 	for i, k := range m.keys {
 		if limit > 0 && total >= limit {
 			break
@@ -657,7 +663,10 @@ func (m *MDict) DumpData() error {
 	if m.t != ".mdd" {
 		return fmt.Errorf("The dict should be the MDD file, not %v", m.t)
 	}
-	bar := progressbar.Default(int64(m.numEntries), fmt.Sprintf("dumping mdd entries [%s%s]", m.header.Title, m.t))
+	bar := progressbar.NewOptions(m.numEntries,
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionSetDescription(fmt.Sprintf("dumping mdd entries [%s%s]", m.header.Title, m.t)),
+	)
 	start := time.Now()
 	defer func() {
 		log.Debugf("dump data cost: %v", time.Since(start))

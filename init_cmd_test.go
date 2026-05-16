@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ChaosNyaruko/ondict/sources"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 	"github.com/stretchr/testify/assert"
@@ -60,7 +61,7 @@ func TestDumpToSqlite(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_vocab.db")
 
-	err := dumpToSqlite(mdxPath, dbPath, 100)
+	err := dumpToSqlite(mdxPath, dbPath, 100, sources.DefinitionTokenizerUnicode61)
 	assert.NoError(t, err)
 
 	// Verify database content
@@ -73,4 +74,9 @@ func TestDumpToSqlite(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, count, 0, "Database should contain some records")
 	assert.LessOrEqual(t, count, 100, "Database should contain limited records")
+
+	var defTextCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM vocab WHERE def_text <> ''").Scan(&defTextCount)
+	assert.NoError(t, err)
+	assert.Equal(t, count, defTextCount, "Database rows should include precomputed searchable text")
 }

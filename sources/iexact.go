@@ -1,7 +1,7 @@
 package sources
 
 import (
-	"fmt"
+	"os"
 	"strings"
 
 	"github.com/jwangsadinata/go-multimap"
@@ -20,7 +20,10 @@ var _ Searcher = &IExact{}
 func NewIExact(dict Dict) Searcher {
 	keys := slicemultimap.New()
 	total := len(dict.Keys())
-	bar := progressbar.Default(int64(total), fmt.Sprintf("constructing iexact searcher"))
+	bar := progressbar.NewOptions(total,
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionSetDescription("constructing iexact searcher"),
+	)
 
 	for _, k := range dict.Keys() {
 		lk := strings.ToLower(k)

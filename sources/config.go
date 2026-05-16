@@ -17,19 +17,54 @@ type DictConfig struct {
 	Type string `json:"type"`
 }
 
-type Config struct {
-	Dicts []DictConfig `json:"dicts"`
+type DefinitionIndexConfig struct {
+	Tokenizer string `json:"tokenizer"`
 }
 
-func LoadConfig() error {
+type SearchConfig struct {
+	DefinitionIndex DefinitionIndexConfig `json:"definition_index"`
+}
+
+type Config struct {
+	Dicts  []DictConfig `json:"dicts"`
+	Search SearchConfig `json:"search"`
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Dicts: nil,
+		Search: SearchConfig{
+			DefinitionIndex: DefinitionIndexConfig{
+				Tokenizer: "unicode61",
+			},
+		},
+	}
+}
+
+func normalizeConfig(c *Config) {
+	if c.Search.DefinitionIndex.Tokenizer == "" {
+		c.Search.DefinitionIndex.Tokenizer = "unicode61"
+	}
+}
+
+func ReadConfig() (Config, error) {
 	data, err := os.ReadFile(filepath.Join(util.ConfigPath(), "config.json"))
 	if err != nil && errors.Is(err, os.ErrNotExist) {
 		log.Debugf("load config file err: %v, default settings are used.", err)
-		return err
+		return DefaultConfig(), err
 	}
-	c := Config{}
+	c := DefaultConfig()
 	if err := json.Unmarshal(data, &c); err != nil {
 		log.Errorf("bad json unmarshal: %v, default settings are used.", err)
+		return c, err
+	}
+	normalizeConfig(&c)
+	return c, nil
+}
+
+func LoadConfig() error {
+	c, err := ReadConfig()
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if len(c.Dicts) == 0 {

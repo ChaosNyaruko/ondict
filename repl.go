@@ -28,6 +28,7 @@ func displayHelp() {
 		cliName,
 	)
 	fmt.Println("word     - Query word online")
+	fmt.Println(".search  - Search keywords inside definitions")
 	fmt.Println(".help    - Show available commands")
 	fmt.Println(".store   - Store the history to a JSON file")
 	fmt.Println(".restore - Restore the history from a JSON file")
@@ -79,6 +80,8 @@ func startLoop() {
 		} else if strings.EqualFold(".exit", text) {
 			// Close the program on the exit command
 			return
+		} else if strings.HasPrefix(strings.ToLower(text), ".search ") {
+			fmt.Println(queryDefinition(strings.TrimSpace(text[len(".search "):]), *renderFormat, true))
 		} else if strings.HasPrefix(text, ".") {
 			// Pass the command to the parser
 			handleCmd(text)

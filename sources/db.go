@@ -1,8 +1,7 @@
 package sources
 
 import (
-	"database/sql"
-	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -20,8 +19,7 @@ func NewDBIExact() Searcher {
 }
 
 func (e *DBIExact) GetRawOutputs(input string) []RawOutput {
-	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-	db, err := sql.Open("sqlite3", "file:"+dbName)
+	db, err := openVocabDB()
 	if err != nil {
 		log.Errorf("open db err: %v", err)
 		return nil
@@ -31,7 +29,7 @@ func (e *DBIExact) GetRawOutputs(input string) []RawOutput {
 
 	// NOTE: we don't very care about the security problem here.
 	// And based on this doc https://go.dev/doc/database/sql-injection, there will not be sql injection problem.
-	rows, err := db.Query("SELECT * FROM vocab WHERE word = ?", input)
+	rows, err := db.Query("SELECT word, src, def FROM vocab WHERE word = ?", input)
 	if err != nil {
 		log.Errorf("select from vocab error: %v", err)
 		return nil
@@ -54,8 +52,7 @@ type DBDict struct {
 
 func (d *DBDict) Keys() []string {
 	// basically called by fzf filter
-	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-	db, err := sql.Open("sqlite3", "file:"+dbName)
+	db, err := openVocabDB()
 	if err != nil {
 		log.Errorf("open db err: %v", err)
 		return nil
@@ -88,8 +85,7 @@ func (d *DBDict) Get(s string) string {
 
 func (d *DBDict) WordsWithPrefix(prefix string) []string {
 	// TODO: very slow if the db is large.
-	dbName := filepath.Join(util.ConfigPath(), "vocab.db")
-	db, err := sql.Open("sqlite3", "file:"+dbName)
+	db, err := openVocabDB()
 	if err != nil {
 		log.Errorf("open db err: %v", err)
 		return nil
@@ -100,19 +96,25 @@ func (d *DBDict) WordsWithPrefix(prefix string) []string {
 
 	// NOTE: we don't very care about the security problem here.
 	// And based on this doc https://go.dev/doc/database/sql-injection, there will not be sql injection problem.
-	rows, err := db.Query("SELECT word FROM vocab WHERE word LIKE ?", pattern)
+	rows, err := db.Query("SELECT word FROM vocab WHERE word LIKE ? ORDER BY word", pattern)
 	if err != nil {
 		log.Errorf("select %q from vocab error: %v", prefix, err)
 		return nil
 	}
 	defer rows.Close()
 	var res []string
+	seen := make(map[string]struct{})
 	for rows.Next() {
 		var ro output
 		if err := rows.Scan(&ro.rawWord); err != nil {
 			log.Errorf("scan row for %q err: %v", prefix, err)
 			return res
 		}
+		lword := strings.ToLower(ro.rawWord)
+		if _, ok := seen[lword]; ok {
+			continue
+		}
+		seen[lword] = struct{}{}
 		res = append(res, ro.rawWord)
 	}
 	return res

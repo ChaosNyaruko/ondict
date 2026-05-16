@@ -29,10 +29,10 @@ func QueryByURL(word string) string {
 		queryURL,
 		http.NoBody,
 	)
-	req.Close = true
 	if err != nil {
 		log.Fatal(err)
 	}
+	req.Close = true
 
 	req.Header.Set("Accept-Encoding", "identity") // NOTE THIS LINE
 	req.Header.Set("User-Agent", "Firefox")
@@ -68,14 +68,11 @@ func Restore() {
 		log.Debugf("open file history err: %v", err)
 		return
 	}
-	if err != nil {
-		log.Fatal(err)
+	if err := json.Unmarshal(data, &history); err != nil {
+		log.Errorf("failed to unmarshal history from %v: %v", historyFile, err)
+		return
 	}
-	err = json.Unmarshal(data, &history)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("history: %v", history)
+	log.Debugf("history: %v", history)
 }
 
 func Store() {
