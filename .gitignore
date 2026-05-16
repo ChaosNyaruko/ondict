@@ -23,4 +23,6 @@ android/app/libs/mobile.aar
 android/app/libs/mobile-sources.jar
 android/*.jks
 android/*.keystore
+*.jks
+*.keystore
 

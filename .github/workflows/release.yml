@@ -59,6 +59,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    env:
+      ANDROID_NDK_VERSION: 30.0.14904198
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,26 +71,29 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # AGP 9.x requires JDK 21+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android NDK
+      - name: Install Android NDK and platform
         run: |
-          sdkmanager "ndk;$(ls $ANDROID_SDK_ROOT/ndk 2>/dev/null | sort -V | tail -1 || echo '30.0.14904198')" \
-            "platforms;android-36" || \
-          sdkmanager "ndk-bundle" "platforms;android-36"
+          sdkmanager "ndk;${ANDROID_NDK_VERSION}" "platforms;android-36"
 
       - name: Install gomobile
         run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          go install golang.org/x/mobile/cmd/gobind@latest
-          gomobile init
+          # Build from source so the binary matches the installed Go toolchain
+          git clone https://go.googlesource.com/mobile /tmp/mobile
+          cd /tmp/mobile
+          go install ./cmd/gomobile ./cmd/gobind
+          ANDROID_HOME=$ANDROID_SDK_ROOT \
+            ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${ANDROID_NDK_VERSION} \
+            gomobile init
 
       - name: Decode keystore
         env:
@@ -98,11 +103,12 @@ jobs:
 
       - name: Build release APK
         env:
-          KEYSTORE_PATH:     android/ondict-release.jks
+          KEYSTORE_PATH: ${{ github.workspace }}/android/ondict-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS:         ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD:      ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_HOME:      ${{ env.ANDROID_SDK_ROOT }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.ANDROID_NDK_VERSION }}
         run: |
           cd android
           ./gradlew assembleRelease
