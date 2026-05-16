@@ -37,6 +37,17 @@ func DictsPath() string {
 	return filepath.Join(ConfigPath(), "dicts")
 }
 
+// VocabDB returns the path to vocab.db.
+// On mobile (where SetPaths is called) this lands in cacheDir (evictable) since
+// vocab.db is a derived cache rebuilt automatically from the MDX source files.
+// On desktop it lives alongside the other config files under ~/.config/ondict.
+func VocabDB() string {
+	if overrideTmpPath != "" {
+		return filepath.Join(TmpDir(), "vocab.db")
+	}
+	return filepath.Join(ConfigPath(), "vocab.db")
+}
+
 func ConfigPath() string {
 	if overrideConfigPath != "" {
 		if err := os.MkdirAll(overrideConfigPath, 0o755); err != nil {

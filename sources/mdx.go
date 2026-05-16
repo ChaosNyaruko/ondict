@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -49,10 +50,10 @@ var once sync.Once
 
 func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
-		// try db first, reduce mem usage.
-		// TODO: refactor the code
-		dbPath := filepath.Join(util.ConfigPath(), "vocab.db")
-		if _, err := os.Stat(dbPath); err == nil {
+		t0 := time.Now()
+		// Use the SQLite vocab.db when it was fully written on a previous run.
+		dbPath := util.VocabDB()
+		if IsDumpComplete(dbPath) {
 			d := &MdxDict{
 				Type:     render.LongmanEasy, // TODO: may need some other abstractions
 				MdxFile:  "vocab.db",
@@ -60,9 +61,15 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 				searcher: nil,
 			}
 			if d.registerDictDB() == nil {
-				log.Infof("db loaded")
+				log.Infof("[timing] vocab.db loaded in %v — skipping MDX decode", time.Since(t0))
 				return
 			}
+			log.Warnf("vocab.db exists but registerDictDB failed; falling back to MDX")
+		} else if _, err := os.Stat(dbPath); err == nil {
+			// Partial/corrupt db from a previous crashed dump — remove it so we
+			// start fresh and re-trigger the background dump below.
+			log.Warnf("vocab.db is incomplete, removing and rebuilding")
+			_ = os.Remove(dbPath)
 		}
 
 		if err := LoadConfig(); err != nil {
@@ -72,7 +79,34 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 		for _, d := range *g {
 			d.Register(fzf, mdd, lazy)
 		}
-		log.Debugf("loading g")
+		log.Infof("[timing] MDX Register took %v", time.Since(t0))
+
+		// Background: dump all MDX files to vocab.db so the next launch is faster.
+		go func() {
+			c, err := ReadConfig()
+			if err != nil {
+				log.Warnf("auto-dump: could not read config: %v", err)
+				return
+			}
+			var mdxPaths []string
+			for _, dc := range c.Dicts {
+				if dc.Enabled != nil && !*dc.Enabled {
+					continue
+				}
+				mdxPaths = append(mdxPaths, filepath.Join(util.DictsPath(), dc.Name+".mdx"))
+			}
+			if len(mdxPaths) == 0 {
+				return
+			}
+			log.Infof("auto-dump: starting background MDX→SQLite dump for %d dict(s)", len(mdxPaths))
+			tDump := time.Now()
+			if err := DumpMDXFilesToSQLite(dbPath, mdxPaths, 0, c.Search.DefinitionIndex.Tokenizer); err != nil {
+				log.Errorf("auto-dump: failed: %v", err)
+				_ = os.Remove(dbPath) // don't leave a broken db
+				return
+			}
+			log.Infof("auto-dump: vocab.db ready in %v — next launch will use SQLite", time.Since(tDump))
+		}()
 	})
 	log.Infof("stuck at Load")
 	return nil

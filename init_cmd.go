@@ -128,7 +128,7 @@ func runInit() {
 			}
 		}
 
-		dbName := filepath.Join(util.ConfigPath(), "vocab.db")
+		dbName := util.VocabDB()
 		if err := dumpToSqlite(mdxPath, dbName, 0, tokenizer); err != nil {
 			log.Errorf("Failed to dump to sqlite: %v", err)
 		}

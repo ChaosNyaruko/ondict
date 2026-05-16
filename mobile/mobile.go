@@ -4,9 +4,11 @@ package mobile
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -27,17 +29,21 @@ import (
 //
 // This function blocks; call it in a goroutine from the Android Activity.
 func StartServer(configDir, cacheDir string, port int) {
-	// Redirect logs to a file in cacheDir so we can inspect them on device
+	t0 := time.Now()
+
+	// Write logs to both a file (persistent) and stderr (visible in adb logcat).
 	logFile, err := os.OpenFile(
 		filepath.Join(cacheDir, "ondict.log"),
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666,
 	)
 	if err == nil {
-		log.SetOutput(logFile)
+		log.SetOutput(io.MultiWriter(logFile, os.Stderr))
+	} else {
+		log.SetOutput(os.Stderr)
 	}
 	log.SetLevel(log.DebugLevel)
 
-	// Catch any panic so the goroutine doesn't silently die
+	// Catch any panic so the goroutine doesn't silently die.
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("StartServer panic: %v", r)
@@ -48,8 +54,10 @@ func StartServer(configDir, cacheDir string, port int) {
 	log.Infof("StartServer: configDir=%s cacheDir=%s port=%d", configDir, cacheDir, port)
 
 	gin.SetMode(gin.ReleaseMode)
-	// dumpMDD=false: use on-demand MDD extraction via MddFileHandler instead
+	// dumpMDD=false: use on-demand MDD extraction via MddFileHandler instead.
+	tLoad := time.Now()
 	sources.G.Load(true /* iexact */, false /* dumpMDD */, true /* lazy */)
+	log.Infof("[timing] G.Load took %v", time.Since(tLoad))
 
 	r := httpserver.New(httpserver.Options{
 		History:         nil,   // no history recording on mobile
@@ -62,6 +70,7 @@ func StartServer(configDir, cacheDir string, port int) {
 	if err != nil {
 		log.Fatalf("mobile: listen %s: %v", addr, err)
 	}
+	log.Infof("[timing] server ready in %v (from StartServer entry)", time.Since(t0))
 	log.Infof("mobile: ondict server listening on %s", addr)
 	if err := r.RunListener(l); err != nil {
 		log.Fatalf("mobile: server exited: %v", err)

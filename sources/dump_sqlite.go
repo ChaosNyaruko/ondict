@@ -11,6 +11,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const dumpStatusKey = "dump_status"
+
+// IsDumpComplete returns true only when vocab.db exists and was fully written.
+func IsDumpComplete(dbPath string) bool {
+	db, err := sql.Open("sqlite3", "file:"+dbPath+"?mode=ro")
+	if err != nil {
+		return false
+	}
+	defer db.Close()
+	var val string
+	err = db.QueryRow(`SELECT value FROM search_meta WHERE key = ?`, dumpStatusKey).Scan(&val)
+	return err == nil && val == "done"
+}
+
 func DumpMDXFilesToSQLite(dbPath string, mdxPaths []string, limit int, tokenizer string) error {
 	db, err := sql.Open("sqlite3", "file:"+dbPath)
 	if err != nil {
@@ -24,6 +38,10 @@ func DumpMDXFilesToSQLite(dbPath string, mdxPaths []string, limit int, tokenizer
 	if err := resetVocabTable(db); err != nil {
 		return err
 	}
+	// Mark in-progress so a crash leaves the db in a detectable incomplete state.
+	if err := setDumpStatus(db, "in_progress"); err != nil {
+		return err
+	}
 	for _, mdxPath := range mdxPaths {
 		if err := dumpSingleMDXToSQLite(db, mdxPath, limit); err != nil {
 			return err
@@ -32,7 +50,24 @@ func DumpMDXFilesToSQLite(dbPath string, mdxPaths []string, limit int, tokenizer
 	if err := BuildDefinitionSearchIndex(db, tokenizer); err != nil {
 		return fmt.Errorf("build definition search index: %v", err)
 	}
+	// Only mark done after everything (including FTS index) succeeded.
+	if err := setDumpStatus(db, "done"); err != nil {
+		return err
+	}
 	return nil
+}
+
+func setDumpStatus(db *sql.DB, status string) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS search_meta(
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL
+	)`)
+	if err != nil {
+		return fmt.Errorf("ensure search_meta: %w", err)
+	}
+	_, err = db.Exec(`INSERT INTO search_meta(key, value) VALUES(?, ?)
+		ON CONFLICT(key) DO UPDATE SET value=excluded.value`, dumpStatusKey, status)
+	return err
 }
 
 func resetVocabTable(db *sql.DB) error {
