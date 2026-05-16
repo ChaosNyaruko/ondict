@@ -144,7 +144,7 @@
                     <article class="word-card">
                         <div>
                             <h2><a href="/dict?query={{.Name | urlquery}}&engine=mdx&format=html">{{.Name}}</a></h2>
-                            <p class="word-meta">Added {{.CreateTime}} · Updated {{.UpdateTime}}</p>
+                            <p class="word-meta">Added <time datetime="{{.CreateTime}}">{{.CreateTime}}</time> · Updated <time datetime="{{.UpdateTime}}">{{.UpdateTime}}</time></p>
                         </div>
                         <div class="actions">
                             <a class="secondary" href="/dict?query={{.Name | urlquery}}&engine=mdx&format=html">Open entry</a>
@@ -188,6 +188,17 @@
         }
         applyTheme(currentThemeIsDark());
         themeToggle.addEventListener('click', () => applyTheme(!currentThemeIsDark()));
+
+        // Format word-bank timestamps in the user's local timezone.
+        document.querySelectorAll('.word-meta time[datetime]').forEach(el => {
+            const d = new Date(el.getAttribute('datetime'));
+            if (!isNaN(d)) {
+                el.textContent = new Intl.DateTimeFormat(undefined, {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                }).format(d);
+            }
+        });
     </script>
 </body>
 </html>
