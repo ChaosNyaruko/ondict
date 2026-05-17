@@ -20,6 +20,10 @@ import (
 var Gbold = "**"
 var Gitalic = "*"
 
+// allCss holds the concatenation of every *.css file found in DictsPath(),
+// loaded once during G.Load(). Injected as a single <style> block per entry.
+var allCss string
+
 // OnMDDDumped is an optional callback invoked after MDD resources are
 // successfully extracted. Set this before calling G.Load() to write a
 // marker file on mobile so the dump is skipped on subsequent launches.
@@ -47,6 +51,19 @@ type Dicts []*MdxDict
 
 var G = &Dicts{}
 var once sync.Once
+
+// initAllCss loads every *.css file present in DictsPath() and stores the
+// concatenated result in allCss. Safe to call from both load paths.
+func initAllCss() {
+	css, err := loadAllCss()
+	if err != nil {
+		log.Warnf("loading css files: %v", err)
+	}
+	allCss = css
+	if allCss != "" {
+		log.Infof("loaded %d bytes of CSS from dicts/", len(allCss))
+	}
+}
 
 func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 	once.Do(func() {
@@ -83,6 +100,7 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 			}
 			if d.registerDictDB() == nil {
 				log.Infof("[timing] vocab.db loaded in %v — skipping MDX decode", time.Since(t0))
+				initAllCss()
 				// Still need to load MDD files for on-demand audio/image serving.
 				loadMDDFiles()
 				return
@@ -98,6 +116,7 @@ func (g *Dicts) Load(fzf bool, mdd bool, lazy bool) error {
 		if err := LoadConfig(); err != nil {
 			log.Fatalf("load config err: %v", err)
 		}
+		initAllCss()
 		log.Infof("stuck at Register")
 		for _, d := range *g {
 			d.Register(fzf, mdd, lazy)
@@ -188,37 +207,48 @@ func copyFile(src, dst string) error {
 
 func QueryMDX(word string, f string) string {
 	type mdxResult struct {
-		defs []string
-		t    string // SourceType
+		raw RawOutput
+		t   string // SourceType
 	}
 	var defs []mdxResult
 	for _, dict := range *G {
-		defs = append(defs, mdxResult{dict.Get(word), dict.Type})
-		log.Debugf("def of %q, %v: %q", dict.MdxFile, defs, word)
+		for _, ro := range dict.getBest(word) {
+			defs = append(defs, mdxResult{ro, dict.Type})
+		}
+		log.Debugf("def of %q from %q", word, dict.MdxFile)
 	}
+
 	// TODO: put the render abstraction here?
 	if f == "html" { // f for format
+		var style string
+		if allCss != "" {
+			style = fmt.Sprintf("<style>%s</style>", allCss)
+		}
 		var res []string
-		for _, dict := range defs {
-			for _, def := range dict.defs {
-				h := render.HTMLRender{Raw: def, SourceType: dict.t}
-				rs := fmt.Sprintf("<div>%s</div> ", h.Render())
-				res = append(res, rs)
+		for _, d := range defs {
+			def := d.raw.GetDefinition()
+			if def == "" {
+				continue
 			}
+			h := render.HTMLRender{Raw: def, SourceType: d.t}
+			rs := fmt.Sprintf("<div>%s%s</div> ", style, h.Render())
+			res = append(res, rs)
 		}
 		return strings.Join(res, "<br><br>")
 	}
 
 	log.Debugf("query: %v, format: %v", word, f)
 	var res string
-	for _, dict := range defs {
-		for _, def := range dict.defs {
-			ren := &render.MarkdownRender{
-				Raw:        def,
-				SourceType: dict.t,
-			}
-			res += "\n----\n" + ren.Render()
+	for _, d := range defs {
+		def := d.raw.GetDefinition()
+		if def == "" {
+			continue
 		}
+		ren := &render.MarkdownRender{
+			Raw:        def,
+			SourceType: d.t,
+		}
+		res += "\n----\n" + ren.Render()
 	}
 	return res
 }
@@ -291,7 +321,7 @@ type MdxDict struct {
 	Type string
 	// For personal usage example, "oald9.json", or "Longman Dictionary of Contemporary English"
 	MdxFile  string
-	MdxDict  Dict // TODO: it's "embedded" in the searcher, maybe we can remove it to reduce mem usage when apply non-plain search algorithms.
+	MdxDict  Dict // TODO: it's "embedded" in the searcher, maybe we can reduce mem usage when apply non-plain search algorithms.
 	searcher Searcher
 }
 
@@ -315,4 +345,23 @@ func (d *MdxDict) Get(word string) []string {
 		}
 	}
 	return defs
+}
+
+// getBest applies the same longest-match filtering as Get but returns the
+// winning RawOutput values so callers retain src and other metadata.
+func (d *MdxDict) getBest(word string) []RawOutput {
+	results := d.searcher.GetRawOutputs(word)
+	if len(results) == 0 {
+		return nil
+	}
+	var best []RawOutput
+	for _, res := range results {
+		m := res.GetMatch()
+		if len(best) == 0 || len(m) > len(best[0].GetMatch()) {
+			best = []RawOutput{res}
+		} else if len(m) == len(best[0].GetMatch()) {
+			best = append(best, res)
+		}
+	}
+	return best
 }
