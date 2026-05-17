@@ -34,7 +34,7 @@ var Commit = func() string {
 	return "no-vcs.revision(go build -buildvcs)"
 }()
 
-var Version = "v0.6.1"
+var Version = "v0.6.2"
 
 var dialTimeout = 5 * time.Second
 var defaultIdleTimeout = 876000 * time.Hour // 100 years
