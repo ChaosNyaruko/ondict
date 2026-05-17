@@ -238,3 +238,31 @@ CSS files (e.g. `LM5style_vanilla.css`, `LM5style.css`) are shipped alongside th
 
 This eliminates the local HTTP server dependency on Android entirely for the query/render path, while reusing all existing Go rendering logic via gomobile bindings.
 
+### Long-term: replacing the WebView with a lightweight HTML renderer
+
+Even the entry-only WebView approach still pays the full Chromium engine cost. The next step beyond that is to replace it with a **small HTML/CSS renderer** that only handles the subset of markup MDX entries actually use. This would also benefit the Markdown output path — a structured renderer gives you an intermediate representation (a node tree) that you can walk to produce Markdown, rather than the current approach of parsing raw HTML strings.
+
+#### Why this matters for Markdown output
+
+The current `render/MarkdownRender` works by parsing HTML strings with Go's `golang.org/x/net/html` tokenizer and pattern-matching tags. A proper lightweight renderer would produce a structured IR (think: `[]Block` where each block is a `Heading`, `Sense`, `Example`, `Audio`, etc.) that can be trivially serialized to both Markdown and any native UI widget tree — no string munging.
+
+#### Candidate lightweight renderers (do not write from scratch)
+
+| Library | Language | Notes |
+|---|---|---|
+| [ultralight](https://ultralig.ht) | C++ (bindings exist) | Lightweight WebKit-based; CSS support is good but it's commercial |
+| [litehtml](https://github.com/litehtml/litehtml) | C++ | Used by Vivaldi's reader mode; minimal, just HTML/CSS layout, no JS. Qt and other frontends use it |
+| [servo](https://github.com/servo/servo) | Rust | Mozilla's experimental engine; too heavy and unstable for embedding |
+| [gosdom](https://github.com/nicholasgasior/gosdom) / `golang.org/x/net/html` | Go | Just a parser, no layout — what we already use |
+| [wkhtmltopdf / WeasyPrint](https://weasyprint.org) | Python/C | PDF-oriented; not suitable for interactive use |
+
+**litehtml** is the most realistic candidate for the entry rendering use case:
+- It renders HTML+CSS to a display list via a platform-provided callback interface — you implement `draw_text`, `draw_background`, `draw_border` etc. using whatever native drawing API you have (Canvas on Android, Core Graphics on iOS).
+- It has no JavaScript engine, which is fine — MDX entry HTML doesn't need JS for rendering.
+- It's already been integrated into Android via JNI by some open-source dict apps.
+- The CSS subset it supports covers everything MDX entries use (block layout, inline styles, fonts, borders).
+
+#### Connection to the current Markdown renderer
+
+If we ever move to litehtml or a similar IR-based renderer, the `render/` package interface should stay the same (`HTMLRender`, `MarkdownRender`) but the implementation would change: instead of regex/tokenizer hacks on raw HTML, both renderers would consume the same parsed node tree. The Markdown renderer becomes a tree walker that maps `Sense → numbered list item`, `Example → blockquote`, `Audio → `[🔊 word]`, etc. — much cleaner and easier to extend per dict type.
+
