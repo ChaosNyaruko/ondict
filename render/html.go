@@ -172,7 +172,9 @@ func (h *HTMLRender) dfs(n *html.Node, level int, parent *html.Node, ft string) 
 	if IsElement(n, "a", "") {
 		log.Debugf("<a> %v", n)
 		h.modifyHref(n)
-		return ""
+		// Fall through to recurse into children: <a href="sound://..."><img src="..."></a>
+		// is common in MDX entries. After replaceMp3 converts the <a> to a <div>, the
+		// original <img> children remain and their src attributes still need rewriting.
 	}
 	if IsElement(n, "img", "") {
 		modifyImgSrc(n)

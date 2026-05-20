@@ -46,6 +46,24 @@ func TestHTMLRender_Render(t *testing.T) {
 			contains:    []string{`<div class="entry">hello</div>`},
 			notContains: []string{`<html`, `<body`, `<head`},
 		},
+		{
+			// MDX entries commonly wrap speaker icons in sound:// links:
+			// <a href="sound://GB_hello.mp3"><img src="snd_uk.png"></a>
+			// After replaceMp3 the <a> becomes a <div> but the <img> child
+			// remains. Its src must still be rewritten to /snd_uk.png so the
+			// browser requests the right absolute path.
+			name:       "img inside sound link gets src rewritten",
+			raw:        `<a href="sound://GB_hello.mp3"><img src="snd_uk.png"></a>`,
+			sourceType: LongmanEasy,
+			contains:   []string{`src="/snd_uk.png"`, `<audio src="/GB_hello.mp3"`},
+		},
+		{
+			// Plain <img> without a wrapping <a> must still get the / prefix.
+			name:       "standalone img src rewritten",
+			raw:        `<img src="examine.jpg">`,
+			sourceType: LongmanEasy,
+			contains:   []string{`src="/examine.jpg"`},
+		},
 	}
 
 	for _, tt := range tests {
