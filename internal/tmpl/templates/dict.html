@@ -111,6 +111,15 @@
         .entry-card img { max-width: 100%; height: auto; }
         .entry-card audio { width: 100%; margin: 12px 0; }
         .entry-card table { max-width: 100%; }
+
+        /* Image lightbox */
+        #img-modal {
+            display: none; position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.82); cursor: zoom-out;
+            align-items: center; justify-content: center;
+        }
+        #img-modal.open { display: flex; }
+        #img-modal img { max-width: 92vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
         footer { padding-top: 0; padding-bottom: 24px; font-family: ui-sans-serif, system-ui, sans-serif; color: var(--muted); }
         footer a { color: inherit; }
         @media (max-width: 640px) {
@@ -198,6 +207,9 @@
                 Ondict is open source. <a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a>
             </footer>
         </div>
+    </div>
+    <div id="img-modal" role="dialog" aria-modal="true" aria-label="Image viewer">
+        <img id="img-modal-img" src="" alt="">
     </div>
     <script>
         const html = document.documentElement;
@@ -294,6 +306,62 @@
         });
         document.addEventListener('click', (event) => {
             if (!queryGroup.contains(event.target)) closeSuggestions();
+        });
+
+        // ── Image lightbox for ldoce-show-image elements ──────────────────────
+        // The dict uses two patterns:
+        //   <img  class="ldoce-show-image" src="data:...">  – thumbnail with embedded data URI
+        //   <a    class="ldoce-show-image" base64="key123jpg"> – cross-ref that names an MDD resource
+        //
+        // For <img> clicks: open src directly.
+        // For <a> clicks: derive the filename from the base64 attr (insert a dot before the
+        // last 3 chars to recover the extension, e.g. "ldoce4188jpg" → "ldoce4188.jpg"),
+        // then fetch it from MddFileHandler and open as an object URL.
+        const modal    = document.getElementById('img-modal');
+        const modalImg = document.getElementById('img-modal-img');
+        let   blobUrl  = null;
+
+        function openModal(src) {
+            if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+            modalImg.src = src;
+            modal.classList.add('open');
+        }
+
+        modal.addEventListener('click', () => {
+            modal.classList.remove('open');
+            modalImg.src = '';
+            if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+        });
+
+        document.addEventListener('click', (event) => {
+            const el = event.target.closest('.ldoce-show-image');
+            if (!el) return;
+            event.preventDefault();
+
+            if (el.tagName === 'IMG' && el.src) {
+                openModal(el.src);
+                return;
+            }
+
+            // <a> element: base64 attr holds a MDD key like "ldoce4188jpg"
+            const key = el.getAttribute('base64');
+            if (!key) return;
+
+            // Derive filename: insert dot before last 3 chars → "ldoce4188.jpg"
+            const filename = key.length > 3
+                ? key.slice(0, -3) + '.' + key.slice(-3)
+                : key;
+
+            fetch('/' + filename)
+                .then(r => {
+                    if (!r.ok) throw new Error(r.status);
+                    return r.blob();
+                })
+                .then(blob => {
+                    blobUrl = URL.createObjectURL(blob);
+                    openModal(blobUrl);
+                })
+                .catch(() => console.warn('ldoce-show-image: could not load', filename));
         });
     </script>
 </body>
