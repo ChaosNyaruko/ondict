@@ -76,9 +76,21 @@ func modifyImgSrc(n *html.Node) {
 		log.Fatalf("Error: an img element is expected")
 	}
 	for i, a := range n.Attr {
-		if a.Key == "src" && !strings.HasPrefix(a.Val, "/") && !strings.HasPrefix(a.Val, "http") {
-			n.Attr[i].Val = "/" + a.Val
+		if a.Key != "src" {
+			continue
 		}
+		v := a.Val
+		// Some MDX dictionaries store resources as file:///media/... or
+		// file:///path/to/image.jpg. Strip the file:// scheme so the path
+		// becomes root-relative and is served by MddFileHandler.
+		if strings.HasPrefix(v, "file://") {
+			v = strings.TrimPrefix(v, "file://")
+			// v is now "/media/..." (absolute) or a bare path — both handled below.
+		}
+		if !strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "http") {
+			v = "/" + v
+		}
+		n.Attr[i].Val = v
 	}
 }
 

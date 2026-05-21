@@ -64,6 +64,15 @@ func TestHTMLRender_Render(t *testing.T) {
 			sourceType: LongmanEasy,
 			contains:   []string{`src="/examine.jpg"`},
 		},
+		{
+			// Some MDX dicts store resources as file:///media/english/illustration/apple.jpg.
+			// The file:// scheme must be stripped so the browser fetches /media/... from
+			// the local HTTP server instead of a broken file:// URL.
+			name:       "file:// img src stripped to root-relative path",
+			raw:        `<img src="file:///media/english/illustration/apple.jpg">`,
+			sourceType: LongmanEasy,
+			contains:   []string{`src="/media/english/illustration/apple.jpg"`},
+		},
 	}
 
 	for _, tt := range tests {
