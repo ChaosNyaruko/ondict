@@ -75,14 +75,31 @@ func modifyImgSrc(n *html.Node) {
 	if n.Type != html.ElementNode || (n.DataAtom.String() != "img" && n.Data != "img") {
 		log.Fatalf("Error: an img element is expected")
 	}
+
+	// Some MDX dictionaries embed the full image as a data URI in a custom
+	// "base64" attribute rather than in "src". When present, promote it to
+	// "src" so the browser actually renders the image.
+	var b64Val string
+	for _, a := range n.Attr {
+		if a.Key == "base64" {
+			b64Val = a.Val
+			break
+		}
+	}
+
 	for i, a := range n.Attr {
 		if a.Key != "src" {
 			continue
 		}
+		// If there is an embedded base64 value, use it directly as the src.
+		if b64Val != "" {
+			n.Attr[i].Val = b64Val
+			return
+		}
 		v := a.Val
 		// Some MDX dictionaries store resources as file:///media/... or
-		// file:///path/to/image.jpg. Strip the file:// scheme so the path
-		// becomes root-relative and is served by MddFileHandler.
+		// file://media/... Strip the file:// scheme so the path becomes
+		// root-relative and is served by MddFileHandler.
 		if strings.HasPrefix(v, "file://") {
 			v = strings.TrimPrefix(v, "file://")
 			// v is now "/media/..." (absolute) or a bare path — both handled below.

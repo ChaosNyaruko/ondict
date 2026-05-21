@@ -73,6 +73,14 @@ func TestHTMLRender_Render(t *testing.T) {
 			sourceType: LongmanEasy,
 			contains:   []string{`src="/media/english/illustration/apple.jpg"`},
 		},
+		{
+			// Some MDX dicts embed the image bytes in a custom "base64" attribute
+			// as a data URI. Promote it to "src" so the browser renders the image.
+			name:       "base64 attr promoted to src",
+			raw:        `<img base64="data:image/jpeg;base64,/9j/abc=" src="file://media/english/illustration/apple.jpg" class="ldoce5pp-image-small">`,
+			sourceType: LongmanEasy,
+			contains:   []string{`src="data:image/jpeg;base64,/9j/abc="`},
+		},
 	}
 
 	for _, tt := range tests {
