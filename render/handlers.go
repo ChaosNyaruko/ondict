@@ -44,16 +44,27 @@ func (EntryHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 
 // ------------------------------------------------------------------ sound://
 
-// SoundHandler rewrites <a href="sound://file.mp3">.
-// For online sources: replaces href with /file.mp3.
-// For MDX sources: converts the <a> into a <div> with an embedded <audio>
-// element and a click-to-play <script>.
+// SoundHandler wires audio playback for two raw MDX patterns:
+//
+//  1. href="sound://file.mp3" — present in LDOCE5++ and Longman Easy for all
+//     speaker elements (headword and example). For online sources the href is
+//     rewritten to a plain /path; for MDX sources the element is converted to
+//     a data-audio-src trigger (see convertToAudioTrigger).
+//
+//  2. data-src-mp3="/path/to.mp3" with no href — present in LDOCE5++ for
+//     inline example audio spans like:
+//     <span class="speaker exafile fa fa-volume-up" data-src-mp3="/media/...">
+//     These have no href at all so case 1 misses them entirely. We detect them
+//     by the presence of data-src-mp3 when no sound:// href was found, and
+//     apply the same data-audio-src conversion.
 type SoundHandler struct{}
 
 func (SoundHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 	if n.Type != html.ElementNode {
 		return false
 	}
+
+	// Case 1: href="sound://..."
 	for i, a := range n.Attr {
 		if a.Key != "href" || !strings.HasPrefix(a.Val, "sound://") {
 			continue
@@ -63,10 +74,26 @@ func (SoundHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 		if strings.HasSuffix(ctx.SourceType, "Online") {
 			n.Attr[i].Val = newPath
 		} else {
-			log.Infof("sound handler: %q → %q", audioFile, newPath)
+			log.Infof("sound handler (href): %q → %q", audioFile, newPath)
 			convertToAudioTrigger(n, newPath)
 		}
+		return false // recurse: children <img> still need their src fixed
 	}
+
+	// Case 2: data-src-mp3 with no sound:// href (LDOCE5++ example audio spans).
+	// Only applies to MDX sources — online sources use plain hrefs.
+	if !strings.HasSuffix(ctx.SourceType, "Online") {
+		for _, a := range n.Attr {
+			if a.Key != "data-src-mp3" || a.Val == "" {
+				continue
+			}
+			// data-src-mp3 values are already root-relative (/media/english/...).
+			log.Infof("sound handler (data-src-mp3): %q", a.Val)
+			convertToAudioTrigger(n, a.Val)
+			return false
+		}
+	}
+
 	return false // recurse: children <img> still need their src fixed
 }
 
