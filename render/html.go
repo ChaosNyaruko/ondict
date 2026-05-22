@@ -68,6 +68,15 @@ func (h *HTMLRender) Render() string {
 		log.Debugf("html.Render err: %v", err)
 		return h.Raw
 	}
+
+	// Re-emit any <script src="..."> tags that the HTML parser moved into
+	// <head> (they come from the raw dict preamble, e.g. jquery + LM5Switch.js).
+	// Without this, dict-provided JS (fold/unfold, popup menus) never loads.
+	headScripts := headScriptTags(doc)
+	if headScripts != "" {
+		rendered = headScripts + rendered
+	}
+
 	return rendered
 }
 
@@ -97,6 +106,37 @@ func walk(n *html.Node, ctx RenderContext) {
 			walk(c, ctx)
 		}
 	}
+}
+
+// headScriptTags collects all <script src="..."> nodes that the HTML parser
+// moved into <head> (from the raw dict preamble) and re-serialises them as a
+// string so they can be prepended to the body output. Inline <script> blocks
+// are intentionally skipped — only external src= scripts are re-emitted.
+func headScriptTags(doc *html.Node) string {
+	head := findElement(doc, atom.Head, "head")
+	if head == nil {
+		return ""
+	}
+	var b bytes.Buffer
+	for c := head.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type != html.ElementNode || c.DataAtom != atom.Script {
+			continue
+		}
+		hasSrc := false
+		for _, a := range c.Attr {
+			if a.Key == "src" && a.Val != "" {
+				hasSrc = true
+				break
+			}
+		}
+		if !hasSrc {
+			continue
+		}
+		if err := html.Render(&b, c); err == nil {
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
 }
 
 // ── DOM helpers used by html.go and handlers.go ──────────────────────────────
