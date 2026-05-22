@@ -407,6 +407,12 @@
         }
 
         wireImagePopups();
+
+        // Scroll to fragment if the URL has a hash (e.g. #fruit__entry_0 from a cross-ref link).
+        if (location.hash) {
+            const target = document.querySelector(location.hash);
+            if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
     </script>
 </body>
 </html>

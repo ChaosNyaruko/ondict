@@ -110,21 +110,27 @@ func queryWord(his *history.History) gin.HandlerFunc {
 		f, _ := c.GetQuery("format")
 		rec, _ := c.GetQuery("record")
 
+		// Strip any fragment that may be encoded in the query param
+		// (e.g. "fruit#fruit__entry_0__a" from old %23-encoded links).
+		// New links put the fragment as a real URL hash, but old vocab.db
+		// entries may still have it percent-encoded inside the query param.
+		lookupWord, _, _ := strings.Cut(word, "#")
+
 		if f != "html" {
-			c.String(http.StatusOK, queryMDX(word, e, f, his, rec != "0"))
+			c.String(http.StatusOK, queryMDX(lookupWord, e, f, his, rec != "0"))
 			return
 		}
 		if e == "" {
 			e = "mdx"
 		}
-		inWordBank, err := wordbank.Contains(word)
+		inWordBank, err := wordbank.Contains(lookupWord)
 		if err != nil {
-			log.Debugf("check word bank %q err: %v", word, err)
+			log.Debugf("check word bank %q err: %v", lookupWord, err)
 		}
-		res := queryMDX(word, e, f, his, rec != "0")
+		res := queryMDX(lookupWord, e, f, his, rec != "0")
 		c.HTML(http.StatusOK, "dict.html", PageData{
-			Title:      PageTitle(word),
-			Query:      word,
+			Title:      PageTitle(lookupWord),
+			Query:      lookupWord,
 			Engine:     e,
 			SearchMode: "headword",
 			EntryHTML:  template.HTML(res),

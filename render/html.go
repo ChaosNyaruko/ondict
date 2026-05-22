@@ -176,8 +176,21 @@ func (h *HTMLRender) modifyHref(n *html.Node) {
 	for i, a := range n.Attr {
 		if a.Key == "href" {
 			if strings.HasPrefix(a.Val, "entry://") {
-				new := fmt.Sprintf("/dict?query=%s&engine=mdx&format=html", url.QueryEscape(strings.TrimPrefix(a.Val, "entry://")))
-				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
+				target := strings.TrimPrefix(a.Val, "entry://")
+				// Split word and optional fragment (e.g. "fruit#fruit__entry_0__a").
+				// Encode only the word part as a query param; keep the fragment as a
+				// real URL hash so the browser scrolls to the right element.
+				// The dict uses "__a" suffix on anchor names that don't exist as element
+				// IDs — strip it so the hash matches the actual rendered id attribute.
+				word, frag, _ := strings.Cut(target, "#")
+				frag = strings.TrimSuffix(frag, "__a")
+				var new string
+				if frag != "" {
+					new = fmt.Sprintf("/dict?query=%s&engine=mdx&format=html#%s", url.QueryEscape(word), frag)
+				} else {
+					new = fmt.Sprintf("/dict?query=%s&engine=mdx&format=html", url.QueryEscape(word))
+				}
+				log.Infof("href entry: %v, new: %q", target, new)
 				n.Attr[i].Val = new
 			} else if strings.HasPrefix(a.Val, "sound://") {
 				name := strings.TrimSuffix(strings.TrimPrefix(a.Val, "sound://"), ".mp3")

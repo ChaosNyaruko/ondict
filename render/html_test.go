@@ -27,6 +27,16 @@ func TestHTMLRender_Render(t *testing.T) {
 			contains:   []string{`/dict?query=target&amp;engine=mdx&amp;format=html`},
 		},
 		{
+			// entry:// links with a fragment should use the fragment as a real URL hash
+			// so the browser scrolls to the right element, not as a %23-encoded query param.
+			// The __a suffix on anchor names is stripped since element IDs omit it.
+			name:       "entry link with fragment strips __a and uses real hash",
+			raw:        `<a href="entry://fruit#fruit__entry_0__a">link</a>`,
+			sourceType: LongmanEasy,
+			contains:   []string{`/dict?query=fruit&amp;engine=mdx&amp;format=html#fruit__entry_0`},
+			notContains: []string{`%23`, `__a`},
+		},
+		{
 			name:       "Longman source with sound link (online)",
 			raw:        `<a href="sound://test.mp3">sound</a>`,
 			sourceType: Longman5Online,
