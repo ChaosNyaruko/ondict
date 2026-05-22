@@ -109,7 +109,6 @@
             overflow-x: auto;
         }
         .entry-card img { max-width: 100%; height: auto; }
-        .entry-card audio { width: 100%; margin: 12px 0; }
         .entry-card table { max-width: 100%; }
 
         /* Image lightbox */
@@ -341,6 +340,18 @@
                 e.preventDefault(); e.stopPropagation();
                 openModal(el.getAttribute('data-img-src'));
             });
+        });
+
+        // ── Audio playback ─────────────────────────────────────────────────────
+        // Sound elements are rendered as <span data-audio-src="/path/to.mp3">.
+        // A single delegated listener handles all of them — no per-element
+        // <script> injection needed. This also works in Android WebView by
+        // intercepting the data-audio-src attribute instead of running JS.
+        document.querySelector('.entry-card').addEventListener('click', function(e) {
+            const el = e.target.closest('[data-audio-src]');
+            if (!el) return;
+            const src = el.getAttribute('data-audio-src');
+            if (src) new Audio(src).play().catch(err => console.error('audio play error:', err));
         });
 
         // Scroll to fragment if the URL has a hash (e.g. #fruit__entry_0 from a cross-ref link).

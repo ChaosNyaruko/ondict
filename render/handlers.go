@@ -64,38 +64,40 @@ func (SoundHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 			n.Attr[i].Val = newPath
 		} else {
 			log.Infof("sound handler: %q → %q", audioFile, newPath)
-			convertAnchorToAudioSpan(n, newPath)
+			convertToAudioTrigger(n, newPath)
 		}
 	}
 	return false // recurse: children <img> still need their src fixed
 }
 
-// convertAnchorToAudioSpan mutates n (any element with a sound:// href) into
-// a <span> containing an <audio> element and a click-to-play <script>:
+// convertToAudioTrigger mutates n (any element with a sound:// href) into a
+// plain <span> that carries the audio path in a data-audio-src attribute:
 //
-//	<span [original attrs minus href, plus cursor:pointer style]>
-//	  <audio src="/file.mp3" preload="none"></audio>
-//	  <script>/* IIFE click handler */</script>
-//	  [original children — the speaker icon <img> or FontAwesome class]
+//	<span [original attrs minus href, plus data-audio-src="/file.mp3" and cursor:pointer]>
+//	  [original children — the speaker icon <img> or FontAwesome glyph]
 //	</span>
+//
+// A single delegated click listener on .entry-card in dict.html handles playback
+// for all such spans, so no per-element <script> injection is needed.
+// This also works in non-browser contexts (Android WebView intercept,
+// native UI) where document.currentScript is unavailable.
 //
 // We use <span> (inline) not <div> (block) because the original <a> is inline
 // and often lives inside other inline elements like <span class="Head">.
 // We preserve original attributes (especially class for FontAwesome icons)
-// and only remove href to avoid navigating to javascript:void(0) or sound://.
-func convertAnchorToAudioSpan(n *html.Node, src string) {
+// and only remove href to avoid navigating to sound:// or javascript:void(0).
+func convertToAudioTrigger(n *html.Node, src string) {
 	n.DataAtom = atom.Span
 	n.Data = "span"
 	// Keep all original attributes except href — preserves class (FontAwesome
-	// icons), data-src-mp3, title, etc. Add cursor style.
-	newAttrs := make([]html.Attribute, 0, len(n.Attr))
+	// icons), data-src-mp3, title, etc.
+	newAttrs := make([]html.Attribute, 0, len(n.Attr)+2)
 	hasCursorStyle := false
 	for _, a := range n.Attr {
 		if a.Key == "href" {
 			continue // drop href so it doesn't navigate
 		}
 		if a.Key == "style" {
-			// append cursor:pointer to existing style
 			a.Val = a.Val + "; cursor: pointer"
 			hasCursorStyle = true
 		}
@@ -104,19 +106,8 @@ func convertAnchorToAudioSpan(n *html.Node, src string) {
 	if !hasCursorStyle {
 		newAttrs = append(newAttrs, html.Attribute{Key: "style", Val: "cursor: pointer"})
 	}
+	newAttrs = append(newAttrs, html.Attribute{Key: "data-audio-src", Val: src})
 	n.Attr = newAttrs
-
-	audio := newAudioTag(src)
-	script := &html.Node{
-		Type:     html.ElementNode,
-		DataAtom: atom.Script,
-		Data:     "script",
-	}
-	script.AppendChild(&html.Node{Type: html.TextNode, Data: jsTempl})
-
-	// Prepend audio then script before any existing children (icon <img> or text).
-	n.InsertBefore(audio, n.FirstChild)
-	n.InsertBefore(script, audio.NextSibling)
 }
 
 // ------------------------------------------------------------------ <img>

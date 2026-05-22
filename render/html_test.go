@@ -46,9 +46,10 @@ func TestHTMLRender_Render(t *testing.T) {
 			name:       "Longman source with sound link (mdx)",
 			raw:        `<a href="sound://test.mp3">sound</a>`,
 			sourceType: LongmanEasy,
-			// SoundHandler converts <a> to <span> (inline, not block) with embedded <audio> + <script>
-			contains:    []string{`<audio src="/test.mp3" preload="none">`, `<script>`, `cursor: pointer`},
-			notContains: []string{`<div`, `href=`},
+			// SoundHandler converts <a> to <span> with data-audio-src; no <audio> or <script> injected.
+			// A single delegated listener in dict.html handles playback for all such spans.
+			contains:    []string{`data-audio-src="/test.mp3"`, `cursor: pointer`},
+			notContains: []string{`<audio`, `<script`, `<div`, `href=`},
 		},
 		{
 			name:        "Longman source renders fragment without document wrapper",
@@ -60,13 +61,13 @@ func TestHTMLRender_Render(t *testing.T) {
 		{
 			// MDX entries commonly wrap speaker icons in sound:// links:
 			// <a href="sound://GB_hello.mp3"><img src="snd_uk.png"></a>
-			// After replaceMp3 the <a> becomes a <div> but the <img> child
-			// remains. Its src must still be rewritten to /snd_uk.png so the
-			// browser requests the right absolute path.
+			// After SoundHandler the <a> becomes a <span data-audio-src="..."> but
+			// the <img> child remains. Its src must still be rewritten to /snd_uk.png.
 			name:       "img inside sound link gets src rewritten",
 			raw:        `<a href="sound://GB_hello.mp3"><img src="snd_uk.png"></a>`,
 			sourceType: LongmanEasy,
-			contains:   []string{`src="/snd_uk.png"`, `<audio src="/GB_hello.mp3"`},
+			contains:   []string{`src="/snd_uk.png"`, `data-audio-src="/GB_hello.mp3"`},
+			notContains: []string{`<audio`, `<script`},
 		},
 		{
 			// Plain <img> without a wrapping <a> must still get the / prefix.

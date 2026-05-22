@@ -139,30 +139,3 @@ func IsElement(n *html.Node, ele string, class string) bool {
 	return false
 }
 
-func newAudioTag(src string) *html.Node {
-	res := html.Node{
-		Type:     html.ElementNode,
-		DataAtom: atom.Audio,
-		Data:     "audio",
-		Attr: []html.Attribute{
-			{Key: "src", Val: src},
-			{Key: "preload", Val: "none"},
-		},
-	}
-	return &res
-}
-
-// jsTempl uses an IIFE (Immediately Invoked Function Expression) to scope
-// variables, avoiding "redeclaration of let" errors when multiple dictionaries
-// generate scripts for the same word on one page.
-const jsTempl = `
-(() => {
-    let container = document.currentScript.parentElement;
-    let audio = container.querySelector('audio');
-    container.addEventListener('click', () => {
-        audio.play().catch(error => {
-            console.error('Error playing audio:', error);
-        });
-    });
-})();
-`
