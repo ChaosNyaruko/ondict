@@ -46,8 +46,9 @@ func TestHTMLRender_Render(t *testing.T) {
 			name:       "Longman source with sound link (mdx)",
 			raw:        `<a href="sound://test.mp3">sound</a>`,
 			sourceType: LongmanEasy,
-			// replaceMp3 transforms the <a> into a <div> containing an <audio> tag and a <script>
-			contains: []string{`<audio src="/test.mp3" preload="none">`, `<script>`, `cursor: pointer`},
+			// SoundHandler converts <a> to <span> (inline, not block) with embedded <audio> + <script>
+			contains:    []string{`<audio src="/test.mp3" preload="none">`, `<script>`, `cursor: pointer`},
+			notContains: []string{`<div`, `href=`},
 		},
 		{
 			name:        "Longman source renders fragment without document wrapper",

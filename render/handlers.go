@@ -71,16 +71,21 @@ func (SoundHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 	return false // recurse: children <img> still need their src fixed
 }
 
-// convertAnchorToAudioDiv mutates n (an <a> element) into:
+// convertAnchorToAudioDiv mutates n (an <a> element) into a <span> containing
+// an <audio> element and a click-to-play <script>:
 //
-//	<div style="cursor: pointer">
+//	<span style="cursor: pointer">
 //	  <audio src="/file.mp3" preload="none"></audio>
 //	  <script>/* IIFE click handler */</script>
-//	  [original children]
-//	</div>
+//	  [original children — the speaker icon <img> tags]
+//	</span>
+//
+// We use <span> (inline) not <div> (block) because the original <a> is inline
+// and often lives inside other inline elements like <span class="Head">.
+// A block element inside an inline element is invalid HTML and breaks layout.
 func convertAnchorToAudioDiv(n *html.Node, src string) {
-	n.DataAtom = atom.Div
-	n.Data = "div"
+	n.DataAtom = atom.Span
+	n.Data = "span"
 	// Keep only the cursor style; drop href and other anchor-specific attrs.
 	n.Attr = []html.Attribute{{Key: "style", Val: "cursor: pointer"}}
 
