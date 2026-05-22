@@ -29,7 +29,7 @@ type HTMLRender struct {
 
 func (h *HTMLRender) Render() string {
 	info := strings.NewReader(h.Raw)
-	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
+	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(true))
 	if err != nil {
 		log.Fatal(err)
 	}
