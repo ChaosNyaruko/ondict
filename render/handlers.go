@@ -214,8 +214,11 @@ func (ShowImageHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 	if key == "" {
 		return false
 	}
-	// data URI on an <a> is not expected — skip
+
+	// base64 attr is a full data URI (embedded image bytes) — promote directly
+	// to data-img-src so the JS lightbox can open it on click.
 	if strings.HasPrefix(key, "data:") {
+		rewriteShowImageAnchor(n, key)
 		return false
 	}
 
