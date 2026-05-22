@@ -11,6 +11,7 @@ func TestHTMLRender_Render(t *testing.T) {
 		name        string
 		raw         string
 		sourceType  string
+		linkFormat  string
 		contains    []string
 		notContains []string
 	}{
@@ -24,7 +25,8 @@ func TestHTMLRender_Render(t *testing.T) {
 			name:       "Longman source with entry link",
 			raw:        `<a href="entry://target">link</a>`,
 			sourceType: LongmanEasy,
-			contains:   []string{`/dict?query=target&amp;engine=mdx&amp;format=html`},
+			// LinkFormat defaults to "html" when not set
+			contains: []string{`/dict?query=target&amp;engine=mdx&amp;format=html`},
 		},
 		{
 			// entry:// links with a fragment should use the fragment as a real URL hash
@@ -35,6 +37,14 @@ func TestHTMLRender_Render(t *testing.T) {
 			sourceType: LongmanEasy,
 			contains:   []string{`/dict?query=fruit&amp;engine=mdx&amp;format=html#fruit__entry_0`},
 			notContains: []string{`%23`, `__a`},
+		},
+		{
+			// When LinkFormat is set to html_fragment, entry:// links should use that format.
+			name:       "entry link respects LinkFormat html_fragment",
+			raw:        `<a href="entry://target">link</a>`,
+			sourceType: LongmanEasy,
+			linkFormat: "html_fragment",
+			contains:   []string{`/dict?query=target&amp;engine=mdx&amp;format=html_fragment`},
 		},
 		{
 			name:       "Longman source with sound link (online)",
@@ -100,6 +110,7 @@ func TestHTMLRender_Render(t *testing.T) {
 			h := &HTMLRender{
 				Raw:        tt.raw,
 				SourceType: tt.sourceType,
+				LinkFormat: tt.linkFormat,
 			}
 			got := h.Render()
 			for _, c := range tt.contains {

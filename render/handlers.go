@@ -13,6 +13,7 @@ import (
 // ------------------------------------------------------------------ entry://
 
 // EntryHandler rewrites <a href="entry://word[#frag]"> to a local /dict URL.
+// The format query parameter is taken from ctx.LinkFormat (defaults to "html").
 // The fragment (if any) is preserved as a real URL hash after stripping the
 // trailing __a suffix that dict anchor names carry but element IDs don't.
 type EntryHandler struct{}
@@ -20,6 +21,10 @@ type EntryHandler struct{}
 func (EntryHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 	if !IsElement(n, "a", "") {
 		return false
+	}
+	format := ctx.LinkFormat
+	if format == "" {
+		format = "html"
 	}
 	for i, a := range n.Attr {
 		if a.Key != "href" || !strings.HasPrefix(a.Val, "entry://") {
@@ -30,11 +35,11 @@ func (EntryHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 		var newHref string
 		if hasFragment {
 			frag = strings.TrimSuffix(frag, "__a")
-			newHref = fmt.Sprintf("/dict?query=%s&engine=mdx&format=html#%s",
-				url.QueryEscape(word), frag)
+			newHref = fmt.Sprintf("/dict?query=%s&engine=mdx&format=%s#%s",
+				url.QueryEscape(word), format, frag)
 		} else {
-			newHref = fmt.Sprintf("/dict?query=%s&engine=mdx&format=html",
-				url.QueryEscape(word))
+			newHref = fmt.Sprintf("/dict?query=%s&engine=mdx&format=%s",
+				url.QueryEscape(word), format)
 		}
 		log.Infof("entry handler: %q → %q", target, newHref)
 		n.Attr[i].Val = newHref

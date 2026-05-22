@@ -35,6 +35,9 @@ var defaultHandlers = []NodeHandler{
 type HTMLRender struct {
 	Raw        string
 	SourceType string
+	// LinkFormat is passed to RenderContext.LinkFormat to control the format=
+	// parameter in rewritten entry:// links. Defaults to "html" when empty.
+	LinkFormat string
 	// EntryFetcher, when set, allows handlers to fetch other entries at
 	// render time (e.g. ShowImageHandler resolving big_pic cross-refs).
 	EntryFetcher func(word string) string
@@ -51,6 +54,7 @@ func (h *HTMLRender) Render() string {
 
 	ctx := RenderContext{
 		SourceType:   h.SourceType,
+		LinkFormat:   h.LinkFormat,
 		EntryFetcher: h.EntryFetcher,
 	}
 	walk(doc, ctx)

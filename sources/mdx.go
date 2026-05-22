@@ -233,6 +233,9 @@ func QueryMDX(word string, f string) string {
 			h := render.HTMLRender{
 				Raw:        def,
 				SourceType: d.t,
+				// LinkFormat ensures entry:// cross-ref links use the same
+				// format as the current render (html vs html_fragment).
+				LinkFormat: f,
 				// EntryFetcher lets ShowImageHandler resolve big_pic cross-refs
 				// at render time by fetching another entry's HTML server-side.
 				EntryFetcher: func(w string) string { return QueryMDX(w, "html_fragment") },

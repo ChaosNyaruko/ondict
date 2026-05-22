@@ -4,10 +4,16 @@ import (
 	"golang.org/x/net/html"
 )
 
-// RenderContext carries per-render metadata available to all SchemeHandlers.
+// RenderContext carries per-render metadata available to all NodeHandlers.
 type RenderContext struct {
 	// SourceType identifies the dictionary type (e.g. LongmanEasy, Longman5Online).
 	SourceType string
+
+	// LinkFormat is the value used for the "format" query parameter in
+	// entry:// cross-reference links rewritten by EntryHandler.
+	// Defaults to "html" when empty. Pass "html_fragment" when rendering
+	// inside an already-framed page, or leave empty for the standard page.
+	LinkFormat string
 
 	// EntryFetcher, when set, is called by handlers that need to fetch another
 	// entry's rendered HTML (e.g. ShowImageHandler fetching big_pic from a
@@ -23,7 +29,7 @@ type RenderContext struct {
 // walker should continue recursing normally.
 //
 // Note: returning false is the right choice when the handler mutates the node
-// but children still need to be visited (e.g. sound:// turns <a> into <div>
+// but children still need to be visited (e.g. sound:// turns <a> into <span>
 // but the children <img> still need their src fixed).
 type NodeHandler interface {
 	// HandleNode is called for every element node during DFS.
