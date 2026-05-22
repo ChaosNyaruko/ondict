@@ -101,6 +101,12 @@ func loadAllCss() (string, error) {
 		}
 		a = append(a, string(content))
 	}
+	// LDOCE5++ LM5Switch.js uses .pagetitle { border-top-style } as a sentinel
+	// to detect whether it is running inside a real MDD viewer. If the style is
+	// not "double" it calls lm5pp_removePictureAndSound() which removes all
+	// .fa-volume-up elements — hiding every speaker icon. Override it here so
+	// the JS sees a "real" viewer and leaves the audio elements intact.
+	a = append(a, ".pagetitle { border-top-style: double; }")
 	return strings.Join(a, "\n"), nil
 }
 
