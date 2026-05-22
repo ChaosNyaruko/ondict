@@ -111,30 +111,47 @@ func TestHTMLRender_Render(t *testing.T) {
 }
 
 func TestShowImageHandler_EntryFetcher(t *testing.T) {
-	// Simulate <a class="ldoce-show-image" base64="ldoce4188jpg"> inside a .Sense
-	// that has a sibling "see picture at fruit" link. The EntryFetcher returns
-	// a fake fruit entry with a .big_pic img. The handler should resolve the src
-	// and store it in data-img-src, removing the javascript:void(0) href.
-	raw := `<span class="Sense">` +
-		`<a class="crossRef ldoce-show-image" href="javascript:void(0);" base64="ldoce4188jpg">FRUIT 1</a>` +
-		`<a class="crossRef" href="/dict?query=fruit&engine=mdx&format=html">see picture at fruit</a>` +
-		`</span>`
-
 	fruitEntry := `<div class="big_pic"><img src="/fruit_comp.jpg"/></div>`
+	fetcher := func(word string) string {
+		if word == "fruit" {
+			return fruitEntry
+		}
+		return ""
+	}
 
-	h := &HTMLRender{
-		Raw:        raw,
-		SourceType: LongmanEasy,
-		EntryFetcher: func(word string) string {
-			if word == "fruit" {
-				return fruitEntry
-			}
-			return ""
+	tests := []struct {
+		name    string
+		raw     string
+		wantSrc string
+	}{
+		{
+			// Sibling link already rewritten to /dict?query=... by EntryHandler
+			name: "sibling /dict link",
+			raw: `<span class="Sense">` +
+				`<a class="crossRef ldoce-show-image" href="javascript:void(0);" base64="ldoce4188jpg">FRUIT 1</a>` +
+				`<a class="crossRef" href="/dict?query=fruit&engine=mdx&format=html">see picture at fruit</a>` +
+				`</span>`,
+			wantSrc: "/fruit_comp.jpg",
+		},
+		{
+			// Sibling link still has raw entry:// href (ShowImageHandler runs before EntryHandler rewrites siblings)
+			name: "sibling entry:// link",
+			raw: `<span class="Sense">` +
+				`<a class="crossRef ldoce-show-image" href="javascript:void(0);" base64="ldoce4188jpg">FRUIT 1</a>` +
+				`<a class="crossRef" href="entry://fruit#fruit__entry_0__a">see picture at fruit</a>` +
+				`</span>`,
+			wantSrc: "/fruit_comp.jpg",
 		},
 	}
-	got := h.Render()
-	assert.Contains(t, got, `data-img-src="/fruit_comp.jpg"`)
-	assert.NotContains(t, got, `href="javascript:void(0);"`)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &HTMLRender{Raw: tt.raw, SourceType: LongmanEasy, EntryFetcher: fetcher}
+			got := h.Render()
+			assert.Contains(t, got, `data-img-src="`+tt.wantSrc+`"`)
+			assert.NotContains(t, got, `href="javascript:void(0);"`)
+		})
+	}
 }
 
 func TestIsElement(t *testing.T) {

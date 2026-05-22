@@ -81,7 +81,7 @@ func (SoundHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 func convertAnchorToAudioDiv(n *html.Node, src string) {
 	n.DataAtom = atom.Div
 	n.Data = "div"
-	// Replace all attributes with just the cursor style.
+	// Keep only the cursor style; drop href and other anchor-specific attrs.
 	n.Attr = []html.Attribute{{Key: "style", Val: "cursor: pointer"}}
 
 	audio := newAudioTag(src)
@@ -92,7 +92,7 @@ func convertAnchorToAudioDiv(n *html.Node, src string) {
 	}
 	script.AppendChild(&html.Node{Type: html.TextNode, Data: jsTempl})
 
-	// Prepend audio then script before existing children.
+	// Prepend audio then script before any existing children (the icon <img> tags).
 	n.InsertBefore(audio, n.FirstChild)
 	n.InsertBefore(script, audio.NextSibling)
 }
@@ -200,7 +200,8 @@ func resolveViaEntryFetcher(n *html.Node, fetcher func(string) string) string {
 	walkNodes(sense, func(node *html.Node) bool {
 		if IsElement(node, "a", "") {
 			href := attrVal(node, "href")
-			if strings.Contains(href, "/dict") && strings.Contains(textContent(node), "picture") {
+			isPictureHref := strings.Contains(href, "/dict") || strings.HasPrefix(href, "entry://")
+			if isPictureHref && strings.Contains(textContent(node), "picture") {
 				pictureLink = node
 				return true // stop
 			}
@@ -353,10 +354,16 @@ func textContent(n *html.Node) string {
 	return b.String()
 }
 
-// wordFromDictHref extracts the plain word from a /dict?query=WORD&... href,
-// stripping any #fragment embedded in the query param.
+// wordFromDictHref extracts the plain word from a /dict?query=WORD&... href
+// or an entry://WORD#frag href, stripping any fragment.
 func wordFromDictHref(href string) string {
-	// href may be absolute or root-relative
+	// Raw MDX href: entry://fruit#fruit__entry_0__a
+	if strings.HasPrefix(href, "entry://") {
+		target := strings.TrimPrefix(href, "entry://")
+		word, _, _ := strings.Cut(target, "#")
+		return word
+	}
+	// Already-rewritten href: /dict?query=fruit&engine=mdx&format=html#frag
 	u, err := url.Parse(href)
 	if err != nil {
 		return ""
