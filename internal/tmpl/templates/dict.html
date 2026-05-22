@@ -310,15 +310,13 @@
 
         // ── Image lightbox for ldoce-show-image elements ──────────────────────
         // The dict uses two patterns:
-        //   <img  class="ldoce-show-image" src="data:...">  – thumbnail with embedded data URI
-        //   <a    class="ldoce-show-image" base64="key123jpg"> – cross-ref that names an MDD resource
+        //   <img  class="ldoce-show-image" src="data:...">  – embedded thumbnail, always clickable
+        //   <a    class="ldoce-show-image" base64="key123jpg"> – cross-entry image reference
         //
-        // For <img> clicks: open src directly.
-        // For <a> clicks: derive the filename from the base64 attr (insert a dot before the
-        // last 3 chars to recover the extension, e.g. "ldoce4188jpg" → "ldoce4188.jpg"),
-        // then fetch it from MddFileHandler and open as an object URL.
-        // If the resource is not found (404), hide the nearest .ldoce4img ancestor so the
-        // dead "See picture of…" cross-reference disappears rather than showing a broken link.
+        // For <a> cross-refs: the image lives in another entry's <div class="big_pic"><img>.
+        // Find the sibling →5 "see picture at WORD" link, fetch that entry, extract big_pic src.
+        // Fall back to the base64 MDD key if the sibling link isn't present.
+        // If the image can't be found either way, strip href so it renders as plain text.
         const modal    = document.getElementById('img-modal');
         const modalImg = document.getElementById('img-modal-img');
         let   blobUrl  = null;
@@ -336,33 +334,79 @@
         });
 
         function wireImagePopups() {
+            // Inline base64 thumbnails — always available, wire immediately.
+            document.querySelectorAll('img.ldoce-show-image').forEach(el => {
+                el.style.cursor = 'zoom-in';
+                el.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (el.src) openModal(el.src);
+                });
+            });
+
+            // Cross-entry image references.
             document.querySelectorAll('a.ldoce-show-image').forEach(el => {
-                const key = el.getAttribute('base64');
-                if (!key) return;
-                // Derive filename: insert dot before last 3 chars → "ldoce4188.jpg"
-                const filename = key.length > 3 ? key.slice(0, -3) + '.' + key.slice(-3) : key;
-                // Probe whether the image exists; hide the cross-ref if not.
-                fetch('/' + filename, {method: 'HEAD'})
-                    .then(r => {
-                        if (!r.ok) {
-                            // Image not in MDD — hide the whole cross-ref container.
-                            const container = el.closest('.ldoce4img') || el;
-                            container.style.display = 'none';
-                        } else {
-                            // Image available — wire up click to open lightbox.
+                // Strategy 1: find the sibling "see picture at WORD" →5 link within the same
+                // Sense span, fetch that entry, and extract its big_pic image.
+                const sense = el.closest('.Sense');
+                const pictureLink = sense && Array.from(sense.querySelectorAll('a[href*="/dict"]'))
+                    .find(a => a.innerText.toLowerCase().includes('picture'));
+
+                if (pictureLink) {
+                    // Strip the #fragment from the URL — the fragment targets a specific sense
+                    // but the big_pic illustration lives at the top-level word entry.
+                    const url = new URL(pictureLink.href);
+                    const word = (url.searchParams.get('query') || '').split('#')[0];
+                    const plainUrl = `/dict?query=${encodeURIComponent(word)}&engine=mdx&format=html`;
+                    // Fetch the target entry and extract the big_pic img src.
+                    fetch(plainUrl)
+                        .then(r => r.text())
+                        .then(html => {
+                            const doc = new DOMParser().parseFromString(html, 'text/html');
+                            const img = doc.querySelector('.big_pic img');
+                            if (!img) throw new Error('no big_pic img');
+                            const src = img.getAttribute('src');
                             el.style.cursor = 'zoom-in';
                             el.addEventListener('click', (event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
-                                fetch('/' + filename)
-                                    .then(r => r.blob())
-                                    .then(blob => {
-                                        blobUrl = URL.createObjectURL(blob);
-                                        openModal(blobUrl);
-                                    });
+                                openModal(src);
                             });
-                        }
-                    })
+                        })
+                        .catch(() => tryBase64Fallback(el));
+                    return;
+                }
+
+                tryBase64Fallback(el);
+            });
+        }
+
+        // Strategy 2: derive filename from base64 attr key (e.g. "ldoce4188jpg" → "ldoce4188.jpg")
+        // and serve directly from MddFileHandler. Strip href if 404.
+        function tryBase64Fallback(el) {
+            const key = el.getAttribute('base64');
+            if (!key) { el.removeAttribute('href'); el.style.cursor = 'default'; return; }
+            const filename = key.length > 3 ? key.slice(0, -3) + '.' + key.slice(-3) : key;
+            fetch('/' + filename, {method: 'HEAD'})
+                .then(r => {
+                    if (!r.ok) {
+                        el.removeAttribute('href');
+                        el.style.cursor = 'default';
+                    } else {
+                        el.style.cursor = 'zoom-in';
+                        el.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            fetch('/' + filename)
+                                .then(r => r.blob())
+                                .then(blob => { blobUrl = URL.createObjectURL(blob); openModal(blobUrl); });
+                        });
+                    }
+                })
+                .catch(() => { el.removeAttribute('href'); el.style.cursor = 'default'; });
+        }
+
+        wireImagePopups();
                     .catch(() => {
                         const container = el.closest('.ldoce4img') || el;
                         container.style.display = 'none';
