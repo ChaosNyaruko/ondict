@@ -2,38 +2,59 @@ package render
 
 import (
 	"bytes"
-	"fmt"
-	"net/url"
-	"os"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
 
+// Renderer is the common interface for all rendering backends.
 type Renderer interface {
 	Render() string
 }
 
+// Source type constants shared across HTML and Markdown renderers.
 const (
 	Longman5Online = "LONGMAN5/Online"
 	LongmanEasy    = "LONGMAN/Easy"
 	OLD9           = "OLD9"
 )
 
+// defaultHandlers is the ordered list of NodeHandlers applied during every
+// HTMLRender.Render() walk. Add new handlers here to support new URL schemes
+// or element transformations without touching the walk logic.
+var defaultHandlers = []NodeHandler{
+	EntryHandler{},
+	SoundHandler{},
+	ImgHandler{},
+	ShowImageHandler{},
+}
+
+// HTMLRender renders raw MDX/online HTML into clean browser-ready HTML by
+// applying all registered NodeHandlers in a single DOM walk.
 type HTMLRender struct {
 	Raw        string
 	SourceType string
+	// EntryFetcher, when set, allows handlers to fetch other entries at
+	// render time (e.g. ShowImageHandler resolving big_pic cross-refs).
+	EntryFetcher func(word string) string
 }
 
 func (h *HTMLRender) Render() string {
-	info := strings.NewReader(h.Raw)
-	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(true))
+	doc, err := html.ParseWithOptions(
+		bytes.NewReader([]byte(h.Raw)),
+		html.ParseOptionEnableScripting(true),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	h.dfs(doc, 0, nil, "")
+
+	ctx := RenderContext{
+		SourceType:   h.SourceType,
+		EntryFetcher: h.EntryFetcher,
+	}
+	walk(doc, ctx)
+
 	body := findElement(doc, atom.Body, "body")
 	if body == nil {
 		body = doc
@@ -45,6 +66,36 @@ func (h *HTMLRender) Render() string {
 	}
 	return rendered
 }
+
+// walk performs a depth-first pre-order traversal of the DOM, applying all
+// defaultHandlers to each element node. A handler may signal skipChildren=true
+// to prevent recursion into that node's children (e.g. <img> is a void
+// element). Otherwise the walk always recurses.
+func walk(n *html.Node, ctx RenderContext) {
+	if n == nil || n.Type == html.TextNode {
+		return
+	}
+
+	skipChildren := false
+	if n.Type == html.ElementNode {
+		for _, h := range defaultHandlers {
+			if h.HandleNode(n, ctx) {
+				skipChildren = true
+				// Don't break: multiple handlers may legitimately act on the
+				// same node (e.g. a future handler might add aria attributes
+				// after another rewrote the href).
+			}
+		}
+	}
+
+	if !skipChildren {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c, ctx)
+		}
+	}
+}
+
+// ── DOM helpers used by html.go and handlers.go ──────────────────────────────
 
 func renderChildren(n *html.Node) (string, error) {
 	var b bytes.Buffer
@@ -71,165 +122,8 @@ func findElement(n *html.Node, atomName atom.Atom, data string) *html.Node {
 	return nil
 }
 
-func modifyImgSrc(n *html.Node) {
-	if n.Type != html.ElementNode || (n.DataAtom.String() != "img" && n.Data != "img") {
-		log.Fatalf("Error: an img element is expected")
-	}
-
-	// Some MDX dictionaries embed the full image as a data URI in a custom
-	// "base64" attribute rather than in "src". When present, promote it to
-	// "src" so the browser actually renders the image.
-	var b64Val string
-	for _, a := range n.Attr {
-		if a.Key == "base64" {
-			b64Val = a.Val
-			break
-		}
-	}
-
-	for i, a := range n.Attr {
-		if a.Key != "src" {
-			continue
-		}
-		// If there is an embedded base64 value, use it directly as the src.
-		if b64Val != "" {
-			n.Attr[i].Val = b64Val
-			return
-		}
-		v := a.Val
-		// Some MDX dictionaries store resources as file:///media/... or
-		// file://media/... Strip the file:// scheme so the path becomes
-		// root-relative and is served by MddFileHandler.
-		if strings.HasPrefix(v, "file://") {
-			v = strings.TrimPrefix(v, "file://")
-			// v is now "/media/..." (absolute) or a bare path — both handled below.
-		}
-		if !strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "http") {
-			v = "/" + v
-		}
-		n.Attr[i].Val = v
-	}
-}
-
-func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
-	if false {
-		var b bytes.Buffer
-		err := html.Render(&b, n)
-		if err != nil {
-			panic(err)
-		}
-		file, err := os.OpenFile("origin-test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
-		if err != nil {
-			panic(err)
-		}
-		file.Write(b.Bytes())
-		file.Close()
-	}
-	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
-	n.DataAtom = atom.Div
-	n.Data = "div"
-	n.Attr = append(n.Attr, []html.Attribute{
-		{Key: "style", Val: "cursor: pointer"},
-	}...)
-	node := newAudioTag(new)
-	jsChild := html.Node{
-		Type: html.TextNode,
-		Data: jsTempl,
-	}
-	jsNode := html.Node{
-		Type:     html.ElementNode,
-		DataAtom: atom.Script,
-		Data:     "script",
-	}
-	jsNode.InsertBefore(&jsChild, nil)
-	n.InsertBefore(node, nil)
-	n.InsertBefore(&jsNode, nil)
-	if false {
-		var b bytes.Buffer
-		err := html.Render(&b, n)
-		if err != nil {
-			panic(err)
-		}
-		file, err := os.OpenFile("test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
-		if err != nil {
-			panic(err)
-		}
-		file.Write(b.Bytes())
-		file.Close()
-	}
-}
-
-func newAudioTag(src string) *html.Node {
-	res := html.Node{
-		Type:     html.ElementNode,
-		DataAtom: atom.Audio,
-		Data:     "audio",
-		Attr: []html.Attribute{
-			{Key: "src", Val: src},
-			{Key: "preload", Val: "none"},
-		},
-	}
-	return &res
-}
-
-func (h *HTMLRender) modifyHref(n *html.Node) {
-	for i, a := range n.Attr {
-		if a.Key == "href" {
-			if strings.HasPrefix(a.Val, "entry://") {
-				target := strings.TrimPrefix(a.Val, "entry://")
-				// Split word and optional fragment (e.g. "fruit#fruit__entry_0__a").
-				// Encode only the word part as a query param; keep the fragment as a
-				// real URL hash so the browser scrolls to the right element.
-				// The dict uses "__a" suffix on anchor names that don't exist as element
-				// IDs — strip it so the hash matches the actual rendered id attribute.
-				word, frag, _ := strings.Cut(target, "#")
-				frag = strings.TrimSuffix(frag, "__a")
-				var new string
-				if frag != "" {
-					new = fmt.Sprintf("/dict?query=%s&engine=mdx&format=html#%s", url.QueryEscape(word), frag)
-				} else {
-					new = fmt.Sprintf("/dict?query=%s&engine=mdx&format=html", url.QueryEscape(word))
-				}
-				log.Infof("href entry: %v, new: %q", target, new)
-				n.Attr[i].Val = new
-			} else if strings.HasPrefix(a.Val, "sound://") {
-				name := strings.TrimSuffix(strings.TrimPrefix(a.Val, "sound://"), ".mp3")
-				audioFile := strings.TrimPrefix(a.Val, "sound://")
-				new := fmt.Sprintf("/%s", audioFile)
-				if strings.HasSuffix(h.SourceType, "Online") {
-					n.Attr[i].Val = new
-				} else {
-					h.replaceMp3(n, a.Val, name, new)
-				}
-			}
-		}
-	}
-}
-
-func (h *HTMLRender) dfs(n *html.Node, level int, parent *html.Node, ft string) string {
-	if n.Type == html.TextNode {
-		log.Debugf("TextNode: %v, DataAtom:%v", n.Type, n.DataAtom)
-		return ""
-	}
-	if IsElement(n, "a", "") {
-		log.Debugf("<a> %v", n)
-		h.modifyHref(n)
-		// Fall through to recurse into children: <a href="sound://..."><img src="..."></a>
-		// is common in MDX entries. After replaceMp3 converts the <a> to a <div>, the
-		// original <img> children remain and their src attributes still need rewriting.
-	}
-	if IsElement(n, "img", "") {
-		modifyImgSrc(n)
-		return ""
-	}
-
-	var s string
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += h.dfs(c, level+1, n, ft)
-	}
-	return s
-}
-
+// IsElement reports whether n is an element with the given tag name, and
+// optionally an exact class match when class != "".
 func IsElement(n *html.Node, ele string, class string) bool {
 	if n.Type == html.ElementNode && (n.DataAtom.String() == ele || n.Data == ele) {
 		if class == "" {
@@ -243,6 +137,19 @@ func IsElement(n *html.Node, ele string, class string) bool {
 		}
 	}
 	return false
+}
+
+func newAudioTag(src string) *html.Node {
+	res := html.Node{
+		Type:     html.ElementNode,
+		DataAtom: atom.Audio,
+		Data:     "audio",
+		Attr: []html.Attribute{
+			{Key: "src", Val: src},
+			{Key: "preload", Val: "none"},
+		},
+	}
+	return &res
 }
 
 // jsTempl uses an IIFE (Immediately Invoked Function Expression) to scope

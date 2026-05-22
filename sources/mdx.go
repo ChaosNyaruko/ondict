@@ -219,9 +219,9 @@ func QueryMDX(word string, f string) string {
 	}
 
 	// TODO: put the render abstraction here?
-	if f == "html" { // f for format
+	if f == "html" || f == "html_fragment" { // f for format
 		var style string
-		if allCss != "" {
+		if allCss != "" && f == "html" {
 			style = fmt.Sprintf("<style>%s</style>", allCss)
 		}
 		var res []string
@@ -230,7 +230,13 @@ func QueryMDX(word string, f string) string {
 			if def == "" {
 				continue
 			}
-			h := render.HTMLRender{Raw: def, SourceType: d.t}
+			h := render.HTMLRender{
+				Raw:        def,
+				SourceType: d.t,
+				// EntryFetcher lets ShowImageHandler resolve big_pic cross-refs
+				// at render time by fetching another entry's HTML server-side.
+				EntryFetcher: func(w string) string { return QueryMDX(w, "html_fragment") },
+			}
 			rs := fmt.Sprintf("<div>%s%s</div> ", style, h.Render())
 			res = append(res, rs)
 		}

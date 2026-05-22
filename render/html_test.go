@@ -110,6 +110,33 @@ func TestHTMLRender_Render(t *testing.T) {
 	}
 }
 
+func TestShowImageHandler_EntryFetcher(t *testing.T) {
+	// Simulate <a class="ldoce-show-image" base64="ldoce4188jpg"> inside a .Sense
+	// that has a sibling "see picture at fruit" link. The EntryFetcher returns
+	// a fake fruit entry with a .big_pic img. The handler should resolve the src
+	// and store it in data-img-src, removing the javascript:void(0) href.
+	raw := `<span class="Sense">` +
+		`<a class="crossRef ldoce-show-image" href="javascript:void(0);" base64="ldoce4188jpg">FRUIT 1</a>` +
+		`<a class="crossRef" href="/dict?query=fruit&engine=mdx&format=html">see picture at fruit</a>` +
+		`</span>`
+
+	fruitEntry := `<div class="big_pic"><img src="/fruit_comp.jpg"/></div>`
+
+	h := &HTMLRender{
+		Raw:        raw,
+		SourceType: LongmanEasy,
+		EntryFetcher: func(word string) string {
+			if word == "fruit" {
+				return fruitEntry
+			}
+			return ""
+		},
+	}
+	got := h.Render()
+	assert.Contains(t, got, `data-img-src="/fruit_comp.jpg"`)
+	assert.NotContains(t, got, `href="javascript:void(0);"`)
+}
+
 func TestIsElement(t *testing.T) {
 	// Need to parse a small HTML snippet to get a Node
 	// ... but IsElement is internal helper called by dfs.
