@@ -407,23 +407,6 @@
         }
 
         wireImagePopups();
-                    .catch(() => {
-                        const container = el.closest('.ldoce4img') || el;
-                        container.style.display = 'none';
-                    });
-            });
-
-            // Inline base64 thumbnails (<img class="ldoce-show-image">): always clickable.
-            document.querySelectorAll('img.ldoce-show-image').forEach(el => {
-                el.style.cursor = 'zoom-in';
-                el.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (el.src) openModal(el.src);
-                });
-            });
-        }
-        wireImagePopups();
     </script>
 </body>
 </html>
