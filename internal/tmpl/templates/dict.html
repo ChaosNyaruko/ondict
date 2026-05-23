@@ -109,8 +109,16 @@
             overflow-x: auto;
         }
         .entry-card img { max-width: 100%; height: auto; }
-        .entry-card audio { width: 100%; margin: 12px 0; }
         .entry-card table { max-width: 100%; }
+
+        /* Image lightbox */
+        #img-modal {
+            display: none; position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.82); cursor: zoom-out;
+            align-items: center; justify-content: center;
+        }
+        #img-modal.open { display: flex; }
+        #img-modal img { max-width: 92vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
         footer { padding-top: 0; padding-bottom: 24px; font-family: ui-sans-serif, system-ui, sans-serif; color: var(--muted); }
         footer a { color: inherit; }
         @media (max-width: 640px) {
@@ -198,6 +206,9 @@
                 Ondict is open source. <a href="https://github.com/ChaosNyaruko/ondict">GitHub Repository</a>
             </footer>
         </div>
+    </div>
+    <div id="img-modal" role="dialog" aria-modal="true" aria-label="Image viewer">
+        <img id="img-modal-img" src="" alt="">
     </div>
     <script>
         const html = document.documentElement;
@@ -295,6 +306,59 @@
         document.addEventListener('click', (event) => {
             if (!queryGroup.contains(event.target)) closeSuggestions();
         });
+
+        // ── Image lightbox ─────────────────────────────────────────────────────
+        // All URL resolution (entry://, sound://, file://, base64, big_pic
+        // cross-refs) is handled server-side by the Go renderer. The JS here
+        // is pure UI: open/close the lightbox modal.
+        //
+        // Clickable elements carry one of:
+        //   <img class="ldoce-show-image" src="data:...">   — embedded thumbnail
+        //   <a   class="ldoce-show-image" data-img-src="/fruit_comp.jpg"> — resolved cross-ref
+        const modal    = document.getElementById('img-modal');
+        const modalImg = document.getElementById('img-modal-img');
+
+        function openModal(src) {
+            modalImg.src = src;
+            modal.classList.add('open');
+        }
+
+        modal.addEventListener('click', () => {
+            modal.classList.remove('open');
+            modalImg.src = '';
+        });
+
+        // Wire click handlers for all show-image elements.
+        document.querySelectorAll('img.ldoce-show-image').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                if (el.src) openModal(el.src);
+            });
+        });
+        document.querySelectorAll('[data-img-src]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                openModal(el.getAttribute('data-img-src'));
+            });
+        });
+
+        // ── Audio playback ─────────────────────────────────────────────────────
+        // Sound elements are rendered as <span data-audio-src="/path/to.mp3">.
+        // A single delegated listener handles all of them — no per-element
+        // <script> injection needed. This also works in Android WebView by
+        // intercepting the data-audio-src attribute instead of running JS.
+        document.querySelector('.entry-card').addEventListener('click', function(e) {
+            const el = e.target.closest('[data-audio-src]');
+            if (!el) return;
+            const src = el.getAttribute('data-audio-src');
+            if (src) new Audio(src).play().catch(err => console.error('audio play error:', err));
+        });
+
+        // Scroll to fragment if the URL has a hash (e.g. #fruit__entry_0 from a cross-ref link).
+        if (location.hash) {
+            const target = document.querySelector(location.hash);
+            if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
     </script>
 </body>
 </html>

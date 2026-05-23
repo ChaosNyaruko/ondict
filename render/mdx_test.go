@@ -36,7 +36,7 @@ func Test_GetWords(t *testing.T) {
 		log.Fatal(err)
 	}
 	defer fd.Close()
-	doc, err := html.ParseWithOptions(fd, html.ParseOptionEnableScripting(false))
+	doc, err := html.ParseWithOptions(fd, html.ParseOptionEnableScripting(true))
 	if err != nil {
 		log.Fatal(err)
 	}

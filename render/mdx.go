@@ -9,7 +9,7 @@ import (
 )
 
 func ParseMDX(info io.Reader, ft string) string {
-	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
+	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(true))
 	if err != nil {
 		log.Fatal(err)
 	}
