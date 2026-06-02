@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -62,7 +63,7 @@ func (o output) GetSrc() string {
 }
 
 func loadAllCss() (string, error) {
-	var a []string
+	var files []string
 	dictsPath := util.DictsPath()
 	if _, err := os.Stat(dictsPath); os.IsNotExist(err) {
 		return "", nil
@@ -72,16 +73,41 @@ func loadAllCss() (string, error) {
 			return e
 		}
 		if !d.IsDir() && filepath.Ext(d.Name()) == ".css" {
-			log.Infof("loading css: %v", s)
-			content, err := os.ReadFile(s)
-			if err != nil {
-				return err
-			}
-			a = append(a, string(content))
+			files = append(files, s)
 		}
 		return nil
 	})
-	return strings.Join(a, "\n"), err
+	if err != nil {
+		return "", err
+	}
+
+	// Load vanilla/base CSS files first so that more specific non-vanilla
+	// rules (e.g. showing .HWD) come later and take precedence in the cascade.
+	sort.SliceStable(files, func(i, j int) bool {
+		iVanilla := strings.Contains(strings.ToLower(filepath.Base(files[i])), "vanilla")
+		jVanilla := strings.Contains(strings.ToLower(filepath.Base(files[j])), "vanilla")
+		if iVanilla != jVanilla {
+			return iVanilla // vanilla files sort first
+		}
+		return files[i] < files[j]
+	})
+
+	var a []string
+	for _, s := range files {
+		log.Infof("loading css: %v", s)
+		content, err := os.ReadFile(s)
+		if err != nil {
+			return "", err
+		}
+		a = append(a, string(content))
+	}
+	// LDOCE5++ LM5Switch.js uses .pagetitle { border-top-style } as a sentinel
+	// to detect whether it is running inside a real MDD viewer. If the style is
+	// not "double" it calls lm5pp_removePictureAndSound() which removes all
+	// .fa-volume-up elements — hiding every speaker icon. Override it here so
+	// the JS sees a "real" viewer and leaves the audio elements intact.
+	a = append(a, ".pagetitle { border-top-style: double; }")
+	return strings.Join(a, "\n"), nil
 }
 
 func (d *MdxDict) registerDictDB() error {

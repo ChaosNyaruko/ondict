@@ -2,38 +2,63 @@ package render
 
 import (
 	"bytes"
-	"fmt"
-	"net/url"
-	"os"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
 
+// Renderer is the common interface for all rendering backends.
 type Renderer interface {
 	Render() string
 }
 
+// Source type constants shared across HTML and Markdown renderers.
 const (
 	Longman5Online = "LONGMAN5/Online"
 	LongmanEasy    = "LONGMAN/Easy"
 	OLD9           = "OLD9"
 )
 
+// defaultHandlers is the ordered list of NodeHandlers applied during every
+// HTMLRender.Render() walk. Add new handlers here to support new URL schemes
+// or element transformations without touching the walk logic.
+var defaultHandlers = []NodeHandler{
+	EntryHandler{},
+	SoundHandler{},
+	ImgHandler{},
+	ShowImageHandler{},
+}
+
+// HTMLRender renders raw MDX/online HTML into clean browser-ready HTML by
+// applying all registered NodeHandlers in a single DOM walk.
 type HTMLRender struct {
 	Raw        string
 	SourceType string
+	// LinkFormat is passed to RenderContext.LinkFormat to control the format=
+	// parameter in rewritten entry:// links. Defaults to "html" when empty.
+	LinkFormat string
+	// EntryFetcher, when set, allows handlers to fetch other entries at
+	// render time (e.g. ShowImageHandler resolving big_pic cross-refs).
+	EntryFetcher func(word string) string
 }
 
 func (h *HTMLRender) Render() string {
-	info := strings.NewReader(h.Raw)
-	doc, err := html.ParseWithOptions(info, html.ParseOptionEnableScripting(false))
+	doc, err := html.ParseWithOptions(
+		bytes.NewReader([]byte(h.Raw)),
+		html.ParseOptionEnableScripting(true),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	h.dfs(doc, 0, nil, "")
+
+	ctx := RenderContext{
+		SourceType:   h.SourceType,
+		LinkFormat:   h.LinkFormat,
+		EntryFetcher: h.EntryFetcher,
+	}
+	walk(doc, ctx)
+
 	body := findElement(doc, atom.Body, "body")
 	if body == nil {
 		body = doc
@@ -43,8 +68,78 @@ func (h *HTMLRender) Render() string {
 		log.Debugf("html.Render err: %v", err)
 		return h.Raw
 	}
+
+	// Re-emit any <script src="..."> tags that the HTML parser moved into
+	// <head> (they come from the raw dict preamble, e.g. jquery + LM5Switch.js).
+	// Without this, dict-provided JS (fold/unfold, popup menus) never loads.
+	headScripts := headScriptTags(doc)
+	if headScripts != "" {
+		rendered = headScripts + rendered
+	}
+
 	return rendered
 }
+
+// walk performs a depth-first pre-order traversal of the DOM, applying all
+// defaultHandlers to each element node. A handler may signal skipChildren=true
+// to prevent recursion into that node's children (e.g. <img> is a void
+// element). Otherwise the walk always recurses.
+func walk(n *html.Node, ctx RenderContext) {
+	if n == nil || n.Type == html.TextNode {
+		return
+	}
+
+	skipChildren := false
+	if n.Type == html.ElementNode {
+		for _, h := range defaultHandlers {
+			if h.HandleNode(n, ctx) {
+				skipChildren = true
+				// Don't break: multiple handlers may legitimately act on the
+				// same node (e.g. a future handler might add aria attributes
+				// after another rewrote the href).
+			}
+		}
+	}
+
+	if !skipChildren {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c, ctx)
+		}
+	}
+}
+
+// headScriptTags collects all <script src="..."> nodes that the HTML parser
+// moved into <head> (from the raw dict preamble) and re-serialises them as a
+// string so they can be prepended to the body output. Inline <script> blocks
+// are intentionally skipped — only external src= scripts are re-emitted.
+func headScriptTags(doc *html.Node) string {
+	head := findElement(doc, atom.Head, "head")
+	if head == nil {
+		return ""
+	}
+	var b bytes.Buffer
+	for c := head.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type != html.ElementNode || c.DataAtom != atom.Script {
+			continue
+		}
+		hasSrc := false
+		for _, a := range c.Attr {
+			if a.Key == "src" && a.Val != "" {
+				hasSrc = true
+				break
+			}
+		}
+		if !hasSrc {
+			continue
+		}
+		if err := html.Render(&b, c); err == nil {
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
+}
+
+// ── DOM helpers used by html.go and handlers.go ──────────────────────────────
 
 func renderChildren(n *html.Node) (string, error) {
 	var b bytes.Buffer
@@ -71,121 +166,8 @@ func findElement(n *html.Node, atomName atom.Atom, data string) *html.Node {
 	return nil
 }
 
-func modifyImgSrc(n *html.Node) {
-	if n.Type != html.ElementNode || (n.DataAtom.String() != "img" && n.Data != "img") {
-		log.Fatalf("Error: an img element is expected")
-	}
-	for i, a := range n.Attr {
-		if a.Key == "src" && !strings.HasPrefix(a.Val, "/") && !strings.HasPrefix(a.Val, "http") {
-			n.Attr[i].Val = "/" + a.Val
-		}
-	}
-}
-
-func (h *HTMLRender) replaceMp3(n *html.Node, val string, name, new string) {
-	if false {
-		var b bytes.Buffer
-		err := html.Render(&b, n)
-		if err != nil {
-			panic(err)
-		}
-		file, err := os.OpenFile("origin-test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
-		if err != nil {
-			panic(err)
-		}
-		file.Write(b.Bytes())
-		file.Close()
-	}
-	log.Infof("href sound: %v, new: %q", strings.TrimPrefix(val, "sound://"), new)
-	n.DataAtom = atom.Div
-	n.Data = "div"
-	n.Attr = append(n.Attr, []html.Attribute{
-		{Key: "style", Val: "cursor: pointer"},
-	}...)
-	node := newAudioTag(new)
-	jsChild := html.Node{
-		Type: html.TextNode,
-		Data: jsTempl,
-	}
-	jsNode := html.Node{
-		Type:     html.ElementNode,
-		DataAtom: atom.Script,
-		Data:     "script",
-	}
-	jsNode.InsertBefore(&jsChild, nil)
-	n.InsertBefore(node, nil)
-	n.InsertBefore(&jsNode, nil)
-	if false {
-		var b bytes.Buffer
-		err := html.Render(&b, n)
-		if err != nil {
-			panic(err)
-		}
-		file, err := os.OpenFile("test-audio-"+strings.TrimPrefix(val, "sound://")+".html", os.O_WRONLY|os.O_CREATE, 0o666)
-		if err != nil {
-			panic(err)
-		}
-		file.Write(b.Bytes())
-		file.Close()
-	}
-}
-
-func newAudioTag(src string) *html.Node {
-	res := html.Node{
-		Type:     html.ElementNode,
-		DataAtom: atom.Audio,
-		Data:     "audio",
-		Attr: []html.Attribute{
-			{Key: "src", Val: src},
-			{Key: "preload", Val: "none"},
-		},
-	}
-	return &res
-}
-
-func (h *HTMLRender) modifyHref(n *html.Node) {
-	for i, a := range n.Attr {
-		if a.Key == "href" {
-			if strings.HasPrefix(a.Val, "entry://") {
-				new := fmt.Sprintf("/dict?query=%s&engine=mdx&format=html", url.QueryEscape(strings.TrimPrefix(a.Val, "entry://")))
-				log.Infof("href entry: %v, new: %q", strings.TrimPrefix(a.Val, "entry://"), new)
-				n.Attr[i].Val = new
-			} else if strings.HasPrefix(a.Val, "sound://") {
-				name := strings.TrimSuffix(strings.TrimPrefix(a.Val, "sound://"), ".mp3")
-				audioFile := strings.TrimPrefix(a.Val, "sound://")
-				new := fmt.Sprintf("/%s", audioFile)
-				if strings.HasSuffix(h.SourceType, "Online") {
-					n.Attr[i].Val = new
-				} else {
-					h.replaceMp3(n, a.Val, name, new)
-				}
-			}
-		}
-	}
-}
-
-func (h *HTMLRender) dfs(n *html.Node, level int, parent *html.Node, ft string) string {
-	if n.Type == html.TextNode {
-		log.Debugf("TextNode: %v, DataAtom:%v", n.Type, n.DataAtom)
-		return ""
-	}
-	if IsElement(n, "a", "") {
-		log.Debugf("<a> %v", n)
-		h.modifyHref(n)
-		return ""
-	}
-	if IsElement(n, "img", "") {
-		modifyImgSrc(n)
-		return ""
-	}
-
-	var s string
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		s += h.dfs(c, level+1, n, ft)
-	}
-	return s
-}
-
+// IsElement reports whether n is an element with the given tag name, and
+// optionally an exact class match when class != "".
 func IsElement(n *html.Node, ele string, class string) bool {
 	if n.Type == html.ElementNode && (n.DataAtom.String() == ele || n.Data == ele) {
 		if class == "" {
@@ -201,17 +183,3 @@ func IsElement(n *html.Node, ele string, class string) bool {
 	return false
 }
 
-// jsTempl uses an IIFE (Immediately Invoked Function Expression) to scope
-// variables, avoiding "redeclaration of let" errors when multiple dictionaries
-// generate scripts for the same word on one page.
-const jsTempl = `
-(() => {
-    let container = document.currentScript.parentElement;
-    let audio = container.querySelector('audio');
-    container.addEventListener('click', () => {
-        audio.play().catch(error => {
-            console.error('Error playing audio:', error);
-        });
-    });
-})();
-`
