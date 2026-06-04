@@ -1,36 +1,44 @@
+// Package history records every word the user queries.
+//
+// The package presents the legacy [Writer] interface and [History] aggregator
+// so existing call sites stay untouched. Internally the SQLite writer
+// delegates to a process-singleton [store.HistoryStore] keyed by the path
+// returned from util.HistoryDB(); see ADR 0001 / D7 for why we picked the
+// "interface + singleton shim" shape over a full call-site migration.
 package history
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/ChaosNyaruko/ondict/store"
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
-type Writer interface { // size=16 (0x10)
+// Writer is the fan-out append target. Implementations must be safe for
+// concurrent use from a single History.
+type Writer interface {
 	io.Closer
 	Append(word string) error
-	// Write(log RecyclableLog) error
-	// Flush() error
 }
 
+// History fans every Append out to N writers.
 type History struct {
 	writers []Writer
 }
 
 func NewHistory(ws ...Writer) *History {
-	return &History{
-		writers: ws,
-	}
+	return &History{writers: ws}
 }
 
 func (h *History) Append(word string) error {
@@ -42,34 +50,22 @@ func (h *History) Append(word string) error {
 	return nil
 }
 
+// Word is the legacy text-formatted view of a history entry.
 type Word struct {
 	Name       string
 	Count      int
 	CreateTime string
 	UpdateTime string
-}
-
-func (w *Word) NormTime(loc *time.Location) error {
-	// TODO: ''bad review request: parsing time "2025-02-15T18:00:27Z" as "2006-01-02 15:04:05": cannot parse "T18:00:27Z" as " "'
-	// > SQLite does not have a storage class set aside for storing dates and/or times. Instead, the built-in Date And Time Functions of SQLite are capable of storing dates and times as TEXT, REAL, or INTEGER values:
-	return nil
-	ct, err := time.ParseInLocation("2006-01-02 15:04:05", w.CreateTime, loc)
-	if err != nil {
-		return err
-	}
-	ut, err := time.ParseInLocation("2006-01-02 15:04:05", w.UpdateTime, loc)
-	if err != nil {
-		return err
-	}
-	w.CreateTime = ct.String()
-	w.UpdateTime = ut.String()
-	return nil
+	DeletedAt  string
 }
 
 func (w *Word) String() string {
 	return fmt.Sprintf("%-20v|%v|%v ", w.Name, w.UpdateTime, w.Count)
 }
 
+// Review returns the most-recent words queried within the last `days` days
+// with at least `count` occurrences. Timestamps are compared in UTC (post
+// schema v1; see ADR 0001).
 func (h *History) Review(days string, count string) (string, error) {
 	d, err := strconv.Atoi(days)
 	if err != nil {
@@ -79,47 +75,25 @@ func (h *History) Review(days string, count string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	// TODO: refactor
-	dbName := util.HistoryDB()
-	log.Debugf("Connected to %v!", dbName)
-	db, err := sql.Open("sqlite3", "file:"+dbName)
-	if err != nil {
-		log.Errorf("open db err: %v", err)
-		return "", err
-	}
-	defer db.Close()
-	rows, err := db.Query(
-		`SELECT * FROM history WHERE update_time > datetime('now', 'localtime', ?) AND count >= ? ORDER BY update_time DESC`,
-		fmt.Sprintf("-%d days", d),
-		cnt,
-	)
-	if err != nil {
-		log.Errorf("query most frequently queried words error: %v", err)
-		return "", err
-	}
-	defer rows.Close()
-	var res []string
-	// Loop through rows, using Scan to assign column data to struct fields.
-	loc, err := time.LoadLocation("Asia/Shanghai")
+	s, err := historyStore()
 	if err != nil {
 		return "", err
 	}
-	for rows.Next() {
-		var w Word
-		if err := rows.Scan(&w.Name, &w.Count, &w.CreateTime, &w.UpdateTime); err != nil {
-			return "", fmt.Errorf("Review words Scan: %v", err)
-		}
-		if err := w.NormTime(loc); err != nil {
-			return "", err
-		}
+	rows, err := s.Review(context.Background(), d, cnt)
+	if err != nil {
+		return "", err
+	}
+	res := make([]string, 0, len(rows))
+	for _, r := range rows {
+		w := Word{Name: r.Word, Count: r.Count, CreateTime: r.CreateTime, UpdateTime: r.UpdateTime}
 		res = append(res, w.String())
-	}
-	if err := rows.Err(); err != nil {
-		return "", fmt.Errorf("Review words: %v", err)
 	}
 	return strings.Join(res, "\n"), nil
 }
+
+// ---------------------------------------------------------------------------
+// TxtWriter — flat append-only log; unchanged by the sync work.
+// ---------------------------------------------------------------------------
 
 var _ Writer = &TxtWriter{}
 
@@ -135,8 +109,7 @@ func NewTxtWriter() *TxtWriter {
 	}
 	return &TxtWriter{
 		loc: loc,
-		// TODO: a singleton fd
-		fd: nil,
+		fd:  nil, // TODO: a singleton fd
 	}
 }
 
@@ -154,65 +127,82 @@ func (w *TxtWriter) Append(word string) error {
 	if err != nil {
 		return fmt.Errorf("open %s err: %v", t, err)
 	}
+	defer table.Close()
 	if _, err := table.WriteString(fmt.Sprintf("%s | %s\n", time.Now().In(w.loc), word)); err != nil {
 		return fmt.Errorf("write a record error: %v", err)
 	}
-	defer table.Close()
-
 	return nil
 }
 
-type Sqlite3Writer struct {
-	db *sql.DB
-}
+// ---------------------------------------------------------------------------
+// Sqlite3Writer — delegates to the process-singleton store.HistoryStore.
+// ---------------------------------------------------------------------------
 
-func NewSqlite3Writer() *Sqlite3Writer {
-	// TODO: a singleton fd
-	return &Sqlite3Writer{}
-}
+var _ Writer = &Sqlite3Writer{}
 
-func (w *Sqlite3Writer) Close() error {
-	if w == nil || w.db == nil {
-		return nil
-	}
-	return w.db.Close()
-}
+// Sqlite3Writer is preserved for API compatibility. Every Append delegates
+// to the singleton store.HistoryStore.
+type Sqlite3Writer struct{}
+
+func NewSqlite3Writer() *Sqlite3Writer { return &Sqlite3Writer{} }
+
+func (w *Sqlite3Writer) Close() error { return nil }
 
 func (w *Sqlite3Writer) Append(word string) error {
-	dbName := util.HistoryDB()
-	log.Debugf("Connected to %v!", dbName)
-	db, err := sql.Open("sqlite3", "file:"+dbName)
+	s, err := historyStore()
 	if err != nil {
-		log.Errorf("open db err: %v", err)
+		log.Errorf("history store: %v", err)
 		return err
 	}
-	defer db.Close()
-
-	pingErr := db.Ping()
-	if pingErr != nil {
-		log.Fatal(pingErr)
-	}
-	log.Infof("Connected!")
-
-	res, err := db.Exec(`CREATE TABLE IF NOT EXISTS history (
-    word TEXT NOT NULL UNIQUE,
-	` +
-		"`count`" + ` INTEGER NOT NULL DEFAULT 0,
-    create_time DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
-    update_time DATETIME NOT NULL DEFAULT (datetime('now', 'localtime'))
-);
-`)
-	if err != nil {
-		return err
-	}
-	res, err = db.Exec(`INSERT INTO history (word, count) VALUES (?, 1) ON CONFLICT(word) DO UPDATE SET count=count+1, update_time=datetime('now','localtime');`, word)
-	if err != nil {
+	if err := s.Append(context.Background(), word); err != nil {
 		log.Errorf("INSERT word %q error: %v", word, err)
-		return nil
+		return nil // legacy behaviour: swallow per-write errors
 	}
-	if id, err := res.LastInsertId(); err != nil {
-		log.Errorf("LastInsertId error: %v, %v", id, err)
-	}
-
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Process-singleton store.HistoryStore.
+// ---------------------------------------------------------------------------
+
+var (
+	singletonMu       sync.Mutex
+	singletonImpl     store.HistoryStore
+	singletonPath     string
+	singletonInjected bool // true when the impl was supplied via SetStore
+)
+
+// SetStore replaces the process-singleton HistoryStore. Symmetric with
+// wordbank.SetStore; useful for tests and for sync wrappers. An injected
+// store is owned by the caller and is never replaced by storeImpl until
+// SetStore(nil) is called.
+func SetStore(s store.HistoryStore) {
+	singletonMu.Lock()
+	defer singletonMu.Unlock()
+	singletonImpl = s
+	singletonPath = ""
+	singletonInjected = s != nil
+}
+
+func historyStore() (store.HistoryStore, error) {
+	singletonMu.Lock()
+	defer singletonMu.Unlock()
+	if singletonInjected {
+		return singletonImpl, nil
+	}
+	want := util.HistoryDB()
+	if singletonImpl != nil && singletonPath == want {
+		return singletonImpl, nil
+	}
+	if singletonImpl != nil && singletonPath != want {
+		_ = singletonImpl.Close()
+		singletonImpl = nil
+	}
+	h, err := store.OpenSQLiteHistory(want)
+	if err != nil {
+		return nil, err
+	}
+	singletonImpl = h
+	singletonPath = want
+	return singletonImpl, nil
 }

@@ -57,9 +57,11 @@ docker run --rm --name ondict-app --publish 1345:1345 \
 
 ### Go Standards
 - **Go version**: 1.23.0+ with toolchain 1.23.9
-- **Package structure**: Clear separation between `decoder`, `sources`, `render`, `util`, `history`
+- **Package structure**: Clear separation between `decoder`, `sources`, `render`, `util`, `history`, `wordbank`, `store`, `syncmerge`, `dbutil`, `internal/syncserver`, `internal/syncclient`
 - **Error handling**: Uses `logrus` for structured logging with debug/info levels
-- **Interface design**: Well-defined interfaces (`RawOutput`, `Searcher`, `Source`)
+- **Interface design**: Well-defined interfaces (`RawOutput`, `Searcher`, `Source`, `WordbankStore`, `HistoryStore`)
+- **Schema migrations**: Forward-only, idempotent migrations keyed off a per-DB `meta` table; see `dbutil/migrate.go` and the migration slices in `store/sqlite_*.go`. Update `schema.sql` when changing on-disk shape.
+- **Architecture decisions** are archived as ADRs under `docs/adr/`. Read the relevant ADR before changing wordbank/history/sync surfaces.
 
 ### Frontend Guidelines
 - **Pure HTML/CSS/JavaScript**: No complex frameworks

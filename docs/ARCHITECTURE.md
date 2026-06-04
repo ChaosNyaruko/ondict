@@ -169,3 +169,46 @@ necessary — just mapping known class names (`Sense`, `Example`, `GramExa`,
 `ColloBox`, etc.) to typed IR nodes would cover the vast majority of entries. That
 could be done by extending the existing `golang.org/x/net/html` tokenizer into a
 typed node tree with no external dependency.
+
+---
+
+## Wordbank & History — Merge and Cloud Sync
+
+The full design is captured as a versioned ADR at
+[`docs/adr/0001-wordbank-history-sync.md`](adr/0001-wordbank-history-sync.md). This
+section is a quick orientation pointer for code-reading.
+
+**Layered architecture:**
+
+```
+Consumers
+  • CLI: `ondict merge` (offline DB-to-DB merge)
+  • CLI: `ondict sync` (one-shot or daemon client sync)
+  • HTTP /sync/v1/{wordbank,history}/{pull,push,state}
+  • mobile.ConfigureSync / mobile.Sync (gomobile bindings)
+        │
+        ▼
+Store interfaces (pkg `store/`)        — WordbankStore, HistoryStore
+        │
+        ▼
+Backends — sqliteWordbank, sqliteHistory; tombstones via `deleted_at`;
+           sync delta via `server_seen_at` (ms-resolution local-write time)
+        │
+        ▼
+Merge engine (pkg `syncmerge/`) — pure: LWW by update_time;
+                                  count = MAX (idempotent);
+                                  create_time = MIN; tombstone propagation
+```
+
+**Schema versioning** is owned by `dbutil/migrate.go`; each DB carries a `meta` table
+recording its current `schema_version`. v1→v2 normalises legacy localtime history
+rows to UTC and adds tombstones; v2→v3 adds `server_seen_at` for sync deltas.
+
+**Why two timestamp columns?** `update_time` is user-content time and drives the
+merge winner (last-writer-wins). `server_seen_at` is local-write wall-clock time
+used purely as the sync delta filter so that pushes containing rows with
+backdated `update_time` still surface to other devices on the next pull.
+
+**Wire protocol:** HTTP REST + JSON, Basic Auth single-user. See the ADR for the
+endpoint shapes and the conscious rejection of CRDTs / gRPC / WebSocket push for
+v1.

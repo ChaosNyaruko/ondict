@@ -3,18 +3,23 @@
 package mobile
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/ChaosNyaruko/ondict/history"
 	"github.com/ChaosNyaruko/ondict/internal/httpserver"
+	"github.com/ChaosNyaruko/ondict/internal/syncclient"
 	"github.com/ChaosNyaruko/ondict/sources"
+	"github.com/ChaosNyaruko/ondict/store"
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
@@ -60,7 +65,11 @@ func StartServer(configDir, cacheDir string, port int) {
 	log.Infof("[timing] G.Load took %v", time.Since(tLoad))
 
 	r := httpserver.New(httpserver.Options{
-		History:         nil,   // no history recording on mobile
+		// Phase 7 (ADR D9): record history on mobile so it can be synced
+		// to a desktop server. We only attach the SQLite writer; the txt
+		// log is desktop-only because Android filesystems don't benefit
+		// from the human-readable companion.
+		History:         history.NewHistory(history.NewSqlite3Writer()),
 		EnableAuth:      false, // no auth on mobile
 		ResourceHandler: httpserver.MddFileHandler,
 	})
@@ -75,4 +84,78 @@ func StartServer(configDir, cacheDir string, port int) {
 	if err := r.RunListener(l); err != nil {
 		log.Fatalf("mobile: server exited: %v", err)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Sync — gomobile-callable bindings.
+//
+// The Android app is expected to call ConfigureSync once with the server
+// origin + Basic Auth credentials and then call Sync() either on a timer or
+// when the user pulls-to-refresh. Each call performs a complete pull-then-
+// push cycle for both wordbank and history (see ADR 0001 / Phase 6).
+// ---------------------------------------------------------------------------
+
+var (
+	syncMu     sync.Mutex
+	syncClient *syncclient.SyncClient
+)
+
+// ConfigureSync wires up the sync client. Call this once after StartServer
+// (it depends on util.SetPaths having already been called). Empty baseURL,
+// username, or password disables sync (returns no error).
+//
+// gomobile-friendly: only primitive types in the signature.
+func ConfigureSync(baseURL, username, password string) error {
+	syncMu.Lock()
+	defer syncMu.Unlock()
+	if baseURL == "" || username == "" || password == "" {
+		syncClient = nil
+		return nil
+	}
+	wb, err := store.OpenSQLiteWordbank(util.WordBankDB())
+	if err != nil {
+		return fmt.Errorf("open local wordbank: %w", err)
+	}
+	hist, err := store.OpenSQLiteHistory(util.HistoryDB())
+	if err != nil {
+		_ = wb.Close()
+		return fmt.Errorf("open local history: %w", err)
+	}
+	cursors := store.NewCursorStore(wb.DB())
+	c, err := syncclient.New(syncclient.Config{
+		BaseURL:  baseURL,
+		Username: username,
+		Password: password,
+	}, wb, hist, cursors)
+	if err != nil {
+		_ = wb.Close()
+		_ = hist.Close()
+		return err
+	}
+	syncClient = c
+	return nil
+}
+
+// Sync runs one pull-then-push cycle. Returns a human-readable summary
+// string on success, suitable for showing in a Toast or logging in adb.
+// Returns the underlying error string verbatim on failure (gomobile cannot
+// marshal Go errors directly; we return it as a string).
+func Sync() (string, error) {
+	syncMu.Lock()
+	c := syncClient
+	syncMu.Unlock()
+	if c == nil {
+		return "", fmt.Errorf("sync not configured: call ConfigureSync first")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	stats, err := c.Sync(ctx)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"sync ok: wordbank pull(ins=%d upd=%d) push=%d; history pull(ins=%d upd=%d) push=%d",
+		stats.WordbankPullApplied.Inserted, stats.WordbankPullApplied.Updated, stats.WordbankPushed,
+		stats.HistoryPullApplied.Inserted, stats.HistoryPullApplied.Updated, stats.HistoryPushed,
+	), nil
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ChaosNyaruko/ondict/internal/httpserver"
+	"github.com/ChaosNyaruko/ondict/internal/syncserver"
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
@@ -84,8 +87,40 @@ func NewProxy() *proxy {
 	// This runs before NoRoute so cached files are served instantly.
 	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 
+	if *syncServer {
+		if err := mountSyncServer(r); err != nil {
+			log.Fatalf("sync-server: %v", err)
+		}
+	}
+
 	p.e = r
 	return p
+}
+
+// mountSyncServer wires the cloud-sync endpoints onto r when -sync-server is
+// set. Credentials must be supplied via env vars; the function is a no-op if
+// the flag is unset (caller checks). See ADR 0001 / D4 / D10.
+func mountSyncServer(r *gin.Engine) error {
+	user := strings.TrimSpace(os.Getenv("ONDICT_SYNC_USER"))
+	pass := os.Getenv("ONDICT_SYNC_PASSWORD")
+	if user == "" || pass == "" {
+		return fmt.Errorf("ONDICT_SYNC_USER / ONDICT_SYNC_PASSWORD env vars must be set")
+	}
+	dir := *syncDataDir
+	if dir == "" {
+		dir = filepath.Join(util.ConfigPath(), "sync")
+	}
+	srv, err := syncserver.New(syncserver.Config{
+		DataDir:  dir,
+		Username: user,
+		Password: pass,
+	})
+	if err != nil {
+		return err
+	}
+	srv.Mount(r)
+	log.Infof("sync-server enabled: data_dir=%s user=%s", dir, user)
+	return nil
 }
 
 func ParseAddr(listen string) (network string, address string) {
