@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -181,4 +182,47 @@ func TestSyncClient_PushCursorIgnoresFutureUpdateTime(t *testing.T) {
 	stats, err = client.Sync(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, stats.WordbankPushed, "new local writes must keep being pushed even after a future-dated row")
+}
+
+// Regression for code-review (round 2) P2: a legacy second-resolution
+// cursor written by an earlier version of the client (e.g. "...:00Z")
+// must not stall the cursor's advance once millisecond-resolution
+// server_seen_at values arrive. The bug is that ASCII '.' (0x2E) <
+// 'Z' (0x5A), so a millisecond row "...:NN.fffZ" sorts BEFORE the
+// legacy "...:NNZ" lexically, and `r.SeenAt > maxSeen` is false even
+// when the row's instant is at or after the cursor's intended instant.
+// The fix normalises the legacy cursor to "...:NN.000Z" before any
+// string comparison.
+func TestSyncClient_PushCursorNormalizesLegacySecondResolutionCursor(t *testing.T) {
+	ctx := context.Background()
+	client, wb, _, cleanup := setupServerAndClient(t)
+	defer cleanup()
+
+	require.NoError(t, wb.Add(ctx, "alpha"))
+
+	// Plant a hand-crafted second-resolution cursor matching the same
+	// wall-clock second as the row's server_seen_at. This is the shape
+	// the previous client version (using time.RFC3339, second-resolution)
+	// would have written.
+	rows, err := wb.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Contains(t, rows[0].SeenAt, ".", "row SeenAt must be in ms format for the test premise")
+	legacySecondCursor := rows[0].SeenAt[:19] + "Z" // "...:NN.fffZ" → "...:NNZ"
+
+	require.NoError(t, client.meta.SetCursor(ctx, cursorWordbankPush, legacySecondCursor))
+
+	// Sync. After fix, the cursor is normalised before comparison so the
+	// row's ms SeenAt is correctly recognised as ordered relative to the
+	// cursor; maxSeen ends up at the row's ms value. Before fix,
+	// `r.SeenAt > maxSeen` (where maxSeen is still the raw legacy
+	// "...:NNZ") is FALSE for same-second writes, so maxSeen never
+	// advances and the cursor stays at the legacy form forever.
+	_, err = client.Sync(ctx)
+	require.NoError(t, err)
+
+	final, err := client.meta.GetCursor(ctx, cursorWordbankPush)
+	require.NoError(t, err)
+	require.Contains(t, final, ".", "cursor must be in millisecond layout after sync (got %q)", final)
+	require.NotEqual(t, legacySecondCursor, final, "cursor must have advanced past the legacy second-resolution value")
 }

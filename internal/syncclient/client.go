@@ -176,7 +176,12 @@ func (c *SyncClient) pushWordbank(ctx context.Context) (int, error) {
 	// Otherwise an inbound row with a future update_time would block all
 	// subsequent local writes from being pushed (and same-instant rows
 	// would be re-pushed forever). See ADR D11 / code-review P1.
-	maxSeen := since
+	//
+	// We also normalise `since` to the canonical millisecond layout so a
+	// legacy second-resolution cursor doesn't compare lexically GREATER
+	// than a same-second millisecond r.SeenAt (ASCII '.' 0x2E < 'Z' 0x5A
+	// makes "...:00.123Z" sort before "...:00Z" without normalisation).
+	maxSeen := normalizeCursorMs(since)
 	for _, r := range rows {
 		items = append(items, wordbankItem{
 			Word:       r.Word,
@@ -199,7 +204,12 @@ func (c *SyncClient) pushWordbank(ctx context.Context) (int, error) {
 	); err != nil {
 		return 0, err
 	}
-	if maxSeen != "" && maxSeen != since {
+	// Compare maxSeen against the normalised baseline so we still write
+	// when the only change is reformatting a legacy second-resolution
+	// cursor into the canonical millisecond layout (one-time migration on
+	// upgrade — also avoids rewriting an already-up-to-date cursor).
+	normalizedSince := normalizeCursorMs(since)
+	if maxSeen != "" && maxSeen != normalizedSince {
 		if err := c.meta.SetCursor(ctx, cursorWordbankPush, maxSeen); err != nil {
 			return resp.Applied, err
 		}
@@ -245,8 +255,9 @@ func (c *SyncClient) pushHistory(ctx context.Context) (int, error) {
 	}
 	items := make([]historyItem, 0, len(rows))
 	// See pushWordbank for why the cursor is in server_seen_at, not
-	// update_time, time domain.
-	maxSeen := since
+	// update_time, time domain — and why we normalise `since` to the
+	// canonical millisecond layout before any string comparison.
+	maxSeen := normalizeCursorMs(since)
 	for _, r := range rows {
 		items = append(items, historyItem{
 			Word:       r.Word,
@@ -270,7 +281,8 @@ func (c *SyncClient) pushHistory(ctx context.Context) (int, error) {
 	); err != nil {
 		return 0, err
 	}
-	if maxSeen != "" && maxSeen != since {
+	normalizedSince := normalizeCursorMs(since)
+	if maxSeen != "" && maxSeen != normalizedSince {
 		if err := c.meta.SetCursor(ctx, cursorHistoryPush, maxSeen); err != nil {
 			return resp.Applied, err
 		}
@@ -315,6 +327,35 @@ func parseRFC3339OrZero(s string) (time.Time, error) {
 		return time.Time{}, nil
 	}
 	return time.Parse(time.RFC3339, s)
+}
+
+// rfc3339Ms is the canonical sub-second timestamp format used by the
+// SQLite server_seen_at column (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')).
+// Cursors are normalised to this format before any string comparison so a
+// second-resolution legacy cursor (e.g. "...:00Z" written by an earlier
+// version of this client) can't beat a same-second millisecond value
+// (e.g. "...:00.123Z") in lexicographic comparison.
+//
+// Compare: ASCII '.' (0x2E) < 'Z' (0x5A), so without normalisation
+//
+//	"2026-06-04T07:00:00.123Z" < "2026-06-04T07:00:00Z"
+//
+// which would prevent the push cursor from advancing past a stale
+// second-only cursor and cause same-second rows to be re-pushed forever.
+const rfc3339Ms = "2006-01-02T15:04:05.000Z07:00"
+
+// normalizeCursorMs reparses any RFC3339-flavoured cursor string and
+// re-emits it in the canonical millisecond layout. Empty / unparseable
+// inputs are returned unchanged.
+func normalizeCursorMs(s string) string {
+	if s == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return s
+	}
+	return t.UTC().Format(rfc3339Ms)
 }
 
 // ---------------------------------------------------------------------------
