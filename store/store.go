@@ -6,12 +6,19 @@
 //
 // # Conventions
 //
-//   - All timestamps in [WordbankRow] / [HistoryRow] are RFC3339 UTC strings.
+//   - All timestamps in [WordbankRow] / [HistoryRow] are RFC3339 UTC strings
+//     with millisecond precision (e.g. "2026-06-04T07:09:51.234Z").
 //   - A row is "live" when DeletedAt == ""; otherwise it is a tombstone.
-//   - The user-facing methods (Add / Append / Remove) stamp CURRENT_TIMESTAMP
-//     and are the path the HTTP handlers and CLI use.
-//   - The sync-facing methods (Upsert, ListSince) take explicit row state so
-//     the merge engine can preserve the originating device's timestamps.
+//   - The user-facing methods (Add / Append / Remove) stamp the current
+//     instant via SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` and are
+//     the path the HTTP handlers and CLI use. (Earlier versions used
+//     `CURRENT_TIMESTAMP`, which has only second resolution and a
+//     space-separator that mis-sorts against the RFC3339 form used
+//     everywhere else; see ADR D11.)
+//   - The sync-facing methods (Upsert, ListSince, ListChanged) take
+//     explicit row state so the merge engine can preserve the originating
+//     device's timestamps; SeenAt on the row is set by the local DB at
+//     write time and is the field ListSince/ListChanged filter on.
 package store
 
 import (
@@ -86,9 +93,10 @@ type WordbankStore interface {
 	// Upsert applies a row with caller-provided timestamps. This is the
 	// merge / sync path; conflict resolution lives in the syncmerge package
 	// and is not the store's responsibility — Upsert simply writes what it
-	// is told. Implementations must respect the input timestamps verbatim
-	// (no CURRENT_TIMESTAMP rewriting), but server_seen_at is always
-	// stamped to "now" so newly-arrived rows surface in the next pull.
+	// is told. Implementations must respect the input create_time /
+	// update_time / deleted_at verbatim (no rewriting them to "now"), but
+	// server_seen_at is always stamped to the local "now" so newly-arrived
+	// rows surface in the next pull.
 	Upsert(ctx context.Context, row WordbankRow) error
 
 	// GCTombstones permanently removes tombstoned rows whose deleted_at is

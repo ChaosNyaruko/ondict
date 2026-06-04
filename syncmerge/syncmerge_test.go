@@ -16,11 +16,11 @@ import (
 
 func TestMergeWordbankRow_TableDriven(t *testing.T) {
 	cases := []struct {
-		name      string
-		existing  *store.WordbankRow
-		incoming  store.WordbankRow
-		want      store.WordbankRow
-		wantAct   action
+		name     string
+		existing *store.WordbankRow
+		incoming store.WordbankRow
+		want     store.WordbankRow
+		wantAct  action
 	}{
 		{
 			name:     "insert when not present",

@@ -342,3 +342,58 @@ func TestSQLiteHistory_ReviewBoundaryComparisonIsCorrect(t *testing.T) {
 		require.NotEqual(t, "yesterday", r.Word, "yesterday must NOT appear in last-0-days review (P2 boundary fix)")
 	}
 }
+
+// Regression for code-review (round 3) P3b: schema.sql claims canonical
+// DEFAULTs are strftime('%Y-%m-%dT%H:%M:%fZ', 'now'). The migration
+// products must match — otherwise a manual `INSERT` from sqlite3 CLI
+// (which falls through to the column DEFAULT) would create rows in a
+// timestamp format the sync delta filter doesn't recognise.
+//
+// We assert by reading sqlite_master and looking for the canonical
+// strftime fragment in the table DDL.
+func TestSQLiteWordbank_PostMigrationSchemaMatchesCanonical(t *testing.T) {
+	wb := openWB(t)
+	var sql string
+	err := wb.db.QueryRow(
+		`SELECT sql FROM sqlite_master WHERE type='table' AND name='words'`,
+	).Scan(&sql)
+	require.NoError(t, err)
+	require.Contains(t, sql, "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+		"words.create_time/update_time/server_seen_at DEFAULTs must be RFC3339-ms (got: %s)", sql)
+	require.NotContains(t, sql, "CURRENT_TIMESTAMP",
+		"words DEFAULTs must NOT be CURRENT_TIMESTAMP after v4 (got: %s)", sql)
+}
+
+func TestSQLiteHistory_PostMigrationSchemaMatchesCanonical(t *testing.T) {
+	h := openHist(t)
+	var sql string
+	err := h.db.QueryRow(
+		`SELECT sql FROM sqlite_master WHERE type='table' AND name='history'`,
+	).Scan(&sql)
+	require.NoError(t, err)
+	require.Contains(t, sql, "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+		"history timestamp DEFAULTs must be RFC3339-ms (got: %s)", sql)
+	require.NotContains(t, sql, "datetime('now','localtime')",
+		"history DEFAULTs must NOT be the legacy localtime form after v4 (got: %s)", sql)
+	require.NotContains(t, sql, "CURRENT_TIMESTAMP",
+		"history DEFAULTs must NOT be CURRENT_TIMESTAMP after v4 (got: %s)", sql)
+}
+
+// Migration v4 must preserve every existing row (data migration safety).
+func TestSQLiteWordbank_V4PreservesData(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+
+	require.NoError(t, wb.Add(ctx, "alpha"))
+	require.NoError(t, wb.Add(ctx, "beta"))
+	require.NoError(t, wb.Remove(ctx, "alpha"))
+
+	rows, err := wb.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rows, 2, "v4 rebuild must preserve all rows incl. tombstones")
+
+	live, err := wb.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, live, 1)
+	require.Equal(t, "beta", live[0].Word)
+}

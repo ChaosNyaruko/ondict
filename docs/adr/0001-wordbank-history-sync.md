@@ -182,6 +182,7 @@ Tracked in a new `meta` table per DB (`pragma user_version` is too coarse — we
 | v1      | Phase 1    | both DBs gain `meta(key,value)` table; wordbank table created if absent; history table created in legacy localtime shape (idempotent guard for pre-existing DBs) |
 | v2      | Phase 1    | history rows normalised from localtime-with-Z-suffix to true UTC RFC3339; both DBs gain `deleted_at` tombstone column; history gains `i_count` / `i_latest` indexes; wordbank gains `i_words_update_time` |
 | v3      | Phase 5/6  | both DBs gain `server_seen_at DATETIME` (nullable due to SQLite ALTER constraint, backfilled in same migration) plus `i_*_server_seen_at` index; runtime writes use `strftime('%f','now')` for millisecond resolution; sync filter switches from `update_time` to `server_seen_at` (see D11) |
+| v4      | Round-3 fix | rebuild `words` and `history` tables so column DEFAULTs match the canonical RFC3339-ms format documented in `schema.sql`. Earlier migrations (v1 wordbank `CURRENT_TIMESTAMP`, v1 history `datetime('now','localtime')`, v3 ALTER ADD COLUMN with no default at all) left the on-disk shape inconsistent with the documentation. Done via `CREATE TABLE *_new ... INSERT INTO *_new SELECT FROM ... DROP ... RENAME` since SQLite cannot change DEFAULTs in place. Indexes recreated against the new table. |
 
 Migrations are **idempotent and forward-only**. The migration helper checks `meta.schema_version`, applies the delta, and bumps the version atomically.
 

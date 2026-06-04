@@ -277,6 +277,61 @@ var historyMigrations = []dbutil.Migration{
 			return nil
 		},
 	},
+	{
+		Version: 4,
+		Name:    "canonicalize_defaults_to_rfc3339_ms",
+		Apply: func(tx *sql.Tx) error {
+			// Same motivation as wordbank v4: bring on-disk DEFAULTs in
+			// line with schema.sql so manual sqlite3 inserts produce
+			// rows in the canonical RFC3339-ms format.
+			//
+			// history is more important than wordbank here: pre-v4 the
+			// `update_time`/`create_time` defaults were the v0/v1
+			// LEGACY `datetime('now','localtime')` form — anyone who
+			// hand-INSERTs without supplying timestamps would create
+			// rows that look like the very localtime mess v2 was built
+			// to clean up.
+			return rebuildHistoryTableV4(tx)
+		},
+	},
+}
+
+// rebuildHistoryTableV4 swaps the history table for one whose column
+// DEFAULTs match the canonical schema. Mirror of rebuildWordsTableV4.
+func rebuildHistoryTableV4(tx *sql.Tx) error {
+	const nowMsSQL = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+	if _, err := tx.Exec(`CREATE TABLE history_new (
+	word           TEXT NOT NULL UNIQUE,
+	` + "`count`" + ` INTEGER NOT NULL DEFAULT 0,
+	create_time    DATETIME NOT NULL DEFAULT (` + nowMsSQL + `),
+	update_time    DATETIME NOT NULL DEFAULT (` + nowMsSQL + `),
+	deleted_at     DATETIME,
+	server_seen_at DATETIME NOT NULL DEFAULT (` + nowMsSQL + `)
+)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO history_new (word, ` + "`count`" + `, create_time, update_time, deleted_at, server_seen_at)
+		SELECT word, ` + "`count`" + `, create_time, update_time, deleted_at,
+		       COALESCE(server_seen_at, ` + nowMsSQL + `)
+		FROM history`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DROP TABLE history`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`ALTER TABLE history_new RENAME TO history`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS i_count                   ON history(` + "`count`" + `)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS i_latest                  ON history(update_time)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS i_history_server_seen_at  ON history(server_seen_at)`); err != nil {
+		return err
+	}
+	return nil
 }
 
 // normalizeLegacyHistoryTimestamps mirrors the helper in package history; see

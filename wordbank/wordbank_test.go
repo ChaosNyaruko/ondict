@@ -39,7 +39,7 @@ func (r *recordingStore) ListSince(context.Context, time.Time) ([]store.Wordbank
 func (r *recordingStore) ListChanged(context.Context, time.Time, time.Time) ([]store.WordbankRow, error) {
 	return nil, nil
 }
-func (r *recordingStore) Upsert(context.Context, store.WordbankRow) error    { return nil }
+func (r *recordingStore) Upsert(context.Context, store.WordbankRow) error      { return nil }
 func (r *recordingStore) GCTombstones(context.Context, time.Time) (int, error) { return 0, nil }
 
 func TestWordBankAddListContainsAndRemove(t *testing.T) {

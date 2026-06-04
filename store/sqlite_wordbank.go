@@ -319,4 +319,60 @@ var wordbankMigrations = []dbutil.Migration{
 			return nil
 		},
 	},
+	{
+		Version: 4,
+		Name:    "canonicalize_defaults_to_rfc3339_ms",
+		Apply: func(tx *sql.Tx) error {
+			// Earlier migrations left the column DEFAULTs in
+			// inconsistent states: v1 used CURRENT_TIMESTAMP, v3
+			// ALTERs added columns without any default. The runtime
+			// always writes timestamps via strftime('%f','now') so it
+			// works regardless, but `schema.sql` documents the canonical
+			// shape and someone manually `INSERT`-ing via sqlite3 CLI
+			// would otherwise get rows whose timestamps don't match the
+			// sync delta filter format.
+			//
+			// SQLite cannot change column DEFAULTs in place, so we
+			// rebuild the table: create a new table with the canonical
+			// shape, copy rows over, drop the old table, rename the new
+			// one. All inside the migration's transaction.
+			return rebuildWordsTableV4(tx)
+		},
+	},
+}
+
+// rebuildWordsTableV4 swaps the words table for one whose column DEFAULTs
+// match the canonical schema documented in schema.sql.
+func rebuildWordsTableV4(tx *sql.Tx) error {
+	const nowMsSQL = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+	if _, err := tx.Exec(`CREATE TABLE words_new (
+	word           TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+	create_time    DATETIME NOT NULL DEFAULT (` + nowMsSQL + `),
+	update_time    DATETIME NOT NULL DEFAULT (` + nowMsSQL + `),
+	deleted_at     DATETIME,
+	server_seen_at DATETIME NOT NULL DEFAULT (` + nowMsSQL + `)
+)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO words_new (word, create_time, update_time, deleted_at, server_seen_at)
+		SELECT word, create_time, update_time, deleted_at,
+		       COALESCE(server_seen_at, ` + nowMsSQL + `)
+		FROM words`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DROP TABLE words`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`ALTER TABLE words_new RENAME TO words`); err != nil {
+		return err
+	}
+	// Indexes on the old table got dropped along with it; recreate them
+	// against the new table.
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS i_words_update_time    ON words(update_time)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS i_words_server_seen_at ON words(server_seen_at)`); err != nil {
+		return err
+	}
+	return nil
 }

@@ -159,7 +159,7 @@ type wordbankPushRequest struct {
 }
 
 type wordbankPushResponse struct {
-	Applied int            `json:"applied"`
+	Applied int             `json:"applied"`
 	Stats   syncmerge.Stats `json:"stats"`
 }
 
@@ -434,9 +434,9 @@ func newInMemoryWordbank(items []wordbankItem) *inMemoryWordbank {
 	return &inMemoryWordbank{rows: rows}
 }
 
-func (m *inMemoryWordbank) Close() error                                  { return nil }
-func (m *inMemoryWordbank) Add(context.Context, string) error             { return errReadOnly }
-func (m *inMemoryWordbank) Remove(context.Context, string) error          { return errReadOnly }
+func (m *inMemoryWordbank) Close() error                         { return nil }
+func (m *inMemoryWordbank) Add(context.Context, string) error    { return errReadOnly }
+func (m *inMemoryWordbank) Remove(context.Context, string) error { return errReadOnly }
 func (m *inMemoryWordbank) Contains(context.Context, string) (bool, error) {
 	return false, errReadOnly
 }
@@ -470,8 +470,8 @@ func newInMemoryHistory(items []historyItem) *inMemoryHistory {
 	return &inMemoryHistory{rows: rows}
 }
 
-func (m *inMemoryHistory) Close() error                          { return nil }
-func (m *inMemoryHistory) Append(context.Context, string) error  { return errReadOnly }
+func (m *inMemoryHistory) Close() error                         { return nil }
+func (m *inMemoryHistory) Append(context.Context, string) error { return errReadOnly }
 func (m *inMemoryHistory) List(context.Context) ([]store.HistoryRow, error) {
 	return m.rows, nil
 }

@@ -401,18 +401,22 @@ func newRowSourceWordbank(items []wordbankItem) *rowSourceWordbank {
 	return &rowSourceWordbank{rows: rows}
 }
 
-func (r *rowSourceWordbank) Close() error                                           { return nil }
-func (r *rowSourceWordbank) Add(context.Context, string) error                      { return errClientReadOnly }
-func (r *rowSourceWordbank) Remove(context.Context, string) error                   { return errClientReadOnly }
-func (r *rowSourceWordbank) Contains(context.Context, string) (bool, error)         { return false, errClientReadOnly }
-func (r *rowSourceWordbank) List(context.Context) ([]store.WordbankRow, error)      { return r.rows, nil }
+func (r *rowSourceWordbank) Close() error                         { return nil }
+func (r *rowSourceWordbank) Add(context.Context, string) error    { return errClientReadOnly }
+func (r *rowSourceWordbank) Remove(context.Context, string) error { return errClientReadOnly }
+func (r *rowSourceWordbank) Contains(context.Context, string) (bool, error) {
+	return false, errClientReadOnly
+}
+func (r *rowSourceWordbank) List(context.Context) ([]store.WordbankRow, error) { return r.rows, nil }
 func (r *rowSourceWordbank) ListSince(_ context.Context, _ time.Time) ([]store.WordbankRow, error) {
 	return r.rows, nil
 }
 func (r *rowSourceWordbank) ListChanged(_ context.Context, _, _ time.Time) ([]store.WordbankRow, error) {
 	return r.rows, nil
 }
-func (r *rowSourceWordbank) Upsert(context.Context, store.WordbankRow) error { return errClientReadOnly }
+func (r *rowSourceWordbank) Upsert(context.Context, store.WordbankRow) error {
+	return errClientReadOnly
+}
 func (r *rowSourceWordbank) GCTombstones(context.Context, time.Time) (int, error) {
 	return 0, errClientReadOnly
 }
@@ -433,9 +437,9 @@ func newRowSourceHistory(items []historyItem) *rowSourceHistory {
 	return &rowSourceHistory{rows: rows}
 }
 
-func (r *rowSourceHistory) Close() error                                          { return nil }
-func (r *rowSourceHistory) Append(context.Context, string) error                  { return errClientReadOnly }
-func (r *rowSourceHistory) List(context.Context) ([]store.HistoryRow, error)      { return r.rows, nil }
+func (r *rowSourceHistory) Close() error                                     { return nil }
+func (r *rowSourceHistory) Append(context.Context, string) error             { return errClientReadOnly }
+func (r *rowSourceHistory) List(context.Context) ([]store.HistoryRow, error) { return r.rows, nil }
 func (r *rowSourceHistory) ListSince(_ context.Context, _ time.Time) ([]store.HistoryRow, error) {
 	return r.rows, nil
 }

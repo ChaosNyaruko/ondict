@@ -11,9 +11,9 @@
 //
 //   - D1  Sync at the row level. Each row is keyed by `word`.
 //   - D2  Last-writer-wins by UpdateTime; CreateTime = MIN(create_a, create_b);
-//         the tombstone (DeletedAt) wins iff it carries the larger UpdateTime.
+//     the tombstone (DeletedAt) wins iff it carries the larger UpdateTime.
 //   - D3  History `count` is merged with MAX (idempotent). SUM was rejected
-//         because the same source DB merged twice would double-count.
+//     because the same source DB merged twice would double-count.
 //
 // All timestamps are RFC3339 UTC (post schema v2; see ADR / Schema versions).
 // Empty / unparseable timestamps are treated as the zero time and lose every

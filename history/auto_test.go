@@ -168,5 +168,5 @@ func TestHistoryMigration_IsIdempotent(t *testing.T) {
 
 	v, err := dbutil.CurrentVersion(db)
 	require.NoError(t, err)
-	require.Equal(t, 3, v)
+	require.Equal(t, 4, v)
 }
