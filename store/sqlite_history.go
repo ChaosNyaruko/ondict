@@ -49,6 +49,9 @@ func (h *SQLiteHistory) Close() error {
 func (h *SQLiteHistory) Append(ctx context.Context, word string) error {
 	word, err := normalizeWord(word)
 	if err != nil {
+		if errors.Is(err, ErrEmptyWord) {
+			return nil
+		}
 		return err
 	}
 	// Stamp create_time / update_time explicitly in RFC3339-millisecond UTC
