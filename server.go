@@ -107,10 +107,10 @@ func mountSyncServer(r *gin.Engine) error {
 		return fmt.Errorf("ONDICT_SYNC_USER / ONDICT_SYNC_PASSWORD env vars must be set")
 	}
 	dir := *syncDataDir
-	fmt.Fprintf(os.Stderr, "sync data dir=%q\n", dir)
 	if dir == "" {
 		dir = filepath.Join(util.ConfigPath(), "sync")
 	}
+	fmt.Fprintf(os.Stderr, "sync data dir=%q\n", dir)
 	srv, err := syncserver.New(syncserver.Config{
 		DataDir:  dir,
 		Username: user,
