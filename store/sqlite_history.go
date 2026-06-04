@@ -297,9 +297,32 @@ var historyMigrations = []dbutil.Migration{
 }
 
 // rebuildHistoryTableV4 swaps the history table for one whose column
-// DEFAULTs match the canonical schema. Mirror of rebuildWordsTableV4.
+// DEFAULTs match the canonical schema, AND normalises every existing
+// row's create_time/update_time/deleted_at to the canonical RFC3339-ms
+// UTC layout. See rebuildWordsTableV4 in sqlite_wordbank.go for the
+// rationale (it applies symmetrically here).
+//
+// Pre-v4 history rows can carry several legacy shapes:
+//   - v0/v1 raw `datetime('now','localtime')` output that the
+//     ncruces driver auto-Z-suffixed (data already normalised to UTC
+//     RFC3339Z by the v2 migration);
+//   - v2-and-later rows written with the runtime nowMs constant
+//     (already canonical);
+//   - rows produced by manual sqlite3 inserts that fell through to
+//     the old DEFAULT (CURRENT_TIMESTAMP, "YYYY-MM-DD HH:MM:SS" UTC).
+//
+// SQLite's strftime accepts all three shapes and re-emits them in
+// ms-resolution UTC; we COALESCE through to the wall clock for any
+// value strftime can't parse to keep NOT NULL columns satisfied.
 func rebuildHistoryTableV4(tx *sql.Tx) error {
 	const nowMsSQL = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+	canonical := func(col string) string {
+		return `COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', ` + col + `), ` + nowMsSQL + `)`
+	}
+	canonicalNullable := func(col string) string {
+		return `CASE WHEN ` + col + ` IS NULL THEN NULL ELSE ` + canonical(col) + ` END`
+	}
+
 	if _, err := tx.Exec(`CREATE TABLE history_new (
 	word           TEXT NOT NULL UNIQUE,
 	` + "`count`" + ` INTEGER NOT NULL DEFAULT 0,
@@ -311,8 +334,11 @@ func rebuildHistoryTableV4(tx *sql.Tx) error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO history_new (word, ` + "`count`" + `, create_time, update_time, deleted_at, server_seen_at)
-		SELECT word, ` + "`count`" + `, create_time, update_time, deleted_at,
-		       COALESCE(server_seen_at, ` + nowMsSQL + `)
+		SELECT word, ` + "`count`" + `,
+		       ` + canonical("create_time") + `,
+		       ` + canonical("update_time") + `,
+		       ` + canonicalNullable("deleted_at") + `,
+		       COALESCE(` + canonical("server_seen_at") + `, ` + nowMsSQL + `)
 		FROM history`); err != nil {
 		return err
 	}

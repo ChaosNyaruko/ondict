@@ -342,9 +342,34 @@ var wordbankMigrations = []dbutil.Migration{
 }
 
 // rebuildWordsTableV4 swaps the words table for one whose column DEFAULTs
-// match the canonical schema documented in schema.sql.
+// match the canonical schema documented in schema.sql, AND normalises
+// every existing row's create_time/update_time/deleted_at to the
+// canonical RFC3339-ms UTC layout.
+//
+// The data-side normalisation matters because pre-v4 rows may carry
+// SQLite CURRENT_TIMESTAMP output ("YYYY-MM-DD HH:MM:SS", UTC) — which
+// downstream parsers (notably syncmerge.parseTimeStr's fallback) treat
+// as time.Local and therefore mis-resolve LWW comparisons by the local
+// timezone offset. We re-emit every legacy row in the canonical layout
+// during the rebuild to remove that footgun for good.
 func rebuildWordsTableV4(tx *sql.Tx) error {
 	const nowMsSQL = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+
+	// canonical(x) returns the canonical RFC3339-ms UTC form of x. SQLite's
+	// strftime accepts ISO8601 with 'Z' (kept as-is, ms-padded if needed)
+	// and the legacy "YYYY-MM-DD HH:MM:SS" form (which CURRENT_TIMESTAMP
+	// produces in UTC; strftime treats this as UTC too — no timezone
+	// shift). NULL or unparseable strftime results fall through to the
+	// current wall-clock so we never end up with NULL in a NOT NULL column.
+	canonical := func(col string) string {
+		return `COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', ` + col + `), ` + nowMsSQL + `)`
+	}
+	// canonicalNullable: same as above but preserves NULL inputs (used for
+	// deleted_at, where NULL means "not a tombstone").
+	canonicalNullable := func(col string) string {
+		return `CASE WHEN ` + col + ` IS NULL THEN NULL ELSE ` + canonical(col) + ` END`
+	}
+
 	if _, err := tx.Exec(`CREATE TABLE words_new (
 	word           TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
 	create_time    DATETIME NOT NULL DEFAULT (` + nowMsSQL + `),
@@ -355,8 +380,11 @@ func rebuildWordsTableV4(tx *sql.Tx) error {
 		return err
 	}
 	if _, err := tx.Exec(`INSERT INTO words_new (word, create_time, update_time, deleted_at, server_seen_at)
-		SELECT word, create_time, update_time, deleted_at,
-		       COALESCE(server_seen_at, ` + nowMsSQL + `)
+		SELECT word,
+		       ` + canonical("create_time") + `,
+		       ` + canonical("update_time") + `,
+		       ` + canonicalNullable("deleted_at") + `,
+		       COALESCE(` + canonical("server_seen_at") + `, ` + nowMsSQL + `)
 		FROM words`); err != nil {
 		return err
 	}
