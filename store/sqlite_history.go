@@ -28,10 +28,14 @@ func OpenSQLiteHistory(path string) (*SQLiteHistory, error) {
 			return nil, fmt.Errorf("open history %q: mkdir parent: %w", path, err)
 		}
 	}
-	db, err := sql.Open("sqlite3", "file:"+path)
+	// WAL mode + busy_timeout + single connection — same rationale as
+	// OpenSQLiteWordbank: prevents concurrent-write corruption and allows
+	// the DB to survive a crash without a partially-applied journal.
+	db, err := sql.Open("sqlite3", "file:"+path+"?_journal_mode=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, fmt.Errorf("open history %q: %w", path, err)
 	}
+	db.SetMaxOpenConns(1)
 	if err := dbutil.EnsureSchema(db, historyMigrations); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate history %q: %w", path, err)

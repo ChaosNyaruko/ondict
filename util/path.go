@@ -3,18 +3,25 @@ package util
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
 
-var overrideConfigPath string
-var overrideTmpPath string
+var (
+	pathMu             sync.RWMutex
+	overrideConfigPath string
+	overrideTmpPath    string
+)
 
 // SetPaths overrides the default config and cache directories.
 // Call this before any other util functions, e.g. from a mobile entry point.
+// Safe to call from multiple goroutines.
 func SetPaths(configPath, tmpPath string) {
+	pathMu.Lock()
 	overrideConfigPath = configPath
 	overrideTmpPath = tmpPath
+	pathMu.Unlock()
 }
 
 func HistoryFile() string {
@@ -42,18 +49,24 @@ func DictsPath() string {
 // vocab.db is a derived cache rebuilt automatically from the MDX source files.
 // On desktop it lives alongside the other config files under ~/.config/ondict.
 func VocabDB() string {
-	if overrideTmpPath != "" {
+	pathMu.RLock()
+	t := overrideTmpPath
+	pathMu.RUnlock()
+	if t != "" {
 		return filepath.Join(TmpDir(), "vocab.db")
 	}
 	return filepath.Join(ConfigPath(), "vocab.db")
 }
 
 func ConfigPath() string {
-	if overrideConfigPath != "" {
-		if err := os.MkdirAll(overrideConfigPath, 0o755); err != nil {
+	pathMu.RLock()
+	p := overrideConfigPath
+	pathMu.RUnlock()
+	if p != "" {
+		if err := os.MkdirAll(p, 0o755); err != nil {
 			log.Fatalf("Mkdir err: %v", err)
 		}
-		return overrideConfigPath
+		return p
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -67,11 +80,14 @@ func ConfigPath() string {
 }
 
 func TmpDir() string {
-	if overrideTmpPath != "" {
-		if err := os.MkdirAll(overrideTmpPath, 0o755); err != nil {
+	pathMu.RLock()
+	t := overrideTmpPath
+	pathMu.RUnlock()
+	if t != "" {
+		if err := os.MkdirAll(t, 0o755); err != nil {
 			log.Fatalf("Mkdir err: %v", err)
 		}
-		return overrideTmpPath
+		return t
 	}
 	home, err := os.UserCacheDir()
 	if err != nil {

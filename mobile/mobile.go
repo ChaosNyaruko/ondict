@@ -206,9 +206,14 @@ func ensureSharedStores() error {
 //
 // gomobile-friendly: only primitive types in the signature.
 func InitSyncOnly(configDir, cacheDir, baseURL, username, password string) error {
-	// Mirror the path-setup portion of StartServer so that util.WordBankDB()
-	// and util.HistoryDB() resolve to the correct on-device locations.
+	// Hold syncMu while setting paths so that the util.SetPaths write is
+	// visible to the ensureSharedStores call that follows inside
+	// ConfigureSync. Without this, a concurrent goroutine could trigger
+	// storeOnce.Do (opening the DBs) before the correct Android paths are
+	// written, causing stores to open against the desktop fallback path.
+	syncMu.Lock()
 	util.SetPaths(configDir, cacheDir)
+	syncMu.Unlock()
 
 	// The rest is identical to ConfigureSync, which also calls ensureSharedStores.
 	return ConfigureSync(baseURL, username, password)

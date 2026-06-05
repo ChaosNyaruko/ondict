@@ -37,10 +37,17 @@ func OpenSQLiteWordbank(path string) (*SQLiteWordbank, error) {
 			return nil, fmt.Errorf("open wordbank %q: mkdir parent: %w", path, err)
 		}
 	}
-	db, err := sql.Open("sqlite3", "file:"+path)
+	// Use WAL journal mode so that readers never block writers and a crash
+	// cannot leave the main DB file partially written. busy_timeout gives
+	// concurrent writers up to 10 s to acquire the write lock before
+	// returning SQLITE_BUSY. MaxOpenConns(1) keeps the connection pool at
+	// a single connection, which is all SQLite needs for serialised writes
+	// and is the safest setting when WAL mode is not yet confirmed active.
+	db, err := sql.Open("sqlite3", "file:"+path+"?_journal_mode=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, fmt.Errorf("open wordbank %q: %w", path, err)
 	}
+	db.SetMaxOpenConns(1)
 	if err := dbutil.EnsureSchema(db, wordbankMigrations); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate wordbank %q: %w", path, err)
