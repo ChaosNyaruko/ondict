@@ -19,3 +19,11 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# WorkManager uses reflection to instantiate its internal Room database
+# (WorkDatabase) by canonical class name. R8 must not rename these classes.
+-keep class androidx.work.impl.WorkDatabase
+-keep class androidx.work.impl.WorkDatabase_Impl
+-keep class * extends androidx.work.impl.WorkDatabase
+-keep class androidx.work.** { *; }
+-keep class androidx.work.impl.** { *; }
