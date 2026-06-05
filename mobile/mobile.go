@@ -21,6 +21,7 @@ import (
 	"github.com/ChaosNyaruko/ondict/sources"
 	"github.com/ChaosNyaruko/ondict/store"
 	"github.com/ChaosNyaruko/ondict/util"
+	"github.com/ChaosNyaruko/ondict/wordbank"
 )
 
 // StartServer starts the ondict HTTP server on 127.0.0.1:<port>.
@@ -64,6 +65,15 @@ func StartServer(configDir, cacheDir string, port int) {
 	sources.G.Load(true /* iexact */, false /* dumpMDD */, true /* lazy */)
 	log.Infof("[timing] G.Load took %v", time.Since(tLoad))
 
+	// Open the local wordbank/history stores up-front and install them as
+	// the package singletons. Doing this BEFORE any HTTP handler is
+	// registered ensures the shim's lazy-init path never races with
+	// ConfigureSync — the sync client will reuse these very *sql.DB
+	// handles instead of opening competing ones against the same files.
+	if err := ensureSharedStores(); err != nil {
+		log.Errorf("mobile: open shared stores: %v", err)
+	}
+
 	r := httpserver.New(httpserver.Options{
 		// Phase 7 (ADR D9): record history on mobile so it can be synced
 		// to a desktop server. We only attach the SQLite writer; the txt
@@ -96,20 +106,57 @@ func StartServer(configDir, cacheDir string, port int) {
 // ---------------------------------------------------------------------------
 
 var (
-	syncMu     sync.Mutex
-	syncClient *syncclient.SyncClient
+	syncMu      sync.Mutex
+	syncClient  *syncclient.SyncClient
+	syncWB      *store.SQLiteWordbank // shared with the package-level wordbank shim
+	syncHistory *store.SQLiteHistory  // shared with the package-level history shim
 )
 
 // ConfigureSync wires up the sync client. Call this once after StartServer
 // (it depends on util.SetPaths having already been called). Empty baseURL,
 // username, or password disables sync (returns no error).
 //
+// The same *sql.DB instances are shared with the wordbank/history package
+// shims via SetStore so the WebView's writes and the sync client's reads
+// both go through one connection pool — opening separate handles to the
+// same SQLite file is a recipe for write-lock contention and stale reads.
+//
 // gomobile-friendly: only primitive types in the signature.
 func ConfigureSync(baseURL, username, password string) error {
 	syncMu.Lock()
 	defer syncMu.Unlock()
 	if baseURL == "" || username == "" || password == "" {
+		// Disable: drop the sync client but leave the singleton stores in
+		// place so existing WebView writes keep working.
 		syncClient = nil
+		return nil
+	}
+	if err := ensureSharedStores(); err != nil {
+		return err
+	}
+	cursors := store.NewCursorStore(syncWB.DB())
+	c, err := syncclient.New(syncclient.Config{
+		BaseURL:  baseURL,
+		Username: username,
+		Password: password,
+	}, syncWB, syncHistory, cursors)
+	if err != nil {
+		return err
+	}
+	syncClient = c
+	return nil
+}
+
+// ensureSharedStores opens the local wordbank.db / history.db ONCE and
+// installs the same instances as both:
+//   - the wordbank/history package singletons (so the HTTP query handlers
+//     and any other call site keep using them via wordbank.Add / etc.)
+//   - the inputs to syncclient.New (so the sync push/pull path reads the
+//     same writer-pool the HTTP path writes through).
+//
+// Idempotent: if the stores have already been installed, returns nil.
+func ensureSharedStores() error {
+	if syncWB != nil && syncHistory != nil {
 		return nil
 	}
 	wb, err := store.OpenSQLiteWordbank(util.WordBankDB())
@@ -121,18 +168,10 @@ func ConfigureSync(baseURL, username, password string) error {
 		_ = wb.Close()
 		return fmt.Errorf("open local history: %w", err)
 	}
-	cursors := store.NewCursorStore(wb.DB())
-	c, err := syncclient.New(syncclient.Config{
-		BaseURL:  baseURL,
-		Username: username,
-		Password: password,
-	}, wb, hist, cursors)
-	if err != nil {
-		_ = wb.Close()
-		_ = hist.Close()
-		return err
-	}
-	syncClient = c
+	wordbank.SetStore(wb)
+	history.SetStore(hist)
+	syncWB = wb
+	syncHistory = hist
 	return nil
 }
 

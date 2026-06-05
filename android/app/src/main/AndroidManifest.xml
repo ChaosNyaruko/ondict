@@ -25,6 +25,10 @@
             android:name=".SetupActivity"
             android:exported="false"
             android:label="Import Dictionary" />
+        <activity
+            android:name=".SyncSettingsActivity"
+            android:exported="false"
+            android:label="Cloud Sync" />
     </application>
 
 </manifest>

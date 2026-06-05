@@ -45,6 +45,13 @@ class MainActivity : AppCompatActivity() {
                     SetupActivity.start(this@MainActivity)
                     return true
                 }
+                // Intercept /sync to open SyncSettingsActivity. Lets the
+                // existing in-page nav (e.g. links in templates) reach
+                // the sync settings screen without needing native menu UI.
+                if (request.url.path == "/sync") {
+                    SyncSettingsActivity.start(this@MainActivity)
+                    return true
+                }
                 return false
             }
             override fun onPageFinished(view: WebView, url: String) {
@@ -59,6 +66,11 @@ class MainActivity : AppCompatActivity() {
         }.start()
         Thread {
             waitForServer()
+            // Push any persisted sync credentials down to the Go side so
+            // periodic / manual syncs can run. Safe to call when nothing
+            // is configured — Mobile.configureSync treats blank fields as
+            // "disable sync".
+            SyncManager.applyFromSettings(this)
             runOnUiThread {
                 webView.loadUrl("http://127.0.0.1:$port")
             }

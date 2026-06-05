@@ -83,6 +83,7 @@ func New(opts Options) *gin.Engine {
 	r.POST("/words/add", addWordHandler)
 	r.POST("/words/remove", removeWordHandler)
 	r.GET("/complete", completeHandler)
+	r.GET("/sync", syncInfoHandler)
 
 	if opts.ResourceHandler != nil {
 		r.NoRoute(opts.ResourceHandler)
@@ -255,6 +256,41 @@ func completeHandler(c *gin.Context) {
 	}
 	c.Data(200, "application/json", res)
 }
+
+// syncInfoHandler responds to GET /sync. On Android the WebView client
+// intercepts this path locally and opens the native SyncSettingsActivity,
+// so this handler only fires on desktop / browser-direct setups, where it
+// renders a small page pointing the user at the CLI / docs equivalents.
+//
+// Returning an HTML body (instead of 404) keeps the Cloud Sync nav link
+// in the templates from being a dead link on desktop.
+func syncInfoHandler(c *gin.Context) {
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(syncInfoHTML))
+}
+
+const syncInfoHTML = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Cloud Sync — Ondict</title>
+<style>
+  body { font: 14px/1.5 system-ui, -apple-system, sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
+  code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  pre { background: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; }
+  a { color: #0366d6; }
+</style></head><body>
+<h1>Cloud Sync</h1>
+<p>Sync runs through a small HTTP API under <code>/sync/v1/*</code>. The Android
+app has a built-in settings screen; on desktop the equivalent is the
+<code>ondict sync</code> CLI subcommand:</p>
+<pre>export ONDICT_SYNC_USER=alice
+export ONDICT_SYNC_PASSWORD='something-strong'
+ondict sync --base-url https://sync.example.com</pre>
+<p>For periodic / daemon-mode sync, see
+<a href="https://github.com/ChaosNyaruko/ondict/blob/main/docs/sync-deployment.md">docs/sync-deployment.md</a>
+and
+<a href="https://github.com/ChaosNyaruko/ondict/blob/main/docs/adr/0001-wordbank-history-sync.md">ADR&nbsp;0001</a>.</p>
+<p><a href="/">Back to home</a></p>
+</body></html>
+`
+
 
 // ---------------------------------------------------------------------------
 // Helpers
