@@ -35,6 +35,11 @@ class SyncWorker(
             // Return success so WorkManager doesn't keep retrying a no-op.
             return Result.success()
         }
+        if (s.autoSyncSuspended) {
+            // A previous permanent error already cancelled the unique periodic
+            // work. This handles any stale invocation that was already queued.
+            return Result.success()
+        }
 
         // Initialise the Go-side paths + sync client every time we land
         // here. If StartServer already ran in this process the call is
@@ -55,12 +60,12 @@ class SyncWorker(
         }
 
         if (initErr != null) {
-            // Config/path error — not a transient network problem; retry
-            // won't help until settings change, but we don't have a
-            // "failure, don't retry" signal distinct from "please retry",
-            // so return failure (WorkManager will not retry on FAILURE by
-            // default when the policy is keep/replace).
-            SyncSettings.recordResult(ctx, "init failed: $initErr")
+            // Config/path error is not a transient network problem. Cancel
+            // the unique periodic work and leave the user's autoSync choice
+            // intact; saving settings clears the suspension.
+            val reason = "init failed: $initErr"
+            SyncSettings.recordResult(ctx, reason)
+            SyncManager.suspendAutoSync(ctx, reason)
             return Result.failure()
         }
 
@@ -70,10 +75,16 @@ class SyncWorker(
             is SyncManager.Result.Err ->
                 // Only retry for transient errors (network timeouts, 5xx).
                 // Permanent errors (4xx: wrong password, wrong URL, bad
-                // request) will not resolve without user action; retrying
-                // just wastes battery. WorkManager will not reschedule on
-                // Result.failure() by default.
-                if (r.transient) Result.retry() else Result.failure()
+                // request) will not resolve without user action. Cancel the
+                // unique periodic work but keep the user's autoSync preference
+                // unchanged; a later Save clears the suspension and schedules
+                // this worker again.
+                if (r.transient) {
+                    Result.retry()
+                } else {
+                    SyncManager.suspendAutoSync(ctx, r.message)
+                    Result.failure()
+                }
         }
     }
 }

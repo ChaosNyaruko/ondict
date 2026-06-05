@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit
  *      UI thread (Mobile.sync() does network I/O).
  *   4. WorkManager schedules [SyncWorker] for periodic background sync
  *      when the user enables auto-sync.
+ *   5. Permanent sync failures suspend auto-sync by cancelling the unique
+ *      periodic work, without changing the user's autoSync preference.
  *
  * Every entry point that touches the Go side goes through
  * Mobile.initSyncOnly(configDir, cacheDir, ...) rather than
@@ -97,10 +99,21 @@ object SyncManager {
         return out
     }
 
+    /**
+     * Pauses background sync after a permanent failure. This intentionally does
+     * not change SyncSettings.autoSync: the switch still represents the user's
+     * desired setting. A later Save clears the suspension and re-schedules the
+     * unique worker if auto-sync is still enabled.
+     */
+    fun suspendAutoSync(context: Context, reason: String) {
+        SyncSettings.suspendAutoSync(context, reason)
+        WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+    }
+
     /** Schedules or cancels the WorkManager periodic worker per the snapshot. */
     private fun scheduleOrCancelPeriodic(context: Context, s: SyncSettings.Snapshot) {
         val wm = WorkManager.getInstance(context)
-        if (!s.isConfigured || !s.autoSync) {
+        if (!s.isConfigured || !s.autoSync || s.autoSyncSuspended) {
             wm.cancelUniqueWork(WORK_NAME)
             return
         }

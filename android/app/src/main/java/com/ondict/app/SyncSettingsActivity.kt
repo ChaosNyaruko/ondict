@@ -19,7 +19,7 @@ import java.util.Locale
  *
  * Workflow:
  *   1. User fills in base URL / username / password.
- *   2. Tap "Save" to persist + push to mobile.Mobile.configureSync.
+ *   2. Tap "Save" to persist + push to mobile.Mobile.initSyncOnly.
  *   3. Tap "Sync now" to trigger an immediate one-shot cycle on a
  *      background thread; result is shown in statusText.
  */
@@ -137,7 +137,11 @@ class SyncSettingsActivity : AppCompatActivity() {
 
         // ----- Status -----
         statusText = TextView(this).apply {
-            text = ""
+            text = if (current.autoSyncSuspended && current.suspendReason.isNotBlank()) {
+                "Auto-sync paused: ${current.suspendReason}"
+            } else {
+                ""
+            }
             textSize = 13f
             setPadding(0, 16, 0, 0)
         }
@@ -203,6 +207,9 @@ class SyncSettingsActivity : AppCompatActivity() {
 
         Thread {
             val r = SyncManager.syncOnceBlocking(this)
+            if (r is SyncManager.Result.Err && !r.transient) {
+                SyncManager.suspendAutoSync(this, r.message)
+            }
             runOnUiThread {
                 statusText.text = r.message
                 lastSyncText.text = formatLastSync(SyncSettings.read(this))

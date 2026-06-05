@@ -21,6 +21,8 @@ object SyncSettings {
     private const val KEY_INTERVAL    = "auto_sync_interval_minutes"
     private const val KEY_LAST_SYNC   = "last_sync_epoch_ms"
     private const val KEY_LAST_STATUS = "last_sync_status"
+    private const val KEY_SUSPENDED   = "auto_sync_suspended"
+    private const val KEY_SUSPEND_REASON = "auto_sync_suspend_reason"
 
     private const val DEFAULT_INTERVAL_MIN = 30L
 
@@ -33,6 +35,8 @@ object SyncSettings {
         val username: String,
         val password: String,
         val autoSync: Boolean,
+        val autoSyncSuspended: Boolean,
+        val suspendReason: String,
         val intervalMinutes: Long,
         val lastSyncEpochMs: Long,   // 0 = never
         val lastStatus: String       // human-readable result of the last sync
@@ -49,6 +53,8 @@ object SyncSettings {
             username        = p.getString(KEY_USERNAME, "").orEmpty(),
             password        = p.getString(KEY_PASSWORD, "").orEmpty(),
             autoSync        = p.getBoolean(KEY_AUTO_SYNC, false),
+            autoSyncSuspended = p.getBoolean(KEY_SUSPENDED, false),
+            suspendReason   = p.getString(KEY_SUSPEND_REASON, "").orEmpty(),
             intervalMinutes = p.getLong(KEY_INTERVAL, DEFAULT_INTERVAL_MIN),
             lastSyncEpochMs = p.getLong(KEY_LAST_SYNC, 0L),
             lastStatus      = p.getString(KEY_LAST_STATUS, "").orEmpty()
@@ -69,6 +75,18 @@ object SyncSettings {
             .putString(KEY_PASSWORD,  password)
             .putBoolean(KEY_AUTO_SYNC, autoSync)
             .putLong(KEY_INTERVAL,    intervalMinutes.coerceAtLeast(15L))
+            // Saving is explicit user action. Keep the user's autoSync choice
+            // intact, but clear any permanent-error suspension so the updated
+            // credentials can be scheduled again.
+            .remove(KEY_SUSPENDED)
+            .remove(KEY_SUSPEND_REASON)
+            .apply()
+    }
+
+    fun suspendAutoSync(context: Context, reason: String) {
+        prefs(context).edit()
+            .putBoolean(KEY_SUSPENDED, true)
+            .putString(KEY_SUSPEND_REASON, reason)
             .apply()
     }
 
