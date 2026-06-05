@@ -24,6 +24,16 @@ import java.util.concurrent.TimeUnit
  *      UI thread (Mobile.sync() does network I/O).
  *   4. WorkManager schedules [SyncWorker] for periodic background sync
  *      when the user enables auto-sync.
+ *
+ * Every entry point that touches the Go side goes through
+ * Mobile.initSyncOnly(configDir, cacheDir, ...) rather than
+ * Mobile.configureSync(...) so that util.SetPaths is always called before
+ * ensureSharedStores(). Using configureSync() directly assumes
+ * StartServer has already run in this process, which is not guaranteed
+ * when SyncSettingsActivity is reached in a cold-start (e.g. after the
+ * OS killed only the main Activity component). Because ensureSharedStores
+ * is guarded by a sync.Once, a wrong-path failure is sticky for the
+ * process lifetime.
  */
 object SyncManager {
 
@@ -35,18 +45,32 @@ object SyncManager {
      * Go sync client (or disables it if any field is blank). Also
      * (un)schedules the periodic worker.
      *
+     * Uses [Context] to supply the correct filesDir/cacheDir to
+     * Mobile.initSyncOnly so that the call is safe regardless of whether
+     * StartServer has run in this process.
+     *
      * Safe to call repeatedly. Returns null on success, or the underlying
-     * error from Mobile.configureSync() formatted as a string.
+     * error formatted as a string.
      */
     fun applyFromSettings(context: Context): String? {
         val s = SyncSettings.read(context)
         return try {
-            // Empty fields disable sync on the Go side without erroring.
-            Mobile.configureSync(s.baseURL, s.username, s.password)
+            // initSyncOnly = util.SetPaths + ConfigureSync. Calling
+            // configureSync() directly would silently use the wrong
+            // (desktop-fallback) path if StartServer hasn't been called
+            // yet in this process. See class-level doc for the full
+            // rationale.
+            Mobile.initSyncOnly(
+                context.filesDir.absolutePath,
+                context.cacheDir.absolutePath,
+                s.baseURL,
+                s.username,
+                s.password
+            )
             scheduleOrCancelPeriodic(context, s)
             null
         } catch (e: Exception) {
-            Log.w(TAG, "configureSync failed", e)
+            Log.w(TAG, "initSyncOnly failed", e)
             e.message ?: e.toString()
         }
     }
