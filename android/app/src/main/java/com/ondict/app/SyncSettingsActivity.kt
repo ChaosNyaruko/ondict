@@ -170,7 +170,12 @@ class SyncSettingsActivity : AppCompatActivity() {
     // Actions
     // -------------------------------------------------------------------------
 
-    private fun onSave() {
+    /**
+     * Persists the form values and pushes credentials to the Go sync client.
+     * Returns true on success, false on failure (statusText is already
+     * updated by this function).
+     */
+    private fun onSave(): Boolean {
         val url      = urlField.text.toString()
         val user     = userField.text.toString()
         val pass     = passField.text.toString()
@@ -180,12 +185,20 @@ class SyncSettingsActivity : AppCompatActivity() {
         SyncSettings.saveCredentials(this, url, user, pass, auto, interval)
 
         val err = SyncManager.applyFromSettings(this)
-        statusText.text = if (err == null) "✓ Saved." else "✗ Saved, but configure failed: $err"
+        return if (err == null) {
+            statusText.text = "✓ Saved."
+            true
+        } else {
+            statusText.text = "✗ Configure failed: $err"
+            false
+        }
     }
 
     private fun onSyncNow() {
-        // Save the form first so user doesn't have to tap Save before Sync.
-        onSave()
+        // Save first; bail immediately if configuration failed so we don't
+        // mask the error message or attempt a sync with stale/nil credentials.
+        if (!onSave()) return
+
         statusText.text = "Syncing…"
 
         Thread {

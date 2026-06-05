@@ -175,10 +175,27 @@ func ensureSharedStores() error {
 	return nil
 }
 
-// Sync runs one pull-then-push cycle. Returns a human-readable summary
-// string on success, suitable for showing in a Toast or logging in adb.
-// Returns the underlying error string verbatim on failure (gomobile cannot
-// marshal Go errors directly; we return it as a string).
+// InitSyncOnly bootstraps only the paths and local SQLite stores needed
+// for sync, WITHOUT starting the HTTP server or loading dictionaries.
+// Call this from contexts that only need to run a sync cycle (e.g. a
+// WorkManager background Worker that was launched into a fresh process
+// after the OS killed the app — the HTTP server is not running, so
+// StartServer has never been called and util.SetPaths / ConfigureSync
+// have never fired).
+//
+// Callers should pass applicationContext.filesDir and .cacheDir just like
+// they would to StartServer. After this call succeeds, Sync() is ready
+// to use.
+//
+// gomobile-friendly: only primitive types in the signature.
+func InitSyncOnly(configDir, cacheDir, baseURL, username, password string) error {
+	// Mirror the path-setup portion of StartServer so that util.WordBankDB()
+	// and util.HistoryDB() resolve to the correct on-device locations.
+	util.SetPaths(configDir, cacheDir)
+
+	// The rest is identical to ConfigureSync, which also calls ensureSharedStores.
+	return ConfigureSync(baseURL, username, password)
+}
 func Sync() (string, error) {
 	syncMu.Lock()
 	c := syncClient
