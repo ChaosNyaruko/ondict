@@ -77,7 +77,14 @@ func New(cfg Config, wordbank store.WordbankStore, history store.HistoryStore, m
 	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
 	doer := cfg.HTTPClient
 	if doer == nil {
-		doer = &http.Client{Timeout: 30 * time.Second}
+		// 5-minute per-request timeout. Each pull/push is a single HTTP
+		// round trip; a first-time sync pulling thousands of rows from a
+		// slow server or mobile connection can legitimately take several
+		// minutes. The outer context passed to Sync() acts as the total
+		// safety net. 30s was too short for large initial syncs and caused
+		// "sqlite3: interrupted" when the server-side merge took longer
+		// than the deadline.
+		doer = &http.Client{Timeout: 5 * time.Minute}
 	}
 	return &SyncClient{
 		cfg:      cfg,

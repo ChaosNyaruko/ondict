@@ -31,7 +31,7 @@ func runSync(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	baseURL := fs.String("base-url", "", "sync server origin (required), e.g. https://sync.example.com")
 	user := fs.String("user", "", "username (defaults to $ONDICT_SYNC_USER)")
-	timeout := fs.Duration("timeout", 60*time.Second, "overall timeout for one sync round trip")
+	timeout := fs.Duration("timeout", 10*time.Minute, "overall timeout for one sync round trip (default generous for first-time full sync)")
 	loop := fs.Duration("loop", 0, "if >0, run as a daemon, syncing on this interval")
 	gcAfter := fs.Duration("gc-tombstones-after", 0, "purge tombstones older than this each cycle (0 disables)")
 	if err := fs.Parse(args); err != nil {

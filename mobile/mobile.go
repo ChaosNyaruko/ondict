@@ -220,7 +220,14 @@ func Sync() (string, error) {
 	if c == nil {
 		return "", fmt.Errorf("sync not configured: call ConfigureSync first")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// 10-minute outer safety net. Each HTTP leg has its own 5-minute
+	// per-request timeout via the client's http.Client (see syncclient.New
+	// default). The outer context here guards against a completely hung
+	// sync cycle, not individual slow requests, so it is deliberately
+	// generous — a first-time sync over a large wordbank/history can
+	// legitimately take several minutes for the server to process the
+	// merge and the client to apply it to local SQLite.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	stats, err := c.Sync(ctx)
 	if err != nil {
