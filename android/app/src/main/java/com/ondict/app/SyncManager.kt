@@ -62,7 +62,12 @@ object SyncManager {
             Result.Ok(summary ?: "sync ok")
         } catch (e: Exception) {
             Log.w(TAG, "sync failed", e)
-            Result.Err(e.message ?: e.toString())
+            val errMsg = e.message ?: e.toString()
+            // Classify the error so callers (e.g. SyncWorker) can decide
+            // whether to retry. 4xx HTTP errors are permanent failures;
+            // network timeouts and 5xx are transient.
+            val transient = Mobile.isSyncTransient(errMsg)
+            Result.Err(errMsg, transient)
         }
         SyncSettings.recordResult(context, out.message)
         return out
@@ -89,6 +94,10 @@ object SyncManager {
 
     sealed class Result(val message: String) {
         class Ok(message: String) : Result(message)
-        class Err(message: String) : Result("error: $message")
+        /**
+         * @param transient true if the error is worth retrying (network
+         *   issue, server-side 5xx); false for permanent failures (4xx).
+         */
+        class Err(message: String, val transient: Boolean = true) : Result("error: $message")
     }
 }

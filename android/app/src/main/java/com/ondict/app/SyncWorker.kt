@@ -67,8 +67,13 @@ class SyncWorker(
         val r = SyncManager.syncOnceBlocking(ctx)
         return when (r) {
             is SyncManager.Result.Ok  -> Result.success()
-            // Transient errors (bad network, server down) — let WorkManager retry.
-            is SyncManager.Result.Err -> Result.retry()
+            is SyncManager.Result.Err ->
+                // Only retry for transient errors (network timeouts, 5xx).
+                // Permanent errors (4xx: wrong password, wrong URL, bad
+                // request) will not resolve without user action; retrying
+                // just wastes battery. WorkManager will not reschedule on
+                // Result.failure() by default.
+                if (r.transient) Result.retry() else Result.failure()
         }
     }
 }

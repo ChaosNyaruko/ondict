@@ -9,6 +9,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -110,6 +112,19 @@ var (
 	syncClient  *syncclient.SyncClient
 	syncWB      *store.SQLiteWordbank // shared with the package-level wordbank shim
 	syncHistory *store.SQLiteHistory  // shared with the package-level history shim
+
+	// storeOnce serialises the first call to ensureSharedStores across all
+	// entry points (StartServer, InitSyncOnly/ConfigureSync). Using a
+	// sync.Once rather than relying on the syncMu that wraps ConfigureSync
+	// prevents a race between StartServer (which calls ensureSharedStores
+	// without syncMu) and a concurrent Worker firing InitSyncOnly (which
+	// calls it under syncMu) — both goroutines could pass the
+	// syncWB != nil check simultaneously and open two competing *sql.DB
+	// handles, defeating the shared-store invariant we set up in the
+	// previous round. With Once the shared stores are opened exactly once
+	// regardless of which caller arrives first.
+	storeOnce    sync.Once
+	storeOpenErr error // sticky error from the one-time open attempt
 )
 
 // ConfigureSync wires up the sync client. Call this once after StartServer
@@ -154,25 +169,27 @@ func ConfigureSync(baseURL, username, password string) error {
 //   - the inputs to syncclient.New (so the sync push/pull path reads the
 //     same writer-pool the HTTP path writes through).
 //
-// Idempotent: if the stores have already been installed, returns nil.
+// Serialised by storeOnce — safe to call from StartServer and from
+// InitSyncOnly/ConfigureSync concurrently.
 func ensureSharedStores() error {
-	if syncWB != nil && syncHistory != nil {
-		return nil
-	}
-	wb, err := store.OpenSQLiteWordbank(util.WordBankDB())
-	if err != nil {
-		return fmt.Errorf("open local wordbank: %w", err)
-	}
-	hist, err := store.OpenSQLiteHistory(util.HistoryDB())
-	if err != nil {
-		_ = wb.Close()
-		return fmt.Errorf("open local history: %w", err)
-	}
-	wordbank.SetStore(wb)
-	history.SetStore(hist)
-	syncWB = wb
-	syncHistory = hist
-	return nil
+	storeOnce.Do(func() {
+		wb, err := store.OpenSQLiteWordbank(util.WordBankDB())
+		if err != nil {
+			storeOpenErr = fmt.Errorf("open local wordbank: %w", err)
+			return
+		}
+		hist, err := store.OpenSQLiteHistory(util.HistoryDB())
+		if err != nil {
+			_ = wb.Close()
+			storeOpenErr = fmt.Errorf("open local history: %w", err)
+			return
+		}
+		wordbank.SetStore(wb)
+		history.SetStore(hist)
+		syncWB = wb
+		syncHistory = hist
+	})
+	return storeOpenErr
 }
 
 // InitSyncOnly bootstraps only the paths and local SQLite stores needed
@@ -214,4 +231,44 @@ func Sync() (string, error) {
 		stats.WordbankPullApplied.Inserted, stats.WordbankPullApplied.Updated, stats.WordbankPushed,
 		stats.HistoryPullApplied.Inserted, stats.HistoryPullApplied.Updated, stats.HistoryPushed,
 	), nil
+}
+
+// IsSyncTransient reports whether an error string returned by Sync() (or
+// surfaced through SyncManager.syncOnceBlocking) represents a transient
+// failure that is worth retrying (network timeout, server-side 5xx) versus
+// a permanent failure that will not resolve without user action (4xx: bad
+// credentials, wrong URL, etc.).
+//
+// The syncclient formats HTTP errors as "<path>: HTTP <code>: <body>"
+// (internal/syncclient/client.go:postJSON). We parse the code out of that
+// string. Anything in the 4xx range (client error) is permanent; 5xx and
+// non-HTTP errors (connection refused, timeout) are transient.
+//
+// Defaults to true (transient) for unrecognised error formats so that an
+// unexpected error class doesn't permanently silence the worker.
+//
+// gomobile-friendly: only primitive types in the signature.
+func IsSyncTransient(errMsg string) bool {
+	// Look for "HTTP <code>:" pattern in the error message.
+	// strconv.Atoi on the extracted token is more robust than regexp for
+	// gomobile's limited stdlib cross-compilation targets.
+	idx := strings.Index(errMsg, "HTTP ")
+	if idx < 0 {
+		// No HTTP status in the message — network-level error (timeout,
+		// DNS failure, connection refused). Always transient.
+		return true
+	}
+	rest := errMsg[idx+5:] // skip "HTTP "
+	end := strings.IndexByte(rest, ':')
+	if end < 0 {
+		end = len(rest)
+	}
+	code, err := strconv.Atoi(strings.TrimSpace(rest[:end]))
+	if err != nil {
+		return true // can't parse — be optimistic
+	}
+	// 4xx = client error → permanent (don't retry).
+	// 5xx = server error → transient (retry).
+	// Anything else → transient.
+	return code < 400 || code >= 500
 }
