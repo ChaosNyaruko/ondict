@@ -77,6 +77,7 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         val word = intent.getStringExtra(WordBankActivity.EXTRA_LOOKUP_WORD) ?: return
+        suppressAutocomplete = true
         searchInput.setText(word)
         lookupAndRender(word)
     }
@@ -189,6 +190,10 @@ class MainActivity : AppCompatActivity() {
     // Search bar + autocomplete
     // -------------------------------------------------------------------------
 
+    // When true the TextWatcher skips autocomplete — used when we set the
+    // text programmatically from a suggestion tap or word bank lookup.
+    private var suppressAutocomplete = false
+
     private fun setupSearch() {
         searchButton.setOnClickListener { submitSearch() }
 
@@ -209,6 +214,10 @@ class MainActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
                 pending?.let { handler.removeCallbacks(it) }
+                if (suppressAutocomplete) {
+                    suppressAutocomplete = false
+                    return
+                }
                 val prefix = s?.toString()?.trim() ?: return
                 if (prefix.length < 2) {
                     suggestionsList.visibility = View.GONE
@@ -222,8 +231,8 @@ class MainActivity : AppCompatActivity() {
 
         suggestionsList.setOnItemClickListener { _, _, position, _ ->
             val word = suggestionsList.adapter.getItem(position) as String
+            suppressAutocomplete = true
             searchInput.setText(word)
-            // Dismiss suggestions before rendering so they don't linger.
             suggestionsList.visibility = View.GONE
             lookupAndRender(word)
             hideKeyboard()
