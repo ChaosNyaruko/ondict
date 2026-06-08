@@ -17,6 +17,7 @@ import android.widget.EditText
 import android.widget.ListView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import mobile.Mobile
 import org.json.JSONArray
 import java.io.ByteArrayInputStream
@@ -28,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var suggestionsList: ListView
     private lateinit var entryWebView: WebView
     private lateinit var welcomeHint: TextView
+    private lateinit var bottomNav: BottomNavigationView
 
     private val port: Long = OndictServerService.PORT  // kept for reference, server not started
 
@@ -49,9 +51,11 @@ class MainActivity : AppCompatActivity() {
         suggestionsList = findViewById(R.id.suggestionsList)
         entryWebView    = findViewById(R.id.entryWebView)
         welcomeHint     = findViewById(R.id.welcomeHint)
+        bottomNav       = findViewById(R.id.bottomNav)
 
         setupWebView()
         setupSearch()
+        setupBottomNav()
 
         // Explicitly claim focus for the search input — prevents WebView
         // initialisation from stealing it on first layout pass.
@@ -68,6 +72,13 @@ class MainActivity : AppCompatActivity() {
             css = Mobile.getCSS()
             SyncManager.applyFromSettings(this)
         }.start()
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        val word = intent.getStringExtra(WordBankActivity.EXTRA_LOOKUP_WORD) ?: return
+        searchInput.setText(word)
+        lookupAndRender(word)
     }
 
     override fun onResume() {
@@ -138,6 +149,38 @@ class MainActivity : AppCompatActivity() {
                     else                                            -> "application/octet-stream"
                 }
                 return WebResourceResponse(mime, "utf-8", ByteArrayInputStream(bytes))
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Bottom navigation
+    // -------------------------------------------------------------------------
+
+    private fun setupBottomNav() {
+        // Search tab is the default — already selected visually.
+        bottomNav.selectedItemId = R.id.nav_search
+
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_search -> {
+                    // Bring search bar / entry back into focus.
+                    searchInput.requestFocus()
+                    true
+                }
+                R.id.nav_wordbank -> {
+                    WordBankActivity.start(this)
+                    true
+                }
+                R.id.nav_import -> {
+                    SetupActivity.start(this)
+                    true
+                }
+                R.id.nav_sync -> {
+                    SyncSettingsActivity.start(this)
+                    true
+                }
+                else -> false
             }
         }
     }

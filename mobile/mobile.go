@@ -58,6 +58,46 @@ func Init(configDir, cacheDir string) error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Wordbank bindings
+// ---------------------------------------------------------------------------
+
+// WordbankList returns the saved words as a JSON array of strings.
+// gomobile-friendly: only primitive types in the signature.
+func WordbankList() string {
+	words, err := wordbank.List()
+	if err != nil {
+		return "[]"
+	}
+	names := make([]string, len(words))
+	for i, w := range words {
+		names[i] = w.Name
+	}
+	data, err := json.Marshal(names)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
+}
+
+// WordbankAdd adds word to the word bank. Returns an error string or "".
+// gomobile-friendly: only primitive types in the signature.
+func WordbankAdd(word string) string {
+	if err := wordbank.Add(word); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// WordbankRemove removes word from the word bank. Returns an error string or "".
+// gomobile-friendly: only primitive types in the signature.
+func WordbankRemove(word string) string {
+	if err := wordbank.Remove(word); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 // Complete returns a JSON array of up to limit completion suggestions for
 // the given prefix, using fuzzy matching. Calls sources.Complete directly
 // without going through the HTTP server.
