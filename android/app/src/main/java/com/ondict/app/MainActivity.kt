@@ -1,17 +1,18 @@
 package com.ondict.app
+
+import android.content.Intent
 import android.os.Bundle
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import mobile.Mobile
 import java.net.HttpURLConnection
 import java.net.URL
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
-    private val port: Long = 1345
+    private val port: Long = OndictServerService.PORT
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,16 +61,13 @@ class MainActivity : AppCompatActivity() {
         }
         setContentView(webView)
 
-        // Start the Go HTTP server in a background thread, then load once ready
-        Thread {
-            Mobile.startServer(filesDir.absolutePath, cacheDir.absolutePath, port)
-        }.start()
+        // Start the Go HTTP server as a foreground service so Android keeps
+        // the process alive when the app moves to the background.
+        startForegroundService(Intent(this, OndictServerService::class.java))
+
+        // Wait for the server to be ready, then apply sync config and load.
         Thread {
             waitForServer()
-            // Push any persisted sync credentials down to the Go side so
-            // periodic / manual syncs can run. Safe to call when nothing
-            // is configured — Mobile.configureSync treats blank fields as
-            // "disable sync".
             SyncManager.applyFromSettings(this)
             runOnUiThread {
                 webView.loadUrl("http://127.0.0.1:$port")
@@ -77,6 +75,40 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Each time the app returns to the foreground, probe the server.
+        // If it is not responding (e.g. it was briefly throttled after the
+        // process survived in the background), reload the WebView so the
+        // user gets a fresh page instead of a stale or broken one.
+        Thread {
+            if (!isServerAlive()) {
+                // Server not yet ready — wait for it, then reload.
+                waitForServer()
+                runOnUiThread { webView.reload() }
+            }
+        }.start()
+    }
+
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
+
+    /** Returns true if the server responds within a short timeout. */
+    private fun isServerAlive(): Boolean {
+        return try {
+            val conn = URL("http://127.0.0.1:$port").openConnection() as HttpURLConnection
+            conn.connectTimeout = 500
+            conn.readTimeout = 500
+            val code = conn.responseCode
+            conn.disconnect()
+            code in 200..499
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Blocks until the server responds or the retry limit is reached. */
     private fun waitForServer() {
         val url = URL("http://127.0.0.1:$port")
         repeat(30) {
