@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <!-- Entry WebView — fills remaining space, hidden until first search -->
@@ -11,9 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:visibility="gone"
-        android:focusable="false"
-        android:focusableInTouchMode="false" />
+        android:visibility="gone" />
 
     <!-- Welcome hint — shown when no entry is loaded yet -->
     <TextView
