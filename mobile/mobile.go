@@ -260,6 +260,41 @@ func Sync() (string, error) {
 // unexpected error class doesn't permanently silence the worker.
 //
 // gomobile-friendly: only primitive types in the signature.
+// ---------------------------------------------------------------------------
+// Direct query bindings — bypass the HTTP server for the render path.
+//
+// These let the Android WebView call Go directly instead of making a
+// localhost HTTP round-trip for every dictionary lookup. The HTTP server
+// (StartServer) is still needed for the sync endpoints, but query/render
+// goes through these functions.
+// ---------------------------------------------------------------------------
+
+// QueryEntry looks up word in the loaded MDX dictionaries and returns the
+// rendered HTML fragment (the content that goes inside <article>).
+// format should be "html_fragment". Returns an empty string if not found.
+//
+// gomobile-friendly: only primitive types in the signature.
+func QueryEntry(word string) string {
+	return sources.QueryMDX(word, "html_fragment")
+}
+
+// GetFile returns the raw bytes of a resource file (audio, image) from the
+// loaded MDD archives. name is the bare filename, e.g. "GB_hello0205.mp3".
+// Returns nil if the file is not found in any loaded MDD.
+//
+// gomobile-friendly: []byte is supported by gomobile.
+func GetFile(name string) []byte {
+	return sources.GetMDDFile(name)
+}
+
+// GetCSS returns the concatenated CSS for all loaded dictionaries, ready to
+// be injected as a <style> block into the entry HTML.
+//
+// gomobile-friendly: only primitive types in the signature.
+func GetCSS() string {
+	return sources.AllCss()
+}
+
 func IsSyncTransient(errMsg string) bool {
 	// Look for "HTTP <code>:" pattern in the error message.
 	// strconv.Atoi on the extracted token is more robust than regexp for

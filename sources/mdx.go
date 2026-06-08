@@ -205,6 +205,12 @@ func copyFile(src, dst string) error {
 	return out.Sync()
 }
 
+// AllCss returns the concatenated CSS for all loaded dictionaries.
+// Used by the mobile direct-render path to inject styles without an HTTP round-trip.
+func AllCss() string {
+	return allCss
+}
+
 func QueryMDX(word string, f string) string {
 	type mdxResult struct {
 		raw RawOutput
