@@ -4,7 +4,37 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- Native search bar -->
+    <!-- Entry WebView — fills remaining space, hidden until first search -->
+    <WebView
+        android:id="@+id/entryWebView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:visibility="gone"
+        android:focusable="false"
+        android:focusableInTouchMode="false" />
+
+    <!-- Welcome hint — shown when no entry is loaded yet -->
+    <TextView
+        android:id="@+id/welcomeHint"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="Type a word to look it up"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="16sp" />
+
+    <!-- Autocomplete suggestions — sits just above the search bar -->
+    <ListView
+        android:id="@+id/suggestionsList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:background="?attr/colorSurface"
+        android:elevation="4dp" />
+
+    <!-- Search bar pinned to bottom -->
     <LinearLayout
         android:id="@+id/searchBar"
         android:layout_width="match_parent"
@@ -24,7 +54,9 @@
             android:inputType="text"
             android:singleLine="true"
             android:paddingStart="12dp"
-            android:paddingEnd="8dp" />
+            android:paddingEnd="8dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
 
         <Button
             android:id="@+id/searchButton"
@@ -33,21 +65,5 @@
             android:text="Search" />
 
     </LinearLayout>
-
-    <!-- Autocomplete suggestions -->
-    <ListView
-        android:id="@+id/suggestionsList"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:background="?attr/colorSurface"
-        android:elevation="8dp" />
-
-    <!-- Entry WebView — scoped to just the dictionary entry card -->
-    <WebView
-        android:id="@+id/entryWebView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
 
 </LinearLayout>

@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebResourceRequest
@@ -27,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchButton: Button
     private lateinit var suggestionsList: ListView
     private lateinit var entryWebView: WebView
+    private lateinit var welcomeHint: android.widget.TextView
 
     private val port: Long = OndictServerService.PORT
 
@@ -47,9 +49,14 @@ class MainActivity : AppCompatActivity() {
         searchButton    = findViewById(R.id.searchButton)
         suggestionsList = findViewById(R.id.suggestionsList)
         entryWebView    = findViewById(R.id.entryWebView)
+        welcomeHint     = findViewById(R.id.welcomeHint)
 
         setupWebView()
         setupSearch()
+
+        // Explicitly claim focus for the search input — prevents WebView
+        // initialisation from stealing it on first layout pass.
+        searchInput.requestFocus()
 
         // Start the foreground service that owns the Go HTTP server (needed
         // for sync endpoints). Dictionary loading happens inside StartServer
@@ -58,27 +65,26 @@ class MainActivity : AppCompatActivity() {
         startForegroundService(Intent(this, OndictServerService::class.java))
 
         // Wait for the server to be ready (proxy for G.Load completing),
-        // grab CSS once, apply sync config, then show the home screen.
+        // grab CSS once, apply sync config. Don't touch the WebView yet —
+        // keeping it GONE lets the EditText hold focus so the user can type.
         Thread {
             waitForServer()
             css = Mobile.getCSS()
             SyncManager.applyFromSettings(this)
-            runOnUiThread { showWelcome() }
         }.start()
     }
 
     override fun onResume() {
         super.onResume()
-        // Probe the server on every return to foreground. If it is not yet
-        // responding (throttled after process survived in background), wait
-        // and re-render the current entry once it's back.
+        // Probe the server on every return to foreground. If not responding,
+        // wait and re-render the current entry once it's back.
         Thread {
             if (!isServerAlive()) {
                 waitForServer()
                 css = Mobile.getCSS()
                 runOnUiThread {
                     val word = searchInput.text.toString().trim()
-                    if (word.isNotEmpty()) lookupAndRender(word) else showWelcome()
+                    if (word.isNotEmpty()) lookupAndRender(word)
                 }
             }
         }.start()
@@ -102,8 +108,8 @@ class MainActivity : AppCompatActivity() {
                     // entry://word — cross-reference: look up new word directly.
                     url.scheme == "entry" -> {
                         val word = url.host ?: url.path?.trimStart('/') ?: return true
-                        lookupAndRender(word)
                         searchInput.setText(word)
+                        lookupAndRender(word)
                         true
                     }
                     // sound://file.mp3 — audio: fetch bytes from Go, play natively.
@@ -112,7 +118,6 @@ class MainActivity : AppCompatActivity() {
                         playAudio(name)
                         true
                     }
-                    // /import, /sync — open native screens.
                     url.path == "/import" -> {
                         SetupActivity.start(this@MainActivity); true
                     }
@@ -123,8 +128,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Intercept resource requests (images) so the WebView never
-            // makes a real network request — serve everything from Go.
+            // Intercept resource requests (images) — serve from Go, no network.
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -132,11 +136,11 @@ class MainActivity : AppCompatActivity() {
                 val path = request.url.path?.trimStart('/') ?: return null
                 val bytes = Mobile.getFile(path) ?: return null
                 val mime = when {
-                    path.endsWith(".mp3")                    -> "audio/mpeg"
-                    path.endsWith(".png")                    -> "image/png"
+                    path.endsWith(".mp3")                           -> "audio/mpeg"
+                    path.endsWith(".png")                           -> "image/png"
                     path.endsWith(".jpg") || path.endsWith(".jpeg") -> "image/jpeg"
-                    path.endsWith(".css")                    -> "text/css"
-                    else                                     -> "application/octet-stream"
+                    path.endsWith(".css")                           -> "text/css"
+                    else                                            -> "application/octet-stream"
                 }
                 return WebResourceResponse(mime, "utf-8", ByteArrayInputStream(bytes))
             }
@@ -159,7 +163,6 @@ class MainActivity : AppCompatActivity() {
             } else false
         }
 
-        // Autocomplete — hit the /complete endpoint on the local server.
         searchInput.addTextChangedListener(object : android.text.TextWatcher {
             private val handler = android.os.Handler(android.os.Looper.getMainLooper())
             private var pending: Runnable? = null
@@ -170,7 +173,7 @@ class MainActivity : AppCompatActivity() {
                 pending?.let { handler.removeCallbacks(it) }
                 val prefix = s?.toString()?.trim() ?: return
                 if (prefix.length < 2) {
-                    suggestionsList.visibility = android.view.View.GONE
+                    suggestionsList.visibility = View.GONE
                     return
                 }
                 val r = Runnable { fetchSuggestions(prefix) }
@@ -182,7 +185,8 @@ class MainActivity : AppCompatActivity() {
         suggestionsList.setOnItemClickListener { _, _, position, _ ->
             val word = suggestionsList.adapter.getItem(position) as String
             searchInput.setText(word)
-            suggestionsList.visibility = android.view.View.GONE
+            // Dismiss suggestions before rendering so they don't linger.
+            suggestionsList.visibility = View.GONE
             lookupAndRender(word)
             hideKeyboard()
         }
@@ -191,7 +195,7 @@ class MainActivity : AppCompatActivity() {
     private fun submitSearch() {
         val word = searchInput.text.toString().trim()
         if (word.isEmpty()) return
-        suggestionsList.visibility = android.view.View.GONE
+        suggestionsList.visibility = View.GONE
         lookupAndRender(word)
         hideKeyboard()
     }
@@ -206,7 +210,6 @@ class MainActivity : AppCompatActivity() {
                 conn.readTimeout = 1000
                 val body = conn.inputStream.bufferedReader().readText()
                 conn.disconnect()
-                // Parse JSON array ["word1","word2",...]
                 val words = body.trim()
                     .removePrefix("[").removeSuffix("]")
                     .split(",")
@@ -214,16 +217,16 @@ class MainActivity : AppCompatActivity() {
                     .filter { it.isNotEmpty() }
                 runOnUiThread {
                     if (words.isEmpty()) {
-                        suggestionsList.visibility = android.view.View.GONE
+                        suggestionsList.visibility = View.GONE
                     } else {
                         suggestionsList.adapter = ArrayAdapter(
                             this, android.R.layout.simple_list_item_1, words
                         )
-                        suggestionsList.visibility = android.view.View.VISIBLE
+                        suggestionsList.visibility = View.VISIBLE
                     }
                 }
             } catch (_: Exception) {
-                runOnUiThread { suggestionsList.visibility = android.view.View.GONE }
+                runOnUiThread { suggestionsList.visibility = View.GONE }
             }
         }.start()
     }
@@ -233,6 +236,9 @@ class MainActivity : AppCompatActivity() {
     // -------------------------------------------------------------------------
 
     private fun lookupAndRender(word: String) {
+        suggestionsList.visibility = View.GONE
+        welcomeHint.visibility = View.GONE
+        entryWebView.visibility = View.VISIBLE
         Thread {
             val html = Mobile.queryEntry(word)
             val page = buildEntryPage(word, html)
@@ -244,6 +250,9 @@ class MainActivity : AppCompatActivity() {
                     "utf-8",
                     null
                 )
+                // Return focus to the search input so the user can type
+                // another word immediately without tapping the field again.
+                searchInput.requestFocus()
             }
         }.start()
     }
@@ -271,8 +280,6 @@ $css
 <body>
 <article class="entry-card">$body</article>
 <script>
-// Audio: tap on [data-audio-src] elements sends a sound:// navigation
-// which is intercepted natively by the WebViewClient.
 document.addEventListener('click', function(e) {
   var el = e.target.closest('[data-audio-src]');
   if (!el) return;
@@ -282,27 +289,6 @@ document.addEventListener('click', function(e) {
 </script>
 </body>
 </html>"""
-    }
-
-    private fun showWelcome() {
-        val page = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body { margin: 40px 16px; font-family: sans-serif; text-align: center;
-       background: #fff; color: #333; }
-@media (prefers-color-scheme: dark) { body { background: #1a1714; color: #f4ede2; } }
-p { color: #888; }
-</style>
-</head>
-<body>
-<h2>Ondict</h2>
-<p>Type a word in the search bar above.</p>
-</body>
-</html>"""
-        entryWebView.loadDataWithBaseURL(null, page, "text/html", "utf-8", null)
     }
 
     // -------------------------------------------------------------------------
