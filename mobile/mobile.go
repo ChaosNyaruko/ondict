@@ -4,6 +4,7 @@ package mobile
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -25,6 +26,51 @@ import (
 	"github.com/ChaosNyaruko/ondict/util"
 	"github.com/ChaosNyaruko/ondict/wordbank"
 )
+
+// Init initialises paths, loads dictionaries and opens local stores without
+// starting the HTTP server. This is the preferred entry point on Android now
+// that all query/render/complete paths call Go directly.
+//
+// configDir should be the app's private files directory.
+// cacheDir should be the app's cache directory.
+//
+// gomobile-friendly: only primitive types in the signature.
+func Init(configDir, cacheDir string) error {
+	util.SetPaths(configDir, cacheDir)
+
+	logFile, err := os.OpenFile(
+		filepath.Join(cacheDir, "ondict.log"),
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666,
+	)
+	if err == nil {
+		log.SetOutput(io.MultiWriter(logFile, os.Stderr))
+	} else {
+		log.SetOutput(os.Stderr)
+	}
+	log.SetLevel(log.DebugLevel)
+
+	gin.SetMode(gin.ReleaseMode)
+	sources.G.Load(true, false, true)
+
+	if err := ensureSharedStores(); err != nil {
+		return fmt.Errorf("open shared stores: %w", err)
+	}
+	return nil
+}
+
+// Complete returns a JSON array of up to limit completion suggestions for
+// the given prefix, using fuzzy matching. Calls sources.Complete directly
+// without going through the HTTP server.
+//
+// gomobile-friendly: only primitive types in the signature.
+func Complete(prefix string, limit int) string {
+	results := sources.Complete(prefix, sources.CompletionFuzzy, limit)
+	data, err := json.Marshal(results)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
+}
 
 // StartServer starts the ondict HTTP server on 127.0.0.1:<port>.
 //

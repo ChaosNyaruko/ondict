@@ -1,6 +1,5 @@
 package com.ondict.app
 
-import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Bundle
@@ -16,11 +15,11 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ListView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import mobile.Mobile
+import org.json.JSONArray
 import java.io.ByteArrayInputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,9 +27,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchButton: Button
     private lateinit var suggestionsList: ListView
     private lateinit var entryWebView: WebView
-    private lateinit var welcomeHint: android.widget.TextView
+    private lateinit var welcomeHint: TextView
 
-    private val port: Long = OndictServerService.PORT
+    private val port: Long = OndictServerService.PORT  // kept for reference, server not started
 
     // Injected once after G.Load() completes; reused for every entry render.
     private var css: String = ""
@@ -58,17 +57,14 @@ class MainActivity : AppCompatActivity() {
         // initialisation from stealing it on first layout pass.
         searchInput.requestFocus()
 
-        // Start the foreground service that owns the Go HTTP server (needed
-        // for sync endpoints). Dictionary loading happens inside StartServer
-        // via sources.G.Load — once that completes the direct-query bindings
-        // (Mobile.queryEntry / Mobile.getCSS) are ready to use.
-        startForegroundService(Intent(this, OndictServerService::class.java))
-
-        // Wait for the server to be ready (proxy for G.Load completing),
-        // grab CSS once, apply sync config. Don't touch the WebView yet —
-        // keeping it GONE lets the EditText hold focus so the user can type.
+        // Initialise Go directly — load dictionaries and open local stores.
+        // No HTTP server needed for query/render/complete/sync on Android.
         Thread {
-            waitForServer()
+            try {
+                Mobile.init(filesDir.absolutePath, cacheDir.absolutePath)
+            } catch (e: Exception) {
+                android.util.Log.e("Ondict", "Mobile.init failed", e)
+            }
             css = Mobile.getCSS()
             SyncManager.applyFromSettings(this)
         }.start()
@@ -76,18 +72,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Probe the server on every return to foreground. If not responding,
-        // wait and re-render the current entry once it's back.
-        Thread {
-            if (!isServerAlive()) {
-                waitForServer()
+        // If the process was killed and recreated while backgrounded, css
+        // will be empty. Re-fetch it and re-render the current word if any.
+        if (css.isEmpty()) {
+            Thread {
                 css = Mobile.getCSS()
                 runOnUiThread {
                     val word = searchInput.text.toString().trim()
                     if (word.isNotEmpty()) lookupAndRender(word)
                 }
-            }
-        }.start()
+            }.start()
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -203,18 +198,9 @@ class MainActivity : AppCompatActivity() {
     private fun fetchSuggestions(prefix: String) {
         Thread {
             try {
-                val url = URL("http://127.0.0.1:$port/complete?prefix=${
-                    java.net.URLEncoder.encode(prefix, "UTF-8")}&mode=fzf")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 1000
-                conn.readTimeout = 1000
-                val body = conn.inputStream.bufferedReader().readText()
-                conn.disconnect()
-                val words = body.trim()
-                    .removePrefix("[").removeSuffix("]")
-                    .split(",")
-                    .map { it.trim().removeSurrounding("\"") }
-                    .filter { it.isNotEmpty() }
+                val json = Mobile.complete(prefix, 10)
+                val arr = JSONArray(json)
+                val words = (0 until arr.length()).map { arr.getString(it) }
                 runOnUiThread {
                     if (words.isEmpty()) {
                         suggestionsList.visibility = View.GONE
@@ -322,22 +308,6 @@ document.addEventListener('click', function(e) {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
-    private fun isServerAlive(): Boolean = try {
-        val conn = URL("http://127.0.0.1:$port").openConnection() as HttpURLConnection
-        conn.connectTimeout = 500
-        conn.readTimeout = 500
-        val code = conn.responseCode
-        conn.disconnect()
-        code in 200..499
-    } catch (_: Exception) { false }
-
-    private fun waitForServer() {
-        repeat(30) {
-            if (isServerAlive()) return
-            Thread.sleep(500)
-        }
-    }
 
     private fun hideKeyboard() {
         val imm = getSystemService(InputMethodManager::class.java)
