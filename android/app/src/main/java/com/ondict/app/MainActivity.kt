@@ -120,6 +120,24 @@ class MainActivity : AppCompatActivity() {
     private fun setupWebView() {
         entryWebView.settings.javaScriptEnabled = true
 
+        // JavascriptInterface lets JS call Kotlin directly — more reliable than
+        // window.location.href scheme changes with loadDataWithBaseURL.
+        entryWebView.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun playAudio(filename: String) {
+                this@MainActivity.playAudio(filename)
+            }
+
+            @android.webkit.JavascriptInterface
+            fun navigateTo(word: String) {
+                runOnUiThread {
+                    suppressAutocomplete = true
+                    searchInput.setText(word)
+                    lookupAndRender(word)
+                }
+            }
+        }, "Ondict")
+
         entryWebView.webViewClient = object : WebViewClient() {
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -341,11 +359,22 @@ $css
 <body>
 <article class="entry-card">$body</article>
 <script>
+// Audio and cross-ref: call Kotlin directly via JavascriptInterface.
 document.addEventListener('click', function(e) {
   var el = e.target.closest('[data-audio-src]');
-  if (!el) return;
-  var src = el.getAttribute('data-audio-src');
-  if (src) { window.location.href = src.replace(/^\//, 'sound://'); }
+  if (el) {
+    var src = el.getAttribute('data-audio-src').replace(/^\//, '');
+    if (src) Ondict.playAudio(src);
+    return;
+  }
+  var a = e.target.closest('a[href]');
+  if (a) {
+    var href = a.getAttribute('href');
+    if (href && href.startsWith('entry://')) {
+      e.preventDefault();
+      Ondict.navigateTo(href.replace('entry://', '').split('#')[0]);
+    }
+  }
 });
 </script>
 </body>
@@ -356,24 +385,40 @@ document.addEventListener('click', function(e) {
     // Audio playback
     // -------------------------------------------------------------------------
 
+    // Held at class level so the GC doesn't collect it mid-playback.
+    private var activePlayer: MediaPlayer? = null
+
     private fun playAudio(filename: String) {
         Thread {
             val bytes = Mobile.getFile(filename) ?: return@Thread
             try {
                 val tmp = java.io.File(cacheDir, "audio_tmp.mp3")
                 tmp.writeBytes(bytes)
-                val mp = MediaPlayer().apply {
-                    setAudioAttributes(
+                runOnUiThread {
+                    activePlayer?.release()
+                    activePlayer = null
+                    val mp = MediaPlayer()
+                    mp.setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build()
                     )
-                    setDataSource(tmp.absolutePath)
-                    prepare()
-                    start()
+                    mp.setDataSource(tmp.absolutePath)
+                    mp.setOnPreparedListener { it.start() }
+                    mp.setOnCompletionListener {
+                        it.release()
+                        activePlayer = null
+                    }
+                    mp.setOnErrorListener { it, what, extra ->
+                        android.util.Log.e("Ondict", "audio error what=$what extra=$extra")
+                        it.release()
+                        activePlayer = null
+                        true
+                    }
+                    mp.prepareAsync()
+                    activePlayer = mp
                 }
-                mp.setOnCompletionListener { it.release() }
             } catch (e: Exception) {
                 android.util.Log.e("Ondict", "audio playback error", e)
             }
@@ -383,6 +428,12 @@ document.addEventListener('click', function(e) {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    override fun onDestroy() {
+        super.onDestroy()
+        activePlayer?.release()
+        activePlayer = null
+    }
 
     private fun hideKeyboard() {
         val imm = getSystemService(InputMethodManager::class.java)
