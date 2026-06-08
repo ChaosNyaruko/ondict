@@ -16,6 +16,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ListView
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import mobile.Mobile
@@ -30,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var entryWebView: WebView
     private lateinit var welcomeHint: TextView
     private lateinit var bottomNav: BottomNavigationView
+    private lateinit var backCallbackRef: OnBackPressedCallback
 
     private val port: Long = OndictServerService.PORT  // kept for reference, server not started
 
@@ -56,6 +58,20 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         setupSearch()
         setupBottomNav()
+
+        // Back button navigates WebView history when there is cross-ref history
+        // to go back through, otherwise falls through to the default (exit app).
+        val backCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                entryWebView.goBack()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, backCallback)
+        // Keep the callback enabled state in sync with WebView history.
+        entryWebView.webViewClient.let {
+            // patched below in setupWebView — see onPageFinished
+        }
+        backCallbackRef = backCallback
 
         // Explicitly claim focus for the search input — prevents WebView
         // initialisation from stealing it on first layout pass.
@@ -106,20 +122,27 @@ class MainActivity : AppCompatActivity() {
 
         entryWebView.webViewClient = object : WebViewClient() {
 
+            override fun onPageFinished(view: WebView, url: String) {
+                // Enable the back callback only when there is history to go back to.
+                backCallbackRef.isEnabled = view.canGoBack()
+            }
+
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest
             ): Boolean {
                 val url = request.url
                 return when {
-                    // entry://word — cross-reference: look up new word directly.
+                    // entry://word — cross-reference: left as-is by the Go renderer
+                    // in "raw" mode, intercepted here and rendered natively.
                     url.scheme == "entry" -> {
                         val word = url.host ?: url.path?.trimStart('/') ?: return true
+                        suppressAutocomplete = true
                         searchInput.setText(word)
                         lookupAndRender(word)
                         true
                     }
-                    // sound://file.mp3 — audio: fetch bytes from Go, play natively.
+                    // sound://file.mp3 — fetch bytes from Go, play natively.
                     url.scheme == "sound" -> {
                         val name = (url.host ?: "") + (url.path ?: "")
                         playAudio(name)

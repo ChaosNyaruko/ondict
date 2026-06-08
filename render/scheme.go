@@ -13,6 +13,8 @@ type RenderContext struct {
 	// entry:// cross-reference links rewritten by EntryHandler.
 	// Defaults to "html" when empty. Pass "html_fragment" when rendering
 	// inside an already-framed page, or leave empty for the standard page.
+	// Pass "raw" to skip rewriting entirely — entry:// links are left as-is
+	// for native shells (e.g. Android) that handle them directly.
 	LinkFormat string
 
 	// EntryFetcher, when set, is called by handlers that need to fetch another

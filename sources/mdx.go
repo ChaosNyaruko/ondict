@@ -225,7 +225,7 @@ func QueryMDX(word string, f string) string {
 	}
 
 	// TODO: put the render abstraction here?
-	if f == "html" || f == "html_fragment" { // f for format
+	if f == "html" || f == "html_fragment" || f == "raw" {
 		var style string
 		if allCss != "" && f == "html" {
 			style = fmt.Sprintf("<style>%s</style>", allCss)

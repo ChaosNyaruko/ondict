@@ -357,11 +357,14 @@ func Sync() (string, error) {
 
 // QueryEntry looks up word in the loaded MDX dictionaries and returns the
 // rendered HTML fragment (the content that goes inside <article>).
-// format should be "html_fragment". Returns an empty string if not found.
+// entry:// cross-reference links are left as-is ("raw" format) so the
+// Android WebViewClient can intercept and handle them natively without
+// making any HTTP request.
+// Returns an empty string if not found.
 //
 // gomobile-friendly: only primitive types in the signature.
 func QueryEntry(word string) string {
-	return sources.QueryMDX(word, "html_fragment")
+	return sources.QueryMDX(word, "raw")
 }
 
 // GetFile returns the raw bytes of a resource file (audio, image) from the
