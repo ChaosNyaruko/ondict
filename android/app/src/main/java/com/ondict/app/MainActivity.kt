@@ -32,6 +32,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var welcomeHint: TextView
     private lateinit var bottomNav: BottomNavigationView
     private lateinit var backCallbackRef: OnBackPressedCallback
+    private lateinit var entryActionBar: android.widget.LinearLayout
+    private lateinit var entryTitle: TextView
+    private lateinit var wordbankButton: Button
+
+    // The word currently displayed in the entry WebView.
+    private var currentWord: String = ""
 
     private val port: Long = OndictServerService.PORT  // kept for reference, server not started
 
@@ -54,6 +60,9 @@ class MainActivity : AppCompatActivity() {
         entryWebView    = findViewById(R.id.entryWebView)
         welcomeHint     = findViewById(R.id.welcomeHint)
         bottomNav       = findViewById(R.id.bottomNav)
+        entryActionBar  = findViewById(R.id.entryActionBar)
+        entryTitle      = findViewById(R.id.entryTitle)
+        wordbankButton  = findViewById(R.id.wordbankButton)
 
         setupWebView()
         setupSearch()
@@ -315,9 +324,14 @@ class MainActivity : AppCompatActivity() {
     // -------------------------------------------------------------------------
 
     private fun lookupAndRender(word: String) {
+        currentWord = word
         suggestionsList.visibility = View.GONE
         welcomeHint.visibility = View.GONE
         entryWebView.visibility = View.VISIBLE
+        entryActionBar.visibility = View.VISIBLE
+        entryTitle.text = word
+        // Update wordbank button state on background thread.
+        updateWordbankButton(word)
         Thread {
             val html = Mobile.queryEntry(word)
             val page = buildEntryPage(word, html)
@@ -329,9 +343,23 @@ class MainActivity : AppCompatActivity() {
                     "utf-8",
                     null
                 )
-                // Return focus to the search input so the user can type
-                // another word immediately without tapping the field again.
                 searchInput.requestFocus()
+            }
+        }.start()
+    }
+
+    private fun updateWordbankButton(word: String) {
+        Thread {
+            val inBank = Mobile.wordbankContains(word)
+            runOnUiThread {
+                wordbankButton.text = if (inBank) "Remove from Word Bank" else "Add to Word Bank"
+                wordbankButton.setOnClickListener {
+                    Thread {
+                        if (inBank) Mobile.wordbankRemove(word) else Mobile.wordbankAdd(word)
+                        // Refresh button state after change.
+                        updateWordbankButton(word)
+                    }.start()
+                }
             }
         }.start()
     }

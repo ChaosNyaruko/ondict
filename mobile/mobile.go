@@ -80,6 +80,18 @@ func WordbankList() string {
 	return string(data)
 }
 
+// WordbankContains reports whether word is in the word bank.
+// Returns true if present, false if absent or on error.
+//
+// gomobile-friendly: only primitive types in the signature.
+func WordbankContains(word string) bool {
+	ok, err := wordbank.Contains(word)
+	if err != nil {
+		return false
+	}
+	return ok
+}
+
 // WordbankAdd adds word to the word bank. Returns an error string or "".
 // gomobile-friendly: only primitive types in the signature.
 func WordbankAdd(word string) string {

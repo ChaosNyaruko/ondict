@@ -26,6 +26,39 @@
         android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="16sp" />
 
+    <!-- Entry action bar — shown when an entry is loaded -->
+    <LinearLayout
+        android:id="@+id/entryActionBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:visibility="gone"
+        android:background="?attr/colorSurface">
+
+        <TextView
+            android:id="@+id/entryTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical"
+            android:textSize="14sp"
+            android:textStyle="italic"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <Button
+            android:id="@+id/wordbankButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="?attr/borderlessButtonStyle"
+            android:textSize="12sp"
+            android:text="Add to Word Bank" />
+
+    </LinearLayout>
+
     <!-- Autocomplete suggestions — sits just above the search bar -->
     <ListView
         android:id="@+id/suggestionsList"
