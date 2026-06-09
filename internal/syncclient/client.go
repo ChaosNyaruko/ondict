@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net/http"
 	"strings"
@@ -134,15 +135,29 @@ func (c *SyncClient) Sync(ctx context.Context) (Stats, error) {
 // Wordbank pull / push
 // ---------------------------------------------------------------------------
 
-const (
-	cursorWordbankPull = "sync.last_pull.wordbank"
-	cursorWordbankPush = "sync.last_push.wordbank"
-	cursorHistoryPull  = "sync.last_pull.history"
-	cursorHistoryPush  = "sync.last_push.history"
-)
+// serverCursorKey returns a meta-table key namespaced to the configured sync
+// server. Cursor keys embed a short FNV-32a hash of the BaseURL so that
+// switching to a different server automatically starts a fresh pull/push
+// cycle rather than re-using stale cursors from the previous server.
+//
+// Key shape: "sync.<8-hex-hash>.<resource>.<direction>"
+// Example:   "sync.a3b2c1d0.last_push.wordbank"
+//
+// Old-style global keys ("sync.last_push.wordbank" etc.) written by earlier
+// versions become unreachable dead rows in the meta table; they are harmless.
+func (c *SyncClient) serverCursorKey(suffix string) string {
+	h := fnv.New32a()
+	_, _ = io.WriteString(h, c.cfg.BaseURL)
+	return fmt.Sprintf("sync.%08x.%s", h.Sum32(), suffix)
+}
+
+func (c *SyncClient) cursorWordbankPull() string { return c.serverCursorKey("last_pull.wordbank") }
+func (c *SyncClient) cursorWordbankPush() string { return c.serverCursorKey("last_push.wordbank") }
+func (c *SyncClient) cursorHistoryPull() string  { return c.serverCursorKey("last_pull.history") }
+func (c *SyncClient) cursorHistoryPush() string  { return c.serverCursorKey("last_push.history") }
 
 func (c *SyncClient) pullWordbank(ctx context.Context) (syncmerge.Stats, error) {
-	since, err := c.meta.GetCursor(ctx, cursorWordbankPull)
+	since, err := c.meta.GetCursor(ctx, c.cursorWordbankPull())
 	if err != nil {
 		return syncmerge.Stats{}, err
 	}
@@ -158,14 +173,14 @@ func (c *SyncClient) pullWordbank(ctx context.Context) (syncmerge.Stats, error) 
 	if err != nil {
 		return stats, err
 	}
-	if err := c.meta.SetCursor(ctx, cursorWordbankPull, resp.ServerNow); err != nil {
+	if err := c.meta.SetCursor(ctx, c.cursorWordbankPull(), resp.ServerNow); err != nil {
 		return stats, err
 	}
 	return stats, nil
 }
 
 func (c *SyncClient) pushWordbank(ctx context.Context) (int, error) {
-	since, err := c.meta.GetCursor(ctx, cursorWordbankPush)
+	since, err := c.meta.GetCursor(ctx, c.cursorWordbankPush())
 	if err != nil {
 		return 0, err
 	}
@@ -217,7 +232,7 @@ func (c *SyncClient) pushWordbank(ctx context.Context) (int, error) {
 	// upgrade — also avoids rewriting an already-up-to-date cursor).
 	normalizedSince := normalizeCursorMs(since)
 	if maxSeen != "" && maxSeen != normalizedSince {
-		if err := c.meta.SetCursor(ctx, cursorWordbankPush, maxSeen); err != nil {
+		if err := c.meta.SetCursor(ctx, c.cursorWordbankPush(), maxSeen); err != nil {
 			return resp.Applied, err
 		}
 	}
@@ -225,7 +240,7 @@ func (c *SyncClient) pushWordbank(ctx context.Context) (int, error) {
 }
 
 func (c *SyncClient) pullHistory(ctx context.Context) (syncmerge.Stats, error) {
-	since, err := c.meta.GetCursor(ctx, cursorHistoryPull)
+	since, err := c.meta.GetCursor(ctx, c.cursorHistoryPull())
 	if err != nil {
 		return syncmerge.Stats{}, err
 	}
@@ -241,14 +256,14 @@ func (c *SyncClient) pullHistory(ctx context.Context) (syncmerge.Stats, error) {
 	if err != nil {
 		return stats, err
 	}
-	if err := c.meta.SetCursor(ctx, cursorHistoryPull, resp.ServerNow); err != nil {
+	if err := c.meta.SetCursor(ctx, c.cursorHistoryPull(), resp.ServerNow); err != nil {
 		return stats, err
 	}
 	return stats, nil
 }
 
 func (c *SyncClient) pushHistory(ctx context.Context) (int, error) {
-	since, err := c.meta.GetCursor(ctx, cursorHistoryPush)
+	since, err := c.meta.GetCursor(ctx, c.cursorHistoryPush())
 	if err != nil {
 		return 0, err
 	}
@@ -290,7 +305,7 @@ func (c *SyncClient) pushHistory(ctx context.Context) (int, error) {
 	}
 	normalizedSince := normalizeCursorMs(since)
 	if maxSeen != "" && maxSeen != normalizedSince {
-		if err := c.meta.SetCursor(ctx, cursorHistoryPush, maxSeen); err != nil {
+		if err := c.meta.SetCursor(ctx, c.cursorHistoryPush(), maxSeen); err != nil {
 			return resp.Applied, err
 		}
 	}

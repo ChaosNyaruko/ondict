@@ -184,6 +184,96 @@ func TestSyncClient_PushCursorIgnoresFutureUpdateTime(t *testing.T) {
 	require.Equal(t, 1, stats.WordbankPushed, "new local writes must keep being pushed even after a future-dated row")
 }
 
+// TestSyncClient_SwitchServerFullPush verifies that switching to a different
+// sync server (different BaseURL) triggers a full push of all local rows,
+// even though a previous sync with the old server already advanced the push
+// cursor. Cursor keys are namespaced by server URL (FNV-32 hash), so the
+// new server's cursor starts empty and ListSince returns everything.
+func TestSyncClient_SwitchServerFullPush(t *testing.T) {
+	ctx := context.Background()
+
+	// ── Old server ──────────────────────────────────────────────────────────
+	oldSrv, err := syncserver.New(syncserver.Config{
+		DataDir:  filepath.Join(t.TempDir(), "old-server"),
+		Username: "alice",
+		Password: "s3cret",
+	})
+	require.NoError(t, err)
+	defer oldSrv.Close()
+	oldR := gin.New()
+	oldSrv.Mount(oldR)
+	oldHTTP := httptest.NewServer(oldR)
+	defer oldHTTP.Close()
+
+	// ── New (empty) server ───────────────────────────────────────────────────
+	newSrv, err := syncserver.New(syncserver.Config{
+		DataDir:  filepath.Join(t.TempDir(), "new-server"),
+		Username: "alice",
+		Password: "s3cret",
+	})
+	require.NoError(t, err)
+	defer newSrv.Close()
+	newR := gin.New()
+	newSrv.Mount(newR)
+	newHTTP := httptest.NewServer(newR)
+	defer newHTTP.Close()
+
+	// ── Client local stores ──────────────────────────────────────────────────
+	dir := t.TempDir()
+	wb, err := store.OpenSQLiteWordbank(filepath.Join(dir, "wordbank.db"))
+	require.NoError(t, err)
+	defer wb.Close()
+	h, err := store.OpenSQLiteHistory(filepath.Join(dir, "history.db"))
+	require.NoError(t, err)
+	defer h.Close()
+	cursors := store.NewCursorStore(wb.DB())
+
+	// Seed two wordbank rows.
+	require.NoError(t, wb.Upsert(ctx, store.WordbankRow{
+		Word: "alpha", CreateTime: "2024-01-01T00:00:00Z", UpdateTime: "2024-06-01T00:00:00Z",
+	}))
+	require.NoError(t, wb.Upsert(ctx, store.WordbankRow{
+		Word: "beta", CreateTime: "2024-02-01T00:00:00Z", UpdateTime: "2024-07-01T00:00:00Z",
+	}))
+
+	// ── Sync with OLD server ─────────────────────────────────────────────────
+	oldClient, err := New(Config{
+		BaseURL:  oldHTTP.URL,
+		Username: "alice",
+		Password: "s3cret",
+	}, wb, h, cursors)
+	require.NoError(t, err)
+
+	stats, err := oldClient.Sync(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, stats.WordbankPushed, "both rows must be pushed to old server")
+
+	// Verify old server has the rows.
+	stats, err = oldClient.Sync(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 0, stats.WordbankPushed, "second sync to old server must push nothing (cursor advanced)")
+
+	// ── Switch to NEW server ─────────────────────────────────────────────────
+	newClient, err := New(Config{
+		BaseURL:  newHTTP.URL,
+		Username: "alice",
+		Password: "s3cret",
+	}, wb, h, cursors)
+	require.NoError(t, err)
+
+	// New server is empty; new cursor is also empty → full push expected.
+	stats, err = newClient.Sync(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, stats.WordbankPushed,
+		"switching to a new server must trigger a full push of all local rows "+
+			"(per-server cursor starts empty)")
+
+	// Second sync to new server must be incremental (nothing new locally).
+	stats, err = newClient.Sync(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 0, stats.WordbankPushed, "second sync to new server must push nothing")
+}
+
 // Regression for code-review (round 2) P2: a legacy second-resolution
 // cursor written by an earlier version of the client (e.g. "...:00Z")
 // must not stall the cursor's advance once millisecond-resolution
@@ -210,7 +300,7 @@ func TestSyncClient_PushCursorNormalizesLegacySecondResolutionCursor(t *testing.
 	require.Contains(t, rows[0].SeenAt, ".", "row SeenAt must be in ms format for the test premise")
 	legacySecondCursor := rows[0].SeenAt[:19] + "Z" // "...:NN.fffZ" → "...:NNZ"
 
-	require.NoError(t, client.meta.SetCursor(ctx, cursorWordbankPush, legacySecondCursor))
+	require.NoError(t, client.meta.SetCursor(ctx, client.cursorWordbankPush(), legacySecondCursor))
 
 	// Sync. After fix, the cursor is normalised before comparison so the
 	// row's ms SeenAt is correctly recognised as ordered relative to the
@@ -221,7 +311,7 @@ func TestSyncClient_PushCursorNormalizesLegacySecondResolutionCursor(t *testing.
 	_, err = client.Sync(ctx)
 	require.NoError(t, err)
 
-	final, err := client.meta.GetCursor(ctx, cursorWordbankPush)
+	final, err := client.meta.GetCursor(ctx, client.cursorWordbankPush())
 	require.NoError(t, err)
 	require.Contains(t, final, ".", "cursor must be in millisecond layout after sync (got %q)", final)
 	require.NotEqual(t, legacySecondCursor, final, "cursor must have advanced past the legacy second-resolution value")
