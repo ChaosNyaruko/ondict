@@ -1,5 +1,5 @@
 [简体中文](./README_zh.md)
-![Coverage](https://img.shields.io/badge/coverage-35.0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-70.1%25-green)
 
 Table of Contents
 =================

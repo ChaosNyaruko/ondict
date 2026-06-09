@@ -241,3 +241,54 @@ func TestSyncServer_PullCaptureCutoffBeforeQuery(t *testing.T) {
 	}
 	require.True(t, found, "row pushed after a pull must be visible on the next pull (P1 race)")
 }
+
+func TestInMemoryWordbank_Methods(t *testing.T) {
+	ctx := context.Background()
+	items := []wordbankItem{
+		{Word: "apple", CreateTime: "2024-01-01T00:00:00Z", UpdateTime: "2024-06-01T00:00:00Z"},
+	}
+	wb := newInMemoryWordbank(items)
+
+	require.NoError(t, wb.Close())
+	require.Error(t, wb.Add(ctx, "test"))
+	require.Error(t, wb.Remove(ctx, "test"))
+	_, err := wb.Contains(ctx, "test")
+	require.Error(t, err)
+	rows, err := wb.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	rows, err = wb.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	rows, err = wb.ListChanged(ctx, time.Time{}, time.Now())
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Error(t, wb.Upsert(ctx, store.WordbankRow{}))
+	_, err = wb.GCTombstones(ctx, time.Now())
+	require.Error(t, err)
+}
+
+func TestInMemoryHistory_Methods(t *testing.T) {
+	ctx := context.Background()
+	items := []historyItem{
+		{Word: "doctor", Count: 3, CreateTime: "2024-01-01T00:00:00Z", UpdateTime: "2024-06-01T00:00:00Z"},
+	}
+	h := newInMemoryHistory(items)
+
+	require.NoError(t, h.Close())
+	require.Error(t, h.Append(ctx, "test"))
+	rows, err := h.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	rows, err = h.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	rows, err = h.ListChanged(ctx, time.Time{}, time.Now())
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	_, err = h.Review(ctx, 7, 1)
+	require.Error(t, err)
+	require.Error(t, h.Upsert(ctx, store.HistoryRow{}))
+	_, err = h.GCTombstones(ctx, time.Now())
+	require.Error(t, err)
+}

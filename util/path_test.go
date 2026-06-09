@@ -2,10 +2,12 @@ package util
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPaths(t *testing.T) {
@@ -58,4 +60,86 @@ func TestPaths(t *testing.T) {
 
 	_, err = os.Stat(tmp)
 	assert.NoError(t, err)
+}
+
+func TestSetPaths_OverridesConfigAndTmp(t *testing.T) {
+	// Save and restore overrides so other tests are not affected.
+	defer SetPaths("", "")
+
+	dir := t.TempDir()
+	cfgDir := filepath.Join(dir, "mycfg")
+	tmpDir := filepath.Join(dir, "mytmp")
+
+	SetPaths(cfgDir, tmpDir)
+
+	cp := ConfigPath()
+	require.Equal(t, cfgDir, cp)
+	_, err := os.Stat(cfgDir)
+	require.NoError(t, err)
+
+	tp := TmpDir()
+	require.Equal(t, tmpDir, tp)
+	_, err = os.Stat(tmpDir)
+	require.NoError(t, err)
+}
+
+func TestVocabDB_UsesConfigPathByDefault(t *testing.T) {
+	defer SetPaths("", "")
+	SetPaths("", "")
+
+	t.Setenv("HOME", t.TempDir())
+	v := VocabDB()
+	require.True(t, strings.HasSuffix(v, "vocab.db"))
+	require.Contains(t, v, "ondict")
+}
+
+func TestVocabDB_UsesTmpPathWhenSet(t *testing.T) {
+	defer SetPaths("", "")
+
+	dir := t.TempDir()
+	SetPaths("", filepath.Join(dir, "cache"))
+
+	v := VocabDB()
+	require.True(t, strings.HasSuffix(v, "vocab.db"))
+	require.Contains(t, v, "cache")
+}
+
+func TestConfigPath_DefaultPath(t *testing.T) {
+	defer SetPaths("", "")
+	SetPaths("", "")
+	t.Setenv("HOME", t.TempDir())
+
+	// No override → uses HOME-based default.
+	cp := ConfigPath()
+	require.NotEmpty(t, cp)
+	require.Contains(t, cp, "ondict")
+}
+
+func TestTmpDir_DefaultPath(t *testing.T) {
+	defer SetPaths("", "")
+	SetPaths("", "")
+	t.Setenv("HOME", t.TempDir())
+
+	// No override → uses user cache dir.
+	td := TmpDir()
+	require.NotEmpty(t, td)
+	require.Contains(t, td, "ondict")
+}
+
+func TestConfigPath_WithOverride(t *testing.T) {
+	defer SetPaths("", "")
+	dir := t.TempDir()
+	SetPaths(dir, "")
+
+	cp := ConfigPath()
+	require.Equal(t, dir, cp)
+}
+
+func TestTmpDir_WithOverride(t *testing.T) {
+	defer SetPaths("", "")
+	dir := t.TempDir()
+	SetPaths("", dir)
+
+	td := TmpDir()
+	require.Equal(t, dir, td)
 }

@@ -316,3 +316,77 @@ func TestSyncClient_PushCursorNormalizesLegacySecondResolutionCursor(t *testing.
 	require.Contains(t, final, ".", "cursor must be in millisecond layout after sync (got %q)", final)
 	require.NotEqual(t, legacySecondCursor, final, "cursor must have advanced past the legacy second-resolution value")
 }
+
+// TestRowSourceWordbank_Methods exercises every method on the read-only
+// rowSourceWordbank stub that is created during sync pull operations.
+func TestRowSourceWordbank_Methods(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	r := newRowSourceWordbank([]wordbankItem{
+		{Word: "hello", CreateTime: now, UpdateTime: now},
+	})
+
+	require.NoError(t, r.Close())
+
+	err := r.Add(ctx, "x")
+	require.Error(t, err)
+
+	err = r.Remove(ctx, "x")
+	require.Error(t, err)
+
+	_, err = r.Contains(ctx, "x")
+	require.Error(t, err)
+
+	rows, err := r.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+
+	rowsSince, err := r.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rowsSince, 1)
+
+	rowsChanged, err := r.ListChanged(ctx, time.Time{}, time.Now())
+	require.NoError(t, err)
+	require.Len(t, rowsChanged, 1)
+
+	err = r.Upsert(ctx, store.WordbankRow{})
+	require.Error(t, err)
+
+	_, err = r.GCTombstones(ctx, time.Now())
+	require.Error(t, err)
+}
+
+// TestRowSourceHistory_Methods exercises every method on the read-only
+// rowSourceHistory stub that is created during sync pull operations.
+func TestRowSourceHistory_Methods(t *testing.T) {
+	ctx := context.Background()
+	r := newRowSourceHistory([]historyItem{
+		{Word: "hello", Count: 1},
+	})
+
+	require.NoError(t, r.Close())
+
+	err := r.Append(ctx, "x")
+	require.Error(t, err)
+
+	rows, err := r.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+
+	rowsSince, err := r.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rowsSince, 1)
+
+	rowsChanged, err := r.ListChanged(ctx, time.Time{}, time.Now())
+	require.NoError(t, err)
+	require.Len(t, rowsChanged, 1)
+
+	_, err = r.Review(ctx, 7, 5)
+	require.Error(t, err)
+
+	err = r.Upsert(ctx, store.HistoryRow{})
+	require.Error(t, err)
+
+	_, err = r.GCTombstones(ctx, time.Now())
+	require.Error(t, err)
+}

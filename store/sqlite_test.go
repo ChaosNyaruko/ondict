@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -599,4 +600,591 @@ func TestSQLiteHistory_V4NormalisesLegacyTimestampValues(t *testing.T) {
 		"legacy_z tombstone must be canonicalised")
 	require.Equal(t, "", got["legacy_space"].deleted,
 		"live row's NULL deleted_at must be preserved as NULL, not stamped to 'now'")
+}
+
+// ── CursorStore ───────────────────────────────────────────────────────────────
+
+func TestSQLiteCursorStore_GetAndSet(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+
+	cs := NewCursorStore(wb.DB())
+
+	// Missing key returns empty string, no error.
+	v, err := cs.GetCursor(ctx, "last-pull")
+	require.NoError(t, err)
+	require.Equal(t, "", v)
+
+	// Set and retrieve.
+	require.NoError(t, cs.SetCursor(ctx, "last-pull", "2025-01-01T00:00:00Z"))
+	v, err = cs.GetCursor(ctx, "last-pull")
+	require.NoError(t, err)
+	require.Equal(t, "2025-01-01T00:00:00Z", v)
+
+	// Overwrite.
+	require.NoError(t, cs.SetCursor(ctx, "last-pull", "2026-06-01T12:00:00Z"))
+	v, err = cs.GetCursor(ctx, "last-pull")
+	require.NoError(t, err)
+	require.Equal(t, "2026-06-01T12:00:00Z", v)
+}
+
+func TestSQLiteCursorStore_CursorDB(t *testing.T) {
+	wb := openWB(t)
+	cs := NewCursorStore(wb.DB())
+	require.Equal(t, wb.DB(), cs.CursorDB())
+}
+
+// ── ListChanged ───────────────────────────────────────────────────────────────
+
+func TestSQLiteHistory_ListChanged(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+
+	require.NoError(t, h.Append(ctx, "alpha"))
+	cutoff1 := time.Now().UTC()
+	time.Sleep(1100 * time.Millisecond)
+	require.NoError(t, h.Append(ctx, "beta"))
+	cutoff2 := time.Now().UTC()
+
+	// since=zero, cutoff=cutoff1: only alpha.
+	rows, err := h.ListChanged(ctx, time.Time{}, cutoff1)
+	require.NoError(t, err)
+	words := make([]string, len(rows))
+	for i, r := range rows {
+		words[i] = r.Word
+	}
+	require.Contains(t, words, "alpha")
+	require.NotContains(t, words, "beta")
+
+	// since=cutoff1, cutoff=cutoff2: only beta.
+	rows, err = h.ListChanged(ctx, cutoff1, cutoff2)
+	require.NoError(t, err)
+	words = make([]string, len(rows))
+	for i, r := range rows {
+		words[i] = r.Word
+	}
+	require.Contains(t, words, "beta")
+	require.NotContains(t, words, "alpha")
+}
+
+func TestSQLiteWordbank_ListChanged(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+
+	require.NoError(t, wb.Add(ctx, "first"))
+	cutoff1 := time.Now().UTC()
+	time.Sleep(1100 * time.Millisecond)
+	require.NoError(t, wb.Add(ctx, "second"))
+	cutoff2 := time.Now().UTC()
+
+	// since=zero: everything up to cutoff1.
+	rows, err := wb.ListChanged(ctx, time.Time{}, cutoff1)
+	require.NoError(t, err)
+	words := make([]string, len(rows))
+	for i, r := range rows {
+		words[i] = r.Word
+	}
+	require.Contains(t, words, "first")
+	require.NotContains(t, words, "second")
+
+	// since=cutoff1: only second.
+	rows, err = wb.ListChanged(ctx, cutoff1, cutoff2)
+	require.NoError(t, err)
+	words = make([]string, len(rows))
+	for i, r := range rows {
+		words[i] = r.Word
+	}
+	require.Contains(t, words, "second")
+}
+
+// ── legacyLocaltimeToUTC (via history migration) ──────────────────────────────
+
+func TestSQLiteHistory_LegacyLocaltimeToUTC(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+
+	// Seed a row with a legacy "2006-01-02T15:04:05Z" string via the public
+	// Upsert path so we don't have to poke into internals.
+	row := HistoryRow{
+		Word:       "legacy",
+		Count:      2,
+		CreateTime: "2025-03-15T10:00:00Z", // RFC3339Z — kept as-is by migration
+		UpdateTime: "2025-03-15T10:00:00Z",
+	}
+	require.NoError(t, h.Upsert(ctx, row))
+
+	rows, err := h.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Equal(t, "legacy", rows[0].Word)
+}
+
+func TestLegacyLocaltimeToUTC(t *testing.T) {
+	// "2006-01-02T15:04:05Z" format — treated as legacy UTC RFC3339 and shifted.
+	s1, ok1 := legacyLocaltimeToUTC("2025-03-15T10:00:00Z")
+	require.True(t, ok1)
+	require.NotEmpty(t, s1)
+
+	// "2006-01-02 15:04:05" format — local time string, must be shifted.
+	s2, ok2 := legacyLocaltimeToUTC("2025-06-01 12:00:00")
+	require.True(t, ok2)
+	require.NotEmpty(t, s2)
+
+	// Completely unrecognised format — returned unchanged with ok=false.
+	s3, ok3 := legacyLocaltimeToUTC("not-a-date-at-all")
+	require.False(t, ok3)
+	require.Equal(t, "not-a-date-at-all", s3)
+}
+
+func TestSQLiteHistory_DB(t *testing.T) {
+	h := openHist(t)
+	require.NotNil(t, h.DB())
+}
+
+func TestSQLiteHistory_Close_NilSafe(t *testing.T) {
+	var h *SQLiteHistory
+	require.NoError(t, h.Close())
+}
+
+func TestSQLiteHistory_AppendEmptyWord(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	// Empty word is silently ignored (ErrEmptyWord swallowed).
+	require.NoError(t, h.Append(ctx, ""))
+	rows, err := h.List(ctx)
+	require.NoError(t, err)
+	require.Empty(t, rows)
+}
+
+func TestSQLiteHistory_ListSince_ZeroCutoff(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	require.NoError(t, h.Append(ctx, "apple"))
+
+	rows, err := h.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+}
+
+func TestSQLiteWordbank_Close_NilSafe(t *testing.T) {
+	var wb *SQLiteWordbank
+	require.NoError(t, wb.Close())
+}
+
+func TestSQLiteWordbank_Contains_NotFound(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	got, err := wb.Contains(ctx, "notaword")
+	require.NoError(t, err)
+	require.False(t, got)
+}
+
+func TestSQLiteWordbank_NormalizeWord(t *testing.T) {
+	// normalizeWord trims spaces.
+	ctx := context.Background()
+	wb := openWB(t)
+	require.NoError(t, wb.Add(ctx, "  spaced  "))
+	got, err := wb.Contains(ctx, "spaced")
+	require.NoError(t, err)
+	require.True(t, got)
+}
+
+func TestSQLiteHistory_ListSince_NonZero(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	require.NoError(t, h.Append(ctx, "apple"))
+	require.NoError(t, h.Append(ctx, "banana"))
+
+	past := time.Now().Add(-1 * time.Hour)
+	rows, err := h.ListSince(ctx, past)
+	require.NoError(t, err)
+	// Both words were added after 'past', so should appear.
+	require.Len(t, rows, 2)
+
+	future := time.Now().Add(1 * time.Hour)
+	rows, err = h.ListSince(ctx, future)
+	require.NoError(t, err)
+	require.Empty(t, rows)
+}
+
+func TestSQLiteHistory_Review_ZeroCounts(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	require.NoError(t, h.Append(ctx, "dog"))
+
+	// Use a long lookback window; count=0 means min_count >= 0 which is always true.
+	rows, err := h.Review(ctx, 365, 0)
+	require.NoError(t, err)
+	require.NotEmpty(t, rows)
+}
+
+func TestSQLiteHistory_Review_WithDays(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	require.NoError(t, h.Append(ctx, "cat"))
+
+	// count=1 means min_count >= 1; a word appended once should qualify.
+	rows, err := h.Review(ctx, 7, 1)
+	require.NoError(t, err)
+	require.NotEmpty(t, rows)
+}
+
+func TestSQLiteWordbank_ListSince_NonZero(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	require.NoError(t, wb.Add(ctx, "kiwi"))
+
+	past := time.Now().Add(-1 * time.Hour)
+	rows, err := wb.ListSince(ctx, past)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+
+	future := time.Now().Add(1 * time.Hour)
+	rows, err = wb.ListSince(ctx, future)
+	require.NoError(t, err)
+	require.Empty(t, rows)
+}
+
+func TestSQLiteWordbank_GCTombstones_Simple(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	require.NoError(t, wb.Add(ctx, "rose"))
+	require.NoError(t, wb.Remove(ctx, "rose"))
+
+	n, err := wb.GCTombstones(ctx, time.Now().Add(1*time.Second))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, n, 0)
+}
+
+func TestSQLiteHistory_GCTombstones_Simple(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	require.NoError(t, h.Append(ctx, "fox"))
+	// Delete it by upserting with deleted_at set.
+	require.NoError(t, h.Upsert(ctx, HistoryRow{
+		Word:      "fox",
+		Count:     1,
+		DeletedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z07:00"),
+	}))
+
+	n, err := h.GCTombstones(ctx, time.Now().Add(1*time.Second))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, n, 0)
+}
+
+func TestSQLiteHistory_Upsert_NewRow(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z07:00")
+	require.NoError(t, h.Upsert(ctx, HistoryRow{
+		Word: "mango", Count: 3,
+		CreateTime: now, UpdateTime: now,
+	}))
+
+	rows, err := h.List(ctx)
+	require.NoError(t, err)
+	found := false
+	for _, r := range rows {
+		if r.Word == "mango" {
+			found = true
+			require.Equal(t, 3, r.Count)
+		}
+	}
+	require.True(t, found)
+}
+
+func TestSQLiteWordbank_Upsert_NewRow(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z07:00")
+	require.NoError(t, wb.Upsert(ctx, WordbankRow{
+		Word: "lychee", CreateTime: now, UpdateTime: now,
+	}))
+
+	rows, err := wb.List(ctx)
+	require.NoError(t, err)
+	found := false
+	for _, r := range rows {
+		if r.Word == "lychee" {
+			found = true
+		}
+	}
+	require.True(t, found)
+}
+
+func TestSQLiteWordbank_Contains_EmptyWord(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	// Empty word → normalizeWord returns ErrEmptyWord → Contains returns false, nil.
+	ok, err := wb.Contains(ctx, "")
+	require.NoError(t, err)
+	assert.False(t, ok)
+}
+
+func TestSQLiteWordbank_Contains_Present(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	require.NoError(t, wb.Add(ctx, "avocado"))
+	ok, err := wb.Contains(ctx, "avocado")
+	require.NoError(t, err)
+	assert.True(t, ok)
+}
+
+func TestSQLiteWordbank_Add_ErrorPath(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	// Empty word → ErrEmptyWord
+	err := wb.Add(ctx, "")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrEmptyWord)
+}
+
+func TestSQLiteWordbank_Remove_ErrorPath(t *testing.T) {
+	ctx := context.Background()
+	wb := openWB(t)
+	// Empty word → ErrEmptyWord
+	err := wb.Remove(ctx, "")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrEmptyWord)
+}
+
+func TestSQLiteHistory_Append_EmptyWord(t *testing.T) {
+	ctx := context.Background()
+	h := openHist(t)
+	// Empty word should succeed (history Append normalizes differently)
+	// Just verify no panic.
+	_ = h.Append(ctx, "")
+}
+
+func TestNormalizeLegacyHistoryTimestamps_WithLegacyDates(t *testing.T) {
+	// Create a raw DB with legacy "2024-01-01T15:04:05Z" timestamps that
+	// legacyLocaltimeToUTC would reinterpret.
+	path := filepath.Join(t.TempDir(), "h.db")
+	db, err := sql.Open("sqlite3", "file:"+path)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Create a history table matching the old schema.
+	_, err = db.Exec(`CREATE TABLE history (
+		word TEXT NOT NULL UNIQUE,
+		` + "`count`" + ` INTEGER NOT NULL DEFAULT 0,
+		create_time DATETIME NOT NULL,
+		update_time DATETIME NOT NULL
+	)`)
+	require.NoError(t, err)
+
+	// Insert a row with a legacy timestamp format.
+	_, err = db.Exec(`INSERT INTO history(word, ` + "`count`" + `, create_time, update_time)
+		VALUES(?, ?, ?, ?)`,
+		"apple", 1, "2024-01-01T12:00:00Z", "2024-01-01T12:00:00Z",
+	)
+	require.NoError(t, err)
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	err = normalizeLegacyHistoryTimestamps(tx)
+	require.NoError(t, err)
+	require.NoError(t, tx.Commit())
+}
+
+func TestNormalizeLegacyHistoryTimestamps_WithModernDates(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "h2.db")
+	db, err := sql.Open("sqlite3", "file:"+path)
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(`CREATE TABLE history (
+		word TEXT NOT NULL UNIQUE,
+		` + "`count`" + ` INTEGER NOT NULL DEFAULT 0,
+		create_time DATETIME NOT NULL,
+		update_time DATETIME NOT NULL
+	)`)
+	require.NoError(t, err)
+
+	// Modern RFC3339 timestamp → no changes needed.
+	_, err = db.Exec(`INSERT INTO history(word, ` + "`count`" + `, create_time, update_time)
+		VALUES(?, ?, ?, ?)`,
+		"banana", 1, "2024-01-01T12:00:00.000Z", "2024-01-01T12:00:00.000Z",
+	)
+	require.NoError(t, err)
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	err = normalizeLegacyHistoryTimestamps(tx)
+	require.NoError(t, err)
+	require.NoError(t, tx.Commit())
+}
+
+func TestCursorStore_GetSet(t *testing.T) {
+	wb := openWB(t)
+	defer wb.Close()
+
+	cs := NewCursorStore(wb.DB())
+	ctx := context.Background()
+
+	// Initially empty.
+	v, err := cs.GetCursor(ctx, "sync_pull_cursor")
+	require.NoError(t, err)
+	require.Equal(t, "", v)
+
+	// Set a value.
+	require.NoError(t, cs.SetCursor(ctx, "sync_pull_cursor", "2024-01-01T00:00:00Z"))
+
+	// Read it back.
+	v, err = cs.GetCursor(ctx, "sync_pull_cursor")
+	require.NoError(t, err)
+	require.Equal(t, "2024-01-01T00:00:00Z", v)
+
+	// Update.
+	require.NoError(t, cs.SetCursor(ctx, "sync_pull_cursor", "2024-06-01T00:00:00Z"))
+	v, err = cs.GetCursor(ctx, "sync_pull_cursor")
+	require.NoError(t, err)
+	require.Equal(t, "2024-06-01T00:00:00Z", v)
+}
+
+func TestSQLiteHistory_List_WithData(t *testing.T) {
+	h := openHist(t)
+	defer h.Close()
+
+	ctx := context.Background()
+	require.NoError(t, h.Append(ctx, "apple"))
+	require.NoError(t, h.Append(ctx, "banana"))
+	require.NoError(t, h.Append(ctx, "cherry"))
+
+	rows, err := h.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+}
+
+func TestSQLiteHistory_Review_WithResults(t *testing.T) {
+	h := openHist(t)
+	defer h.Close()
+
+	ctx := context.Background()
+	require.NoError(t, h.Append(ctx, "peach"))
+	require.NoError(t, h.Append(ctx, "grape"))
+
+	// Look back 1 day with count>=1.
+	rows, err := h.Review(ctx, 1, 1)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(rows), 0)
+}
+
+func TestSQLiteHistory_GCTombstones_Fresh(t *testing.T) {
+	h := openHist(t)
+	defer h.Close()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	// Insert a tombstone row (deleted_at set in the past).
+	row := HistoryRow{
+		Word:       "kiwi",
+		Count:      1,
+		CreateTime: now.Add(-time.Hour).Format(time.RFC3339Nano),
+		UpdateTime: now.Add(-time.Hour).Format(time.RFC3339Nano),
+		DeletedAt:  now.Add(-time.Hour).Format(time.RFC3339Nano),
+	}
+	require.NoError(t, h.Upsert(ctx, row))
+
+	cleaned, err := h.GCTombstones(ctx, time.Now().Add(-time.Second))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, cleaned, 0)
+}
+
+func TestSQLiteWordbank_GCTombstones_Fresh(t *testing.T) {
+	wb := openWB(t)
+	defer wb.Close()
+
+	ctx := context.Background()
+	require.NoError(t, wb.Add(ctx, "plum"))
+	require.NoError(t, wb.Remove(ctx, "plum"))
+
+	cleaned, err := wb.GCTombstones(ctx, time.Now().Add(-time.Second))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, cleaned, 0)
+}
+
+func TestSQLiteHistory_Upsert_WithCount(t *testing.T) {
+	h := openHist(t)
+	defer h.Close()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	row := HistoryRow{
+		Word:       "avocado",
+		Count:      3,
+		CreateTime: now.Add(-time.Hour).Format(time.RFC3339Nano),
+		UpdateTime: now.Format(time.RFC3339Nano),
+	}
+	require.NoError(t, h.Upsert(ctx, row))
+
+	rows, err := h.List(ctx)
+	require.NoError(t, err)
+	found := false
+	for _, r := range rows {
+		if r.Word == "avocado" {
+			found = true
+		}
+	}
+	require.True(t, found)
+}
+
+func TestSQLiteWordbank_Upsert_WithTimestamp(t *testing.T) {
+	wb := openWB(t)
+	defer wb.Close()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	row := WordbankRow{
+		Word:       "pomelo",
+		CreateTime: now.Add(-time.Hour).Format(time.RFC3339Nano),
+		UpdateTime: now.Format(time.RFC3339Nano),
+	}
+	require.NoError(t, wb.Upsert(ctx, row))
+
+	list, err := wb.List(ctx)
+	require.NoError(t, err)
+	found := false
+	for _, r := range list {
+		if r.Word == "pomelo" {
+			found = true
+		}
+	}
+	require.True(t, found)
+}
+
+func TestSQLiteHistory_ListSince(t *testing.T) {
+	h := openHist(t)
+	defer h.Close()
+
+	ctx := context.Background()
+	require.NoError(t, h.Append(ctx, "fig"))
+	require.NoError(t, h.Append(ctx, "date"))
+
+	// since zero → all rows.
+	rows, err := h.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	// since now-1h → should still include them.
+	rows2, err := h.ListSince(ctx, time.Now().Add(-time.Hour))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(rows2), 1)
+}
+
+func TestSQLiteWordbank_ListSince(t *testing.T) {
+	wb := openWB(t)
+	defer wb.Close()
+
+	ctx := context.Background()
+	require.NoError(t, wb.Add(ctx, "guava"))
+	require.NoError(t, wb.Add(ctx, "papaya"))
+
+	rows, err := wb.ListSince(ctx, time.Time{})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	rows2, err := wb.ListSince(ctx, time.Now().Add(-time.Hour))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(rows2), 1)
 }

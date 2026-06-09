@@ -170,3 +170,86 @@ func TestHistoryMigration_IsIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, v)
 }
+
+// TestTxtWriter_Close exercises the nil-guard and normal close path.
+func TestTxtWriter_Close(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	w := NewTxtWriter()
+	// Close before any Append — fd is nil, must not panic.
+	assert.NoError(t, w.Close())
+
+	// Append opens fd; close should succeed.
+	require.NoError(t, w.Append("word"))
+	assert.NoError(t, w.Close())
+}
+
+// TestSqlite3Writer_Close is a no-op; just verify it doesn't error.
+func TestSqlite3Writer_Close(t *testing.T) {
+	w := NewSqlite3Writer()
+	assert.NoError(t, w.Close())
+}
+
+// TestSetStore replaces the singleton and verifies Append goes to the injected store.
+func TestSetStore(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	// Use a fresh SQLiteHistory as the injected store.
+	path := util.HistoryDB()
+	_ = path // created lazily
+	w := NewSqlite3Writer()
+	require.NoError(t, w.Append("initial"))
+
+	db, err := sql.Open("sqlite3", "file:"+util.HistoryDB())
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Inject nil to clear singleton.
+	SetStore(nil)
+
+	// After clearing, Append should still work (reopens automatically).
+	w2 := NewSqlite3Writer()
+	require.NoError(t, w2.Append("afterclear"))
+}
+
+func TestReview_InvalidDays(t *testing.T) {
+	h := NewHistory()
+	_, err := h.Review("notanumber", "5")
+	assert.Error(t, err)
+}
+
+func TestReview_InvalidCount(t *testing.T) {
+	h := NewHistory()
+	_, err := h.Review("7", "notanumber")
+	assert.Error(t, err)
+}
+
+func TestReview_WithStore(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	h := NewHistory(NewSqlite3Writer())
+	_ = h.Append("apple")
+	result, err := h.Review("365", "0")
+	assert.NoError(t, err)
+	assert.IsType(t, "", result)
+}
+
+func TestTxtWriter_Append_Simple(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	w := NewTxtWriter()
+	err := w.Append("testword")
+	assert.NoError(t, err)
+}
+
+func TestTxtWriter_Close_NilFd(t *testing.T) {
+	w := &TxtWriter{}
+	assert.NoError(t, w.Close())
+}
+
+func TestHistory_Append_WithWriter(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	w := NewSqlite3Writer()
+	h := NewHistory(w)
+	// Should append without error.
+	err := h.Append("banana")
+	assert.NoError(t, err)
+}

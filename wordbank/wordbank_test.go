@@ -152,3 +152,59 @@ func TestSetStore_InjectsAndIsObserved(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, got, "Contains must reach the injected store")
 }
+
+func TestList_WithItems(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	SetStore(nil)
+
+	require.NoError(t, Add("mango"))
+	require.NoError(t, Add("papaya"))
+
+	words, err := List()
+	require.NoError(t, err)
+	names := make([]string, 0, len(words))
+	for _, w := range words {
+		names = append(names, w.Name)
+	}
+	require.Contains(t, names, "mango")
+	require.Contains(t, names, "papaya")
+}
+
+func TestListWithDeleted_AfterRemove(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	SetStore(nil)
+
+	require.NoError(t, Add("lychee"))
+	require.NoError(t, Remove("lychee"))
+
+	// ListWithDeleted should include tombstoned words.
+	words, err := ListWithDeleted()
+	require.NoError(t, err)
+	found := false
+	for _, w := range words {
+		if w.Name == "lychee" {
+			found = true
+			require.NotEmpty(t, w.DeletedAt, "removed word should have DeletedAt set")
+		}
+	}
+	require.True(t, found, "tombstoned word should appear in ListWithDeleted")
+}
+
+func TestContains_True(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	SetStore(nil)
+
+	require.NoError(t, Add("guava"))
+	ok, err := Contains("guava")
+	require.NoError(t, err)
+	require.True(t, ok)
+}
+
+func TestContains_False(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	SetStore(nil)
+
+	ok, err := Contains("no_such_word_xyz")
+	require.NoError(t, err)
+	require.False(t, ok)
+}

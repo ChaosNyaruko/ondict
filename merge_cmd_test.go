@@ -135,3 +135,43 @@ func TestRunMerge_BadArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestRunMerge_DryRunHistoryDoesNotWrite(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "src.db")
+	dst := filepath.Join(tmp, "dst.db")
+
+	seedHistory(t, src, store.HistoryRow{
+		Word: "cherry", Count: 1, CreateTime: "2024-01-01T00:00:00Z", UpdateTime: "2024-06-01T00:00:00Z",
+	})
+
+	var stdout, stderr bytes.Buffer
+	rc := runMerge([]string{"history", "--dst", dst, "--dry-run", src}, &stdout, &stderr)
+	require.Equal(t, 0, rc, "stderr=%s", stderr.String())
+	require.Contains(t, stdout.String(), "dry-run=true")
+
+	h, err := store.OpenSQLiteHistory(dst)
+	require.NoError(t, err)
+	defer h.Close()
+	rows, err := h.List(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, rows, "dry-run must not persist any rows")
+}
+
+func TestRunMerge_WordbankBadSource(t *testing.T) {
+	tmp := t.TempDir()
+	dst := filepath.Join(tmp, "dst.db")
+
+	var stdout, stderr bytes.Buffer
+	rc := runMerge([]string{"wordbank", "--dst", dst, "/nonexistent/source.db"}, &stdout, &stderr)
+	require.NotEqual(t, 0, rc)
+}
+
+func TestRunMerge_HistoryBadSource(t *testing.T) {
+	tmp := t.TempDir()
+	dst := filepath.Join(tmp, "dst.db")
+
+	var stdout, stderr bytes.Buffer
+	rc := runMerge([]string{"history", "--dst", dst, "/nonexistent/source.db"}, &stdout, &stderr)
+	require.NotEqual(t, 0, rc)
+}

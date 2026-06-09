@@ -259,3 +259,10 @@ func TestMergeHistory_TombstonePropagates(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, live, "tombstoned row must not be in live List()")
 }
+
+func TestStats_Add(t *testing.T) {
+	a := Stats{Inserted: 1, Updated: 2, Unchanged: 3, TombstonesPropagated: 4}
+	b := Stats{Inserted: 10, Updated: 20, Unchanged: 30, TombstonesPropagated: 40}
+	got := a.Add(b)
+	require.Equal(t, Stats{Inserted: 11, Updated: 22, Unchanged: 33, TombstonesPropagated: 44}, got)
+}
