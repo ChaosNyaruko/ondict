@@ -244,6 +244,19 @@ class MainActivity : AppCompatActivity() {
     // text programmatically from a suggestion tap or word bank lookup.
     private var suppressAutocomplete = false
 
+    // Monotonic id used to discard stale autocomplete results. Each fetch
+    // captures the current id; when it finishes it only touches the UI if the
+    // id is still the latest. Hiding the list bumps the id, so any in-flight
+    // fetch started before a tap/submit/navigation can no longer re-show it.
+    private var suggestionRequestId = 0
+
+    // Hide the suggestion list and invalidate any in-flight fetch so its
+    // (now stale) result won't pop the window back open.
+    private fun hideSuggestions() {
+        suggestionRequestId++
+        suggestionsList.visibility = View.GONE
+    }
+
     private fun setupSearch() {
         searchButton.setOnClickListener { submitSearch() }
 
@@ -270,7 +283,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 val prefix = s?.toString()?.trim() ?: return
                 if (prefix.length < 2) {
-                    suggestionsList.visibility = View.GONE
+                    hideSuggestions()
                     return
                 }
                 val r = Runnable { fetchSuggestions(prefix) }
@@ -283,7 +296,7 @@ class MainActivity : AppCompatActivity() {
             val word = suggestionsList.adapter.getItem(position) as String
             suppressAutocomplete = true
             searchInput.setText(word)
-            suggestionsList.visibility = View.GONE
+            hideSuggestions()
             lookupAndRender(word)
             hideKeyboard()
         }
@@ -292,18 +305,26 @@ class MainActivity : AppCompatActivity() {
     private fun submitSearch() {
         val word = searchInput.text.toString().trim()
         if (word.isEmpty()) return
-        suggestionsList.visibility = View.GONE
+        hideSuggestions()
         lookupAndRender(word)
         hideKeyboard()
     }
 
     private fun fetchSuggestions(prefix: String) {
+        // Captured on the UI thread (this is invoked from the debounce handler).
+        val requestId = ++suggestionRequestId
         Thread {
             try {
                 val json = Mobile.complete(prefix, 10)
                 val arr = JSONArray(json)
                 val words = (0 until arr.length()).map { arr.getString(it) }
                 runOnUiThread {
+                    // Drop the result if it's been superseded by a newer fetch
+                    // or invalidated by a tap/submit/navigation, or if the user
+                    // has since changed the text. This prevents an in-flight
+                    // fetch from re-opening the window after the user moved on.
+                    if (requestId != suggestionRequestId) return@runOnUiThread
+                    if (searchInput.text.toString().trim() != prefix) return@runOnUiThread
                     if (words.isEmpty()) {
                         suggestionsList.visibility = View.GONE
                     } else {
@@ -314,7 +335,9 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (_: Exception) {
-                runOnUiThread { suggestionsList.visibility = View.GONE }
+                runOnUiThread {
+                    if (requestId == suggestionRequestId) suggestionsList.visibility = View.GONE
+                }
             }
         }.start()
     }
@@ -325,7 +348,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun lookupAndRender(word: String) {
         currentWord = word
-        suggestionsList.visibility = View.GONE
+        hideSuggestions()
         welcomeHint.visibility = View.GONE
         entryWebView.visibility = View.VISIBLE
         entryActionBar.visibility = View.VISIBLE
