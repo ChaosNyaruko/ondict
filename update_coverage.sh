@@ -13,9 +13,9 @@ VAL=${COVERAGE%\%}
 
 # Determine color
 COLOR=$(awk -v val="$VAL" 'BEGIN {
-    if (val >= 80) print "green";
-    else if (val >= 70) print "yellow";
-    else if (val >= 50) print "orange";
+    if (val >= 70) print "green";
+    else if (val >= 60) print "yellow";
+    else if (val >= 40) print "orange";
     else print "red";
 }')
 

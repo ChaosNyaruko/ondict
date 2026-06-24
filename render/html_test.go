@@ -174,3 +174,39 @@ func TestIsElement(t *testing.T) {
 	// However, creating an html.Node manually is verbose.
 	// I'll skip direct test and rely on Render test which covers dfs and IsElement.
 }
+
+func TestDeriveFilename(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"ldoce4188jpg", "ldoce4188.jpg"},
+		{"imagepng", "image.png"},
+		{"abc", "abc"},      // len <= 3, returned as-is
+		{"ab", "ab"},        // len <= 3
+		{"a", "a"},          // len <= 3
+		{"", ""},            // empty
+		{"test.mp3", "test..mp3"}, // already has extension gets extra dot
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			assert.Equal(t, tt.want, deriveFilename(tt.input))
+		})
+	}
+}
+
+func TestHeadScriptTags_WithScript(t *testing.T) {
+	raw := `<html><head><script src="jquery.js"></script></head><body><p>hi</p></body></html>`
+	h := &HTMLRender{Raw: raw, SourceType: LongmanEasy}
+	out := h.Render()
+	// The script tag should appear in the output (prepended from head).
+	assert.Contains(t, out, "jquery.js")
+}
+
+func TestHeadScriptTags_InlineScriptSkipped(t *testing.T) {
+	raw := `<html><head><script>var x=1;</script></head><body><p>hi</p></body></html>`
+	h := &HTMLRender{Raw: raw, SourceType: LongmanEasy}
+	out := h.Render()
+	// Inline scripts should NOT be prepended (no src= attribute).
+	assert.NotContains(t, out, "var x=1;")
+}

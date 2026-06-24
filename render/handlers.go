@@ -22,6 +22,11 @@ func (EntryHandler) HandleNode(n *html.Node, ctx RenderContext) bool {
 	if !IsElement(n, "a", "") {
 		return false
 	}
+	// "raw" mode: leave entry:// links untouched so the native shell
+	// (e.g. Android WebViewClient) can intercept and handle them directly.
+	if ctx.LinkFormat == "raw" {
+		return false
+	}
 	format := ctx.LinkFormat
 	if format == "" {
 		format = "html"

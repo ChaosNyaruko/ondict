@@ -205,6 +205,12 @@ func copyFile(src, dst string) error {
 	return out.Sync()
 }
 
+// AllCss returns the concatenated CSS for all loaded dictionaries.
+// Used by the mobile direct-render path to inject styles without an HTTP round-trip.
+func AllCss() string {
+	return allCss
+}
+
 func QueryMDX(word string, f string) string {
 	type mdxResult struct {
 		raw RawOutput
@@ -219,7 +225,7 @@ func QueryMDX(word string, f string) string {
 	}
 
 	// TODO: put the render abstraction here?
-	if f == "html" || f == "html_fragment" { // f for format
+	if f == "html" || f == "html_fragment" || f == "raw" {
 		var style string
 		if allCss != "" && f == "html" {
 			style = fmt.Sprintf("<style>%s</style>", allCss)

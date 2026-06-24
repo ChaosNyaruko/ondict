@@ -1,163 +1,149 @@
+// Package wordbank exposes the user's saved word bank via a stable
+// package-level API (Add / Remove / Contains / List / ...).
+//
+// Internally every call delegates to a process-singleton [store.WordbankStore]
+// keyed by the path returned from util.WordBankDB(). This is the
+// "interface + singleton shim" approach captured in
+// docs/adr/0001-wordbank-history-sync.md (D7): existing call sites stay
+// untouched while the sync layer can swap the underlying store impl.
 package wordbank
 
 import (
-	"database/sql"
-	"errors"
-	"fmt"
-	"strings"
+	"context"
+	"sync"
 	"time"
 
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
-
+	"github.com/ChaosNyaruko/ondict/store"
 	"github.com/ChaosNyaruko/ondict/util"
 )
 
-var ErrEmptyWord = errors.New("word is empty")
+// ErrEmptyWord is returned by mutator functions when the word is empty after
+// trimming. Re-exported from package store so call sites that import only
+// wordbank don't need a second import for this sentinel.
+var ErrEmptyWord = store.ErrEmptyWord
 
+// Word is the legacy shape returned by List. DeletedAt is populated only by
+// ListWithDeleted; for live rows returned from List it is always empty.
 type Word struct {
 	Name       string
 	CreateTime string
 	UpdateTime string
+	DeletedAt  string
 }
 
-// toUTCString parses a timestamp string from the DB and returns it as an
-// RFC 3339 UTC string (e.g. "2026-05-09T15:07:34Z").
+var (
+	singletonMu       sync.Mutex
+	singletonImpl     store.WordbankStore
+	singletonPath     string
+	singletonInjected bool // true when the impl was supplied via SetStore
+)
+
+// SetStore replaces the process-singleton WordbankStore. Useful for tests
+// and for the sync layer (which may want a wrapping store that broadcasts
+// writes). Passing nil resets the singleton; the next package-level call
+// will lazily reopen the default sqlite store.
 //
-// SQLite timestamps may be stored in one of two formats:
-//   - "YYYY-MM-DD HH:MM:SS"   – legacy rows written with datetime('now','localtime')
-//     that we treat as already-local; we can only re-emit them as-is since we
-//     have no timezone metadata, so we fall back to the raw string.
-//   - "YYYY-MM-DDTHH:MM:SSZ"  – UTC rows written by CURRENT_TIMESTAMP (new default).
+// Closing the previous singleton is the caller's responsibility.
+func SetStore(s store.WordbankStore) {
+	singletonMu.Lock()
+	defer singletonMu.Unlock()
+	singletonImpl = s
+	singletonPath = ""
+	// An injected store is "owned" by the caller and must NOT be replaced
+	// just because util.WordBankDB() resolves to a different path (the
+	// previous implementation incorrectly closed and replaced it). We
+	// keep the injection in effect until the caller calls SetStore(nil).
+	singletonInjected = s != nil
+}
+
+// storeImpl returns the active singleton, lazily opening the default
+// SQLite-backed store at util.WordBankDB() if none has been set.
 //
-// For truly correct handling the DB should store UTC, which is enforced by the
-// updated schema default below.
-func toUTCString(s string) string {
-	// Try ISO 8601 UTC format first (new rows).
-	if t, err := time.Parse("2006-01-02T15:04:05Z", s); err == nil {
-		return t.UTC().Format(time.RFC3339)
+// The path is captured per-call so that tests using t.Setenv("HOME", ...)
+// re-resolve to a fresh DB on the next call. An externally injected store
+// (via SetStore) bypasses path tracking entirely.
+func storeImpl() (store.WordbankStore, error) {
+	singletonMu.Lock()
+	defer singletonMu.Unlock()
+	if singletonInjected {
+		return singletonImpl, nil
 	}
-	// Try the space-separated format (old rows from datetime('now','localtime')).
-	// We cannot know the original timezone, so return as-is.
-	if _, err := time.Parse("2006-01-02 15:04:05", s); err == nil {
-		return s
+	want := util.WordBankDB()
+	if singletonImpl != nil && singletonPath == want {
+		return singletonImpl, nil
 	}
-	// Already RFC3339 or unknown format – return unchanged.
-	return s
+	// Path changed (e.g. test harness flipping HOME) or first use.
+	if singletonImpl != nil && singletonPath != want {
+		_ = singletonImpl.Close()
+		singletonImpl = nil
+	}
+	wb, err := store.OpenSQLiteWordbank(want)
+	if err != nil {
+		return nil, err
+	}
+	singletonImpl = wb
+	singletonPath = want
+	return singletonImpl, nil
 }
 
 func Add(word string) error {
-	word, err := normalize(word)
+	s, err := storeImpl()
 	if err != nil {
 		return err
 	}
-	db, err := open()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	_, err = db.Exec(`
-INSERT INTO words (word) VALUES (?)
-ON CONFLICT(word) DO UPDATE SET update_time=CURRENT_TIMESTAMP;
-`, word)
-	return err
+	return s.Add(context.Background(), word)
 }
 
 func Remove(word string) error {
-	word, err := normalize(word)
+	s, err := storeImpl()
 	if err != nil {
 		return err
 	}
-	db, err := open()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	_, err = db.Exec(`DELETE FROM words WHERE word = ?`, word)
-	return err
-}
-
-func List() ([]Word, error) {
-	db, err := open()
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	rows, err := db.Query(`SELECT word, create_time, update_time FROM words ORDER BY update_time DESC, word ASC`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var words []Word
-	for rows.Next() {
-		var word Word
-		if err := rows.Scan(&word.Name, &word.CreateTime, &word.UpdateTime); err != nil {
-			return nil, fmt.Errorf("scan word bank row: %w", err)
-		}
-		word.CreateTime = toUTCString(word.CreateTime)
-		word.UpdateTime = toUTCString(word.UpdateTime)
-		words = append(words, word)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list word bank rows: %w", err)
-	}
-	return words, nil
+	return s.Remove(context.Background(), word)
 }
 
 func Contains(word string) (bool, error) {
-	word, err := normalize(word)
-	if err != nil {
-		if errors.Is(err, ErrEmptyWord) {
-			return false, nil
-		}
-		return false, err
-	}
-	db, err := open()
+	s, err := storeImpl()
 	if err != nil {
 		return false, err
 	}
-	defer db.Close()
-
-	var found int
-	err = db.QueryRow(`SELECT 1 FROM words WHERE word = ? LIMIT 1`, word).Scan(&found)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	return s.Contains(context.Background(), word)
 }
 
-func open() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "file:"+util.WordBankDB())
+func List() ([]Word, error) {
+	s, err := storeImpl()
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureSchema(db); err != nil {
-		_ = db.Close()
+	rows, err := s.List(context.Background())
+	if err != nil {
 		return nil, err
 	}
-	return db, nil
+	return toLegacy(rows), nil
 }
 
-func ensureSchema(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS words (
-	word TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
-	create_time DATETIME NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-	update_time DATETIME NOT NULL DEFAULT (CURRENT_TIMESTAMP)
-);`)
-	return err
-}
-
-func normalize(word string) (string, error) {
-	word = strings.TrimSpace(word)
-	if word == "" {
-		return "", ErrEmptyWord
+// ListWithDeleted exposes tombstoned rows for the merge / sync layer.
+func ListWithDeleted() ([]Word, error) {
+	s, err := storeImpl()
+	if err != nil {
+		return nil, err
 	}
-	return word, nil
+	rows, err := s.ListSince(context.Background(), time.Time{})
+	if err != nil {
+		return nil, err
+	}
+	return toLegacy(rows), nil
+}
+
+func toLegacy(rows []store.WordbankRow) []Word {
+	out := make([]Word, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, Word{
+			Name:       r.Word,
+			CreateTime: r.CreateTime,
+			UpdateTime: r.UpdateTime,
+			DeletedAt:  r.DeletedAt,
+		})
+	}
+	return out
 }

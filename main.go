@@ -34,7 +34,7 @@ var Commit = func() string {
 	return "no-vcs.revision(go build -buildvcs)"
 }()
 
-var Version = "v0.6.3"
+var Version = "v0.7.0"
 
 var dialTimeout = 5 * time.Second
 var defaultIdleTimeout = 876000 * time.Hour // 100 years
@@ -58,6 +58,12 @@ var server = flag.Bool("serve", false, "Serve as a HTTP server, default on UDS, 
 var idleTimeout = flag.Duration("listen.timeout", defaultIdleTimeout, "Used with '-serve', the server will automatically shut down after this duration if no new requests come in")
 var listenAddr = flag.String("listen", "", "Used with '-serve', address on which to listen for remote connections. If prefixed by 'unix;', the subsequent address is assumed to be a unix domain socket. Otherwise, TCP is used.")
 var remote = flag.String("remote", "", "Connect to a remote address to get information, 'auto' means it will try to launch a request by UDS. If no local server is working, a new server will be created, with -listen.timeout 2min.")
+
+// Sync-server flags. See docs/adr/0001-wordbank-history-sync.md and
+// internal/syncserver. Credentials live in environment variables so they
+// don't leak into shell history (ONDICT_SYNC_USER / ONDICT_SYNC_PASSWORD).
+var syncServer = flag.Bool("sync-server", false, "Enable the cloud-sync HTTP endpoints under /sync/v1. Requires ONDICT_SYNC_USER and ONDICT_SYNC_PASSWORD env vars.")
+var syncDataDir = flag.String("sync-data-dir", "", "Directory holding per-user sync state. Defaults to <config>/sync.")
 var colour = flag.Bool("color", false, "This flags controls whether to use colors.")
 var renderFormat = flag.String("f", "", "render format, 'md' (for markdown, only for mdx engine now), or 'html'")
 var engine = flag.String("e", "", "query engine, 'mdx' or others(online query)")
@@ -72,18 +78,30 @@ var file *os.File
 
 func init() {
 	var err error
-	file, err = os.OpenFile(filepath.Join(util.TmpDir(), "ondict.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	filename := filepath.Join(util.TmpDir(), "ondict.log")
+	fmt.Fprintf(os.Stderr, "This log will be written to a file. %q\n", filename)
+	file, err = os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err == nil {
 		log.SetOutput(file)
 	} else {
 		log.Info("Failed to log to file, using default stderr")
 	}
 
-	log.Info("This log will be written to a file.")
 	log.SetLevel(log.TraceLevel)
 }
 
 func main() {
+	// Subcommands are dispatched before flag.Parse so they can own their
+	// own flag set. See merge_cmd.go and sync_cmd.go (ADR D8 / Phase 6).
+	if len(os.Args) >= 2 {
+		switch os.Args[1] {
+		case "merge":
+			os.Exit(runMerge(os.Args[2:], os.Stdout, os.Stderr))
+		case "sync":
+			os.Exit(runSync(os.Args[2:], os.Stdout, os.Stderr))
+		}
+	}
+
 	flag.Parse()
 	if *initCmd {
 		runInit()

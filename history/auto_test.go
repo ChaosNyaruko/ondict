@@ -1,12 +1,18 @@
 package history
 
 import (
+	"database/sql"
 	"os"
 	"testing"
 	"time"
 
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
+
+	"github.com/ChaosNyaruko/ondict/dbutil"
 	"github.com/ChaosNyaruko/ondict/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTxtWriter_Append(t *testing.T) {
@@ -74,4 +80,176 @@ func TestHistory_Review(t *testing.T) {
 	res, err := h.Review("1", "1")
 	assert.NoError(t, err)
 	assert.Contains(t, res, "reviewword")
+}
+
+// TestSqlite3Writer_AppendIncrementsCount makes sure the upsert path bumps
+// `count` on subsequent queries (regression guard for the v2 migration).
+func TestSqlite3Writer_AppendIncrementsCount(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	w := NewSqlite3Writer()
+	require.NoError(t, w.Append("doctor"))
+	require.NoError(t, w.Append("doctor"))
+	require.NoError(t, w.Append("doctor"))
+
+	db, err := sql.Open("sqlite3", "file:"+util.HistoryDB())
+	require.NoError(t, err)
+	defer db.Close()
+
+	var count int
+	require.NoError(t, db.QueryRow(`SELECT `+"`count`"+` FROM history WHERE word = ?`, "doctor").Scan(&count))
+	require.Equal(t, 3, count)
+}
+
+// TestHistoryMigration_LegacyLocaltimeRowsRewrittenToUTC seeds a v0-shaped DB
+// (the original create-table-on-each-insert flow), then triggers EnsureSchema
+// and verifies the legacy "YYYY-MM-DD HH:MM:SS" localtime strings get
+// rewritten to RFC3339 UTC.
+func TestHistoryMigration_LegacyLocaltimeRowsRewrittenToUTC(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	dbPath := util.HistoryDB()
+	db, err := sql.Open("sqlite3", "file:"+dbPath)
+	require.NoError(t, err)
+
+	// Seed a v0 database manually – the original pre-migration shape.
+	_, err = db.Exec(`CREATE TABLE history (
+		word TEXT NOT NULL UNIQUE,
+		` + "`count`" + ` INTEGER NOT NULL DEFAULT 0,
+		create_time DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+		update_time DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+	)`)
+	require.NoError(t, err)
+
+	// Insert a row with a hand-crafted localtime string we can predict.
+	const legacy = "2025-02-15 18:00:27"
+	_, err = db.Exec(`INSERT INTO history (word, `+"`count`"+`, create_time, update_time) VALUES (?, ?, ?, ?)`,
+		"legacyword", 4, legacy, legacy)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	// Trigger migration via the public Append path (which calls EnsureSchema).
+	w := NewSqlite3Writer()
+	require.NoError(t, w.Append("anotherword"))
+
+	db, err = sql.Open("sqlite3", "file:"+dbPath)
+	require.NoError(t, err)
+	defer db.Close()
+
+	v, err := dbutil.CurrentVersion(db)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, v, 2, "schema must be at v2 after Append")
+
+	var ct, ut string
+	var deleted sql.NullString
+	require.NoError(t, db.QueryRow(
+		`SELECT create_time, update_time, deleted_at FROM history WHERE word = ?`, "legacyword",
+	).Scan(&ct, &ut, &deleted))
+
+	wantUTC := time.Date(2025, 2, 15, 18, 0, 27, 0, time.Local).UTC().Format(time.RFC3339)
+	require.Equal(t, wantUTC, ct, "create_time should be rewritten to UTC RFC3339")
+	require.Equal(t, wantUTC, ut, "update_time should be rewritten to UTC RFC3339")
+	require.False(t, deleted.Valid, "legacy rows must not be tombstoned by migration")
+}
+
+// TestHistoryMigration_IsIdempotent makes sure running EnsureSchema twice
+// (which happens on every Append) doesn't blow up or rewrite UTC rows.
+func TestHistoryMigration_IsIdempotent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	w := NewSqlite3Writer()
+	require.NoError(t, w.Append("apple"))
+	require.NoError(t, w.Append("apple"))
+	require.NoError(t, w.Append("apple"))
+
+	db, err := sql.Open("sqlite3", "file:"+util.HistoryDB())
+	require.NoError(t, err)
+	defer db.Close()
+
+	v, err := dbutil.CurrentVersion(db)
+	require.NoError(t, err)
+	require.Equal(t, 4, v)
+}
+
+// TestTxtWriter_Close exercises the nil-guard and normal close path.
+func TestTxtWriter_Close(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	w := NewTxtWriter()
+	// Close before any Append — fd is nil, must not panic.
+	assert.NoError(t, w.Close())
+
+	// Append opens fd; close should succeed.
+	require.NoError(t, w.Append("word"))
+	assert.NoError(t, w.Close())
+}
+
+// TestSqlite3Writer_Close is a no-op; just verify it doesn't error.
+func TestSqlite3Writer_Close(t *testing.T) {
+	w := NewSqlite3Writer()
+	assert.NoError(t, w.Close())
+}
+
+// TestSetStore replaces the singleton and verifies Append goes to the injected store.
+func TestSetStore(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	// Use a fresh SQLiteHistory as the injected store.
+	path := util.HistoryDB()
+	_ = path // created lazily
+	w := NewSqlite3Writer()
+	require.NoError(t, w.Append("initial"))
+
+	db, err := sql.Open("sqlite3", "file:"+util.HistoryDB())
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Inject nil to clear singleton.
+	SetStore(nil)
+
+	// After clearing, Append should still work (reopens automatically).
+	w2 := NewSqlite3Writer()
+	require.NoError(t, w2.Append("afterclear"))
+}
+
+func TestReview_InvalidDays(t *testing.T) {
+	h := NewHistory()
+	_, err := h.Review("notanumber", "5")
+	assert.Error(t, err)
+}
+
+func TestReview_InvalidCount(t *testing.T) {
+	h := NewHistory()
+	_, err := h.Review("7", "notanumber")
+	assert.Error(t, err)
+}
+
+func TestReview_WithStore(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	h := NewHistory(NewSqlite3Writer())
+	_ = h.Append("apple")
+	result, err := h.Review("365", "0")
+	assert.NoError(t, err)
+	assert.IsType(t, "", result)
+}
+
+func TestTxtWriter_Append_Simple(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	w := NewTxtWriter()
+	err := w.Append("testword")
+	assert.NoError(t, err)
+}
+
+func TestTxtWriter_Close_NilFd(t *testing.T) {
+	w := &TxtWriter{}
+	assert.NoError(t, w.Close())
+}
+
+func TestHistory_Append_WithWriter(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	w := NewSqlite3Writer()
+	h := NewHistory(w)
+	// Should append without error.
+	err := h.Append("banana")
+	assert.NoError(t, err)
 }

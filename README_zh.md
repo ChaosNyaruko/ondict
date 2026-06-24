@@ -172,6 +172,47 @@ HTML server 还提供独立的 Word Bank 页面：`/words`。
 你可以在词条页或释义搜索结果卡片上保存想学习的新词，然后到 `/words` 里复习、重新打开词条或移除单词。
 Word Bank 独立于普通查询历史，数据保存在 Ondict 配置目录下的 `wordbank.db` 中。
 
+### 数据库合并（离线）
+
+如果你在多台设备上累积了不同的 `wordbank.db` / `history.db`（比如笔记本+台式机，或换手机前后），`ondict merge` 子命令可以将它们合并到一份，使用 `update_time` 做最后写入者获胜（last-writer-wins），并通过逐行的墓碑（tombstone）让删除也能传播：
+
+```sh
+ondict merge wordbank --dst merged.db src1.db src2.db src3.db
+ondict merge history  --dst merged.db src1.db src2.db [--dry-run]
+```
+
+对于 history，合并后的 `count` 取各来源的 `MAX`（幂等：重复合并同一个源不会出现重复计数）。
+
+完整的设计依据见 [`docs/adr/0001-wordbank-history-sync.md`](docs/adr/0001-wordbank-history-sync.md)。
+
+### 云端同步（自托管）
+
+可以让一台常驻的 ondict 实例（家里的服务器、NAS、VPS）作为同步服务器，让手机、笔记本、纯网页用户最终汇聚到同一份 Word Bank 与历史。同步接口位于 `/sync/v1`，使用 HTTP Basic Auth 鉴权。
+
+服务端（推荐用 Caddy / nginx 做 TLS 终端）：
+
+```sh
+export ONDICT_SYNC_USER=alice
+export ONDICT_SYNC_PASSWORD='something-strong'
+ondict -serve -listen=:1345 -sync-server -sync-data-dir=/var/lib/ondict/sync
+```
+
+桌面端客户端（一次性或常驻）：
+
+```sh
+export ONDICT_SYNC_USER=alice
+export ONDICT_SYNC_PASSWORD='something-strong'
+ondict sync --base-url https://sync.example.com                      # 一次性
+ondict sync --base-url https://sync.example.com --loop 10m \
+            --gc-tombstones-after 2160h                              # 常驻，每 10 分钟同步，墓碑保留 90 天
+```
+
+Android 端：在 Activity 里调用 `mobile.ConfigureSync(baseURL, user, pass)` 然后 `mobile.Sync()` 即可。本次起 Android 端会记录自身查询历史，所以也会同步到上游。
+
+完整的部署 / 迁移指南（含"把现有 `~/.config/ondict/{wordbank,history}.db`
+转成 sync 用户库"的步骤）见
+[`docs/sync-deployment.md`](docs/sync-deployment.md)。
+
 您也可以将其部署在您的服务器上，作为Nginx的上游，或者直接用合适的ip/端口暴露它。
 
 您可以在本地运行`make serve`来查看简单示例。由于我的前端技能有限，页面可能比较简陋，请见谅 :(。
@@ -349,8 +390,13 @@ vim.keymap.set("v", "<leader>d", require("ondict").query)
 │   ├── oald9.css
 │   ├── oald9.mddx
 │   └── oald9.mdx
-├── history.table
-└── wordbank.db
+├── history.db        # SQLite 查询历史（参与同步）
+├── history.table     # 易读的追加日志（仅桌面，不参与同步）
+├── wordbank.db       # SQLite 生词本（参与同步）
+└── sync/             # 仅同步服务器端会出现
+    └── <user>/
+        ├── wordbank.db
+        └── history.db
 ```
 ## config.json示例
 ```json

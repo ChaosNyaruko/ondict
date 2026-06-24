@@ -1,13 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Auto Backup rules for devices older than API 31.
+    See https://developer.android.com/guide/topics/data/autobackup
+    Note: This file is ignored for devices API 31+ (uses data_extraction_rules.xml instead).
 -->
 <full-backup-content>
     <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+        Exclude the sync credentials SharedPreferences file from backup.
+        The file contains the plaintext sync server password (ondict_sync.xml).
+        Users re-enter credentials on a new device; their data is restored
+        via the sync server itself.
+    -->
+    <exclude domain="sharedpref" path="ondict_sync.xml"/>
 </full-backup-content>

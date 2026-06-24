@@ -1,5 +1,5 @@
 [简体中文](./README_zh.md)
-![Coverage](https://img.shields.io/badge/coverage-35.0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-70.1%25-green)
 
 Table of Contents
 =================
@@ -173,6 +173,47 @@ The HTML server also includes a dedicated Word Bank page at `/words`.
 Use the buttons on entry pages or definition search result cards to save words you want to learn, then open `/words` to review, revisit, or remove them.
 Word Bank is stored separately from normal query history in the Ondict config directory.
 
+### Merging databases (offline)
+
+If you have multiple `wordbank.db` / `history.db` files from different machines (laptop + desktop, old phone + new phone), the `ondict merge` subcommand folds them into one with conflict resolution by `update_time` (last-writer-wins) and a per-row tombstone for deletions:
+
+```sh
+ondict merge wordbank --dst merged.db src1.db src2.db src3.db
+ondict merge history  --dst merged.db src1.db src2.db [--dry-run]
+```
+
+For history, the merged `count` is `MAX` across sources (idempotent: re-merging the same source twice is a no-op).
+
+See [`docs/adr/0001-wordbank-history-sync.md`](docs/adr/0001-wordbank-history-sync.md) for the full design rationale.
+
+### Cloud sync (self-hosted)
+
+A long-running ondict instance (your home box, NAS, VPS) can act as a sync server so a phone, laptop, or browser-only setup can converge on the same Word Bank and history. Endpoints live under `/sync/v1` and use HTTP Basic Auth.
+
+Server side (terminate TLS at your reverse proxy, e.g. Caddy / nginx):
+
+```sh
+export ONDICT_SYNC_USER=alice
+export ONDICT_SYNC_PASSWORD='something-strong'
+ondict -serve -listen=:1345 -sync-server -sync-data-dir=/var/lib/ondict/sync
+```
+
+Desktop client (one-shot or daemon):
+
+```sh
+export ONDICT_SYNC_USER=alice
+export ONDICT_SYNC_PASSWORD='something-strong'
+ondict sync --base-url https://sync.example.com                      # one-shot
+ondict sync --base-url https://sync.example.com --loop 10m \
+            --gc-tombstones-after 2160h                              # daemon, 90-day tombstone GC
+```
+
+Mobile (Android): `mobile.ConfigureSync(baseURL, user, pass)` followed by `mobile.Sync()` from your Activity. The Android app records its own query history starting with this release, so it propagates upstream too.
+
+For the full deployment / migration guide (including how to convert an existing
+`~/.config/ondict/{wordbank,history}.db` into a sync user library), see
+[`docs/sync-deployment.md`](docs/sync-deployment.md).
+
 You can also deploy it on your server, as an upstream of Nginx/, or just exposing it with a suitable ip/port.
 
 You can run `make serve` locally for an easy example. My front-end skill is poor, so the page is ugly and rough, don't hate it :(. 
@@ -328,18 +369,24 @@ Put dictionary files in $HOME/.config/ondict/dicts, support formats are:
 .
 ├── config.json
 ├── dicts
-│   ├── LDOCE5++ V 1-35.mdd
-│   ├── LDOCE5++ V 1-35.mdx
-│   ├── LM5style.css
-│   ├── LM5style_vanilla.css
-│   ├── Longman Dictionary of Contemporary English.css
-│   ├── Longman Dictionary of Contemporary English.mdx
-│   ├── ODE_Zh.css
-│   ├── ahd3af.css
-│   ├── oald9.css
-│   ├── oald9.mddx
-│   └── oald9.mdx
-└── history.table
+│   ├── LDOCE5++ V 1-35.mdd
+│   ├── LDOCE5++ V 1-35.mdx
+│   ├── LM5style.css
+│   ├── LM5style_vanilla.css
+│   ├── Longman Dictionary of Contemporary English.css
+│   ├── Longman Dictionary of Contemporary English.mdx
+│   ├── ODE_Zh.css
+│   ├── ahd3af.css
+│   ├── oald9.css
+│   ├── oald9.mddx
+│   └── oald9.mdx
+├── history.db        # SQLite query history (synced)
+├── history.table     # human-readable append-only log (desktop only, not synced)
+├── wordbank.db       # SQLite saved-word bank (synced)
+└── sync/             # only present on the sync server
+    └── <user>/
+        ├── wordbank.db
+        └── history.db
 ```
 ## An example of config.json 
 ```json

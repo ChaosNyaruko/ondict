@@ -57,9 +57,11 @@ docker run --rm --name ondict-app --publish 1345:1345 \
 
 ### Go Standards
 - **Go version**: 1.23.0+ with toolchain 1.23.9
-- **Package structure**: Clear separation between `decoder`, `sources`, `render`, `util`, `history`
+- **Package structure**: Clear separation between `decoder`, `sources`, `render`, `util`, `history`, `wordbank`, `store`, `syncmerge`, `dbutil`, `internal/syncserver`, `internal/syncclient`
 - **Error handling**: Uses `logrus` for structured logging with debug/info levels
-- **Interface design**: Well-defined interfaces (`RawOutput`, `Searcher`, `Source`)
+- **Interface design**: Well-defined interfaces (`RawOutput`, `Searcher`, `Source`, `WordbankStore`, `HistoryStore`)
+- **Schema migrations**: Forward-only, idempotent migrations keyed off a per-DB `meta` table; see `dbutil/migrate.go` and the migration slices in `store/sqlite_*.go`. Update `schema.sql` when changing on-disk shape.
+- **Architecture decisions** are archived as ADRs under `docs/adr/`. Read the relevant ADR before changing wordbank/history/sync surfaces.
 
 ### Frontend Guidelines
 - **Pure HTML/CSS/JavaScript**: No complex frameworks
@@ -73,10 +75,11 @@ docker run --rm --name ondict-app --publish 1345:1345 \
 - **Variables**: Descriptive names, avoid single letters except in loops
 
 ## Testing Framework
-
 ### Test Structure
 - **Unit tests**: `*_test.go` files alongside implementation
 - **Coverage**: Integrated coverage reporting with `cover.out` and `cover.html`
+- Test coverage should be above 70%, but we need meaningful and necessary tests, DO NOT try nonsense tests.
+- Run ./update_coverage.sh to update the badge, we want a green badge.
 
 ### Test Execution
 ```bash
@@ -175,6 +178,8 @@ FULLTEST=1 go test -v ./...
 ## Frontend Development
 - You are a frontend expert, but try NOT to use any bloated frontend framework, use plain and standard HTML/CSS, and as little JavaScript as possible.
 - The application is launched independently of the working directory by embedding `templates/*.html` with Go `embed`. When adding frontend features, update the embedded templates and keep the server handlers aligned with those template names.
+
+
 
 ## Architecture & Research
 

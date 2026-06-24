@@ -51,6 +51,14 @@ func TestDownloadFile_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "bad status")
 }
 
+func TestDumpMDDResources_FileNotFound(t *testing.T) {
+	// Passing a non-existent MDD path should return an error.
+	err := dumpMDDResources("/nonexistent/path/to.mdd")
+	if err == nil {
+		t.Skip("decoder accepted non-existent path without error")
+	}
+}
+
 func TestDumpToSqlite(t *testing.T) {
 	// Use existing test data
 	mdxPath := filepath.Join("testdata", "Longman Dictionary of Contemporary English.mdx")

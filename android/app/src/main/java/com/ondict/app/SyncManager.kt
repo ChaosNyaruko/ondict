@@ -1,0 +1,140 @@
+package com.ondict.app
+
+import android.content.Context
+import android.util.Log
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import mobile.Mobile
+import java.util.concurrent.TimeUnit
+
+/**
+ * Bridges the Kotlin layer to the Go-side sync client (mobile.Mobile).
+ *
+ * Lifecycle:
+ *   1. MainActivity calls [applyFromSettings] after Mobile.startServer
+ *      returns — this loads any persisted credentials and pushes them
+ *      down to the Go sync client.
+ *   2. SyncSettingsActivity calls [applyFromSettings] again whenever
+ *      the user saves new credentials.
+ *   3. [syncOnceBlocking] runs a manual one-shot pull-then-push cycle.
+ *      Safe to invoke from a background thread; never call it on the
+ *      UI thread (Mobile.sync() does network I/O).
+ *   4. WorkManager schedules [SyncWorker] for periodic background sync
+ *      when the user enables auto-sync.
+ *   5. Permanent sync failures suspend auto-sync by cancelling the unique
+ *      periodic work, without changing the user's autoSync preference.
+ *
+ * Every entry point that touches the Go side goes through
+ * Mobile.initSyncOnly(configDir, cacheDir, ...) rather than
+ * Mobile.configureSync(...) so that util.SetPaths is always called before
+ * ensureSharedStores(). Using configureSync() directly assumes
+ * StartServer has already run in this process, which is not guaranteed
+ * when SyncSettingsActivity is reached in a cold-start (e.g. after the
+ * OS killed only the main Activity component). Because ensureSharedStores
+ * is guarded by a sync.Once, a wrong-path failure is sticky for the
+ * process lifetime.
+ */
+object SyncManager {
+
+    private const val TAG = "ondict.sync"
+    private const val WORK_NAME = "ondict-periodic-sync"
+
+    /**
+     * Re-reads SyncSettings from disk and pushes the credentials to the
+     * Go sync client (or disables it if any field is blank). Also
+     * (un)schedules the periodic worker.
+     *
+     * Uses [Context] to supply the correct filesDir/cacheDir to
+     * Mobile.initSyncOnly so that the call is safe regardless of whether
+     * StartServer has run in this process.
+     *
+     * Safe to call repeatedly. Returns null on success, or the underlying
+     * error formatted as a string.
+     */
+    fun applyFromSettings(context: Context): String? {
+        val s = SyncSettings.read(context)
+        return try {
+            // initSyncOnly = util.SetPaths + ConfigureSync. Calling
+            // configureSync() directly would silently use the wrong
+            // (desktop-fallback) path if StartServer hasn't been called
+            // yet in this process. See class-level doc for the full
+            // rationale.
+            Mobile.initSyncOnly(
+                context.filesDir.absolutePath,
+                context.cacheDir.absolutePath,
+                s.baseURL,
+                s.username,
+                s.password
+            )
+            scheduleOrCancelPeriodic(context, s)
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "initSyncOnly failed", e)
+            e.message ?: e.toString()
+        }
+    }
+
+    /**
+     * Runs one pull-then-push cycle. Returns the success summary or an
+     * error message; in both cases also persists the result into
+     * SyncSettings so the UI can show "last sync: ..." text.
+     */
+    fun syncOnceBlocking(context: Context): Result {
+        val out: Result = try {
+            val summary = Mobile.sync()
+            Result.Ok(summary ?: "sync ok")
+        } catch (e: Exception) {
+            Log.w(TAG, "sync failed", e)
+            val errMsg = e.message ?: e.toString()
+            // Classify the error so callers (e.g. SyncWorker) can decide
+            // whether to retry. 4xx HTTP errors are permanent failures;
+            // network timeouts and 5xx are transient.
+            val transient = Mobile.isSyncTransient(errMsg)
+            Result.Err(errMsg, transient)
+        }
+        SyncSettings.recordResult(context, out.message)
+        return out
+    }
+
+    /**
+     * Pauses background sync after a permanent failure. This intentionally does
+     * not change SyncSettings.autoSync: the switch still represents the user's
+     * desired setting. A later Save clears the suspension and re-schedules the
+     * unique worker if auto-sync is still enabled.
+     */
+    fun suspendAutoSync(context: Context, reason: String) {
+        SyncSettings.suspendAutoSync(context, reason)
+        WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+    }
+
+    /** Schedules or cancels the WorkManager periodic worker per the snapshot. */
+    private fun scheduleOrCancelPeriodic(context: Context, s: SyncSettings.Snapshot) {
+        val wm = WorkManager.getInstance(context)
+        if (!s.isConfigured || !s.autoSync || s.autoSyncSuspended) {
+            wm.cancelUniqueWork(WORK_NAME)
+            return
+        }
+        // Minimum periodic interval that WorkManager honours is 15 minutes.
+        val minutes = s.intervalMinutes.coerceAtLeast(15L)
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(minutes, TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .build()
+        wm.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+    }
+
+    sealed class Result(val message: String) {
+        class Ok(message: String) : Result(message)
+        /**
+         * @param transient true if the error is worth retrying (network
+         *   issue, server-side 5xx); false for permanent failures (4xx).
+         */
+        class Err(message: String, val transient: Boolean = true) : Result("error: $message")
+    }
+}

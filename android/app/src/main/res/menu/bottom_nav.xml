@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_search"
+        android:icon="@drawable/ic_nav_search"
+        android:title="Search" />
+    <item
+        android:id="@+id/nav_wordbank"
+        android:icon="@drawable/ic_nav_wordbank"
+        android:title="Word Bank" />
+    <item
+        android:id="@+id/nav_import"
+        android:icon="@drawable/ic_nav_import"
+        android:title="Import" />
+    <item
+        android:id="@+id/nav_sync"
+        android:icon="@drawable/ic_nav_sync"
+        android:title="Sync" />
+</menu>
