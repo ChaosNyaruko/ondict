@@ -17,6 +17,7 @@ func (m *MarkdownRender) Render() string {
 	if m.SourceType == LongmanEasy {
 		res = ParseMDX(fd, "md")
 	} else if m.SourceType == Longman5Online {
+		// fmt.Fprintf(os.Stderr, "raw: %v", m.Raw)
 		res = ParseHTML(fd)
 	} else {
 		log.Warnf("undefined markdown render for %q, using general markdownify.", m.Raw)

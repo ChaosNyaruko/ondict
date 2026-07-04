@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
@@ -78,14 +77,10 @@ func NewProxy() *proxy {
 			r.POST("/login", processLogin)
 			r.GET("/auth", authMiddleware(), reviewHandler)
 		},
-		// On desktop: fall back to on-demand MDD extraction for anything not
-		// already on disk in TmpDir (served by the static middleware below).
+		// Serve pre-dumped TmpDir resources first, then fall back to on-demand
+		// MDD extraction for cache misses.
 		ResourceHandler: httpserver.MddFileHandler,
 	})
-
-	// Also serve pre-dumped files (audio/images already on disk) from TmpDir.
-	// This runs before NoRoute so cached files are served instantly.
-	r.Use(static.Serve("/", static.LocalFile(util.TmpDir(), false)))
 
 	if *syncServer {
 		if err := mountSyncServer(r); err != nil {

@@ -10,6 +10,8 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +20,7 @@ import (
 	"github.com/ChaosNyaruko/ondict/history"
 	"github.com/ChaosNyaruko/ondict/internal/tmpl"
 	"github.com/ChaosNyaruko/ondict/sources"
+	"github.com/ChaosNyaruko/ondict/util"
 	"github.com/ChaosNyaruko/ondict/wordbank"
 )
 
@@ -291,7 +294,6 @@ and
 </body></html>
 `
 
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -330,10 +332,17 @@ func QueryDefinition(word string) string {
 	return strings.Join(lines, "\n")
 }
 
-// MddFileHandler serves a single MDD resource (audio/image) on demand.
+// MddFileHandler serves a cached or on-demand MDD resource (audio/image).
 // Register it as NoRoute to handle <img src="/..."> and <audio src="/...">.
 func MddFileHandler(c *gin.Context) {
 	filename := strings.TrimPrefix(c.Request.URL.Path, "/")
+	if cachedPath, ok := tmpResourcePath(filename); ok {
+		log.Infof("served static file: %v", filename)
+		c.File(cachedPath)
+		return
+	}
+	log.Warnf("decode mdd file on the fly %v", filename)
+
 	data := sources.GetMDDFile(filename)
 	if data == nil {
 		c.Status(http.StatusNotFound)
@@ -351,6 +360,21 @@ func MddFileHandler(c *gin.Context) {
 		contentType = "text/css"
 	}
 	c.Data(http.StatusOK, contentType, data)
+}
+
+func tmpResourcePath(filename string) (string, bool) {
+	clean := filepath.Clean(filepath.FromSlash(filename))
+	if clean == "." || clean == ".." || filepath.IsAbs(clean) ||
+		strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
+		return "", false
+	}
+
+	candidate := filepath.Join(util.TmpDir(), clean)
+	info, err := os.Stat(candidate)
+	if err != nil || info.IsDir() {
+		return "", false
+	}
+	return candidate, true
 }
 
 // PageTitle formats the browser tab title.
