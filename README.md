@@ -1,5 +1,5 @@
 [简体中文](./README_zh.md)
-![Coverage](https://img.shields.io/badge/coverage-70.1%25-green)
+![Coverage](https://img.shields.io/badge/coverage-71.3%25-green)
 
 Table of Contents
 =================
@@ -127,7 +127,7 @@ docker run --rm --name ondict-app --publish 1345:1345 --mount type=bind,source={
 ```console
 go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 ```
-It is used to install a "standalone" CLI tool that can decode MDX files, and dump them into a sqlite3 datebase file. See [schema](./schema.sql) for more (the "vocab" table).
+It is used to install a "standalone" CLI tool that can decode MDX files and dump them into a sqlite3 database file. See [schema](./schema.sql) for more (the "vocab" table). It can also decode MDD files and dump their static resources, such as audio and images, into Ondict's cache directory.
 
 If you just want a decoder to parse your MDX files, this would be enough!
 
@@ -135,6 +135,11 @@ You can also choose the tokenizer used by the definition-search index:
 ```console
 dumpdict -f path/to/dict.mdx -fts-tokenizer trigram
 ```
+To pre-extract MDD resources for the web server:
+```console
+dumpdict -f path/to/dict.mdd
+```
+When you pass an MDX file, `dumpdict` also dumps a same-name `.mdd` file next to it if one exists. Directory mode scans for both `.mdx` and `.mdd` files.
 
 # Usage
 ## Help

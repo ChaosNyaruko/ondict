@@ -1,4 +1,4 @@
-![Coverage](https://img.shields.io/badge/coverage-35.0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-71.3%25-green)
 
 目录
 =================
@@ -130,12 +130,17 @@ go install github.com/ChaosNyaruko/ondict/cmd/dumpdict@latest
 ```
 如果你并不需要一个完整的server或词典工具，只是想解析一下MDX文件拿到里面的内容，你可以使用上述命令安装一个dumpdict工具。
 
-这个工具主要功能是解析MDX文件，并把它们记录到一个sqlite3数据库的文件中。
+这个工具主要功能是解析MDX文件，并把它们记录到一个sqlite3数据库的文件中。它也可以解析MDD文件，并把其中的发音、图片等静态资源导出到Ondict的缓存目录。
 
 也可以指定释义搜索索引的 tokenizer：
 ```console
 dumpdict -f path/to/dict.mdx -fts-tokenizer trigram
 ```
+如果想提前导出MDD资源供Web服务使用：
+```console
+dumpdict -f path/to/dict.mdd
+```
+当传入MDX文件时，如果旁边存在同名的`.mdd`文件，`dumpdict`也会自动导出它。目录模式会同时扫描`.mdx`和`.mdd`文件。
 
 可以参考[这个文件](./schema.sql)中的vocab表结构进行查看，或二次开发！
 
