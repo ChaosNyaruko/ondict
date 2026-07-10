@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
 import mobile.Mobile
 import org.json.JSONArray
 
@@ -14,7 +13,7 @@ import org.json.JSONArray
  * and displayed in a scrollable list. Each word can be tapped to look it up or
  * long-pressed to remove it.
  */
-class WordBankActivity : AppCompatActivity() {
+class WordBankActivity : SystemBarsAwareActivity() {
 
     private lateinit var listView: ListView
     private lateinit var emptyText: TextView

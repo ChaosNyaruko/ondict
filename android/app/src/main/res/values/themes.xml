@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.Ondict" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Effective on Android 15; API 36+ is handled by SystemBarsAwareActivity. -->
         <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
         <!-- Light mode: dark status bar icons on light background -->
         <item name="android:windowLightStatusBar">true</item>
