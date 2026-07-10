@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import kotlin.math.max
 
 /**
  * Keeps an activity's entire content area outside system bars and display
@@ -16,6 +17,9 @@ import androidx.core.view.WindowInsetsCompat
  * base class reproduces the non-edge-to-edge content area with root padding.
  */
 abstract class SystemBarsAwareActivity : AppCompatActivity() {
+
+    /** Override on screens whose controls must remain above the soft keyboard. */
+    protected open val avoidImeOverlap: Boolean = false
 
     private var initialContentPadding: ContentPadding? = null
 
@@ -47,20 +51,28 @@ abstract class SystemBarsAwareActivity : AppCompatActivity() {
 
         ViewCompat.setOnApplyWindowInsetsListener(content) { view, windowInsets ->
             val protectedInsets = windowInsets.getInsets(protectedInsetTypes)
+            val imeBottom = if (avoidImeOverlap) {
+                windowInsets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            } else {
+                0
+            }
             view.setPadding(
                 initial.left + protectedInsets.left,
                 initial.top + protectedInsets.top,
                 initial.right + protectedInsets.right,
-                initial.bottom + protectedInsets.bottom
+                initial.bottom + max(protectedInsets.bottom, imeBottom)
             )
 
-            // The activity content has handled these insets. Remove only those
-            // types before dispatching to children so IME insets still support
-            // adjustResize while inset-aware controls avoid double padding.
-            WindowInsetsCompat.Builder(windowInsets)
+            // Remove the insets handled above before dispatching to children,
+            // preventing inset-aware controls from applying duplicate padding.
+            // Screens that do not avoid the IME here still receive its inset.
+            val childInsets = WindowInsetsCompat.Builder(windowInsets)
                 .setInsets(protectedInsetTypes, Insets.NONE)
                 .setInsetsIgnoringVisibility(protectedInsetTypes, Insets.NONE)
-                .build()
+            if (avoidImeOverlap) {
+                childInsets.setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE)
+            }
+            childInsets.build()
         }
         ViewCompat.requestApplyInsets(content)
     }

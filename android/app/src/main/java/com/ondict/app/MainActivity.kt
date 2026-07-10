@@ -24,6 +24,8 @@ import java.io.ByteArrayInputStream
 
 class MainActivity : SystemBarsAwareActivity() {
 
+    override val avoidImeOverlap: Boolean = true
+
     private lateinit var searchInput: EditText
     private lateinit var searchButton: Button
     private lateinit var suggestionsList: ListView

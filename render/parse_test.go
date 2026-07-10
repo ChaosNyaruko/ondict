@@ -34,9 +34,9 @@ func Test_compressEmptyLine(t *testing.T) {
 }
 
 func Test_format(t *testing.T) {
-	// Consecutive newlines collapsed to one.
+	// Meaning entries are separated by a blank line.
 	got := format([]string{"a\n\nb", "c"})
-	assert.Equal(t, "a\nb\nc", got)
+	assert.Equal(t, "a\n\nb\n\nc", got)
 
 	// Single newline is preserved.
 	got = format([]string{"x\ny"})
@@ -83,7 +83,7 @@ func TestParseMDX_Div(t *testing.T) {
 func TestParseMDX_Ex(t *testing.T) {
 	in := strings.NewReader("<ex>example sentence</ex>")
 	out := ParseMDX(in, "md")
-	assert.Contains(t, out, "> example sentence <")
+	assert.Equal(t, "\n> example sentence \n", out)
 }
 
 func TestParseMDX_BR(t *testing.T) {
