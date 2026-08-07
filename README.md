@@ -285,7 +285,7 @@ The fuzzy mode is implemented in-process and does not require the external `fzf`
 The definition results page is served at:
 - `GET /search?query=heart+attack&mode=definition&format=html`
 
-## Integrated with FZF (experimental and MacOS only)
+## Integrated with FZF (experimental)
 ```console
 ondict -fzf
 ```
