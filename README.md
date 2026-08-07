@@ -113,7 +113,8 @@ The Android app embeds the full Go dictionary server via [gomobile](https://pkg.
 
 All user data (imported dictionaries, word bank, query history) is stored in the app's private storage and **survives app updates**. Only uninstalling the app removes the data.
 
-## Using Docker and serving as a HTTP server in the containerFor your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.
+## Using Docker and serving as a HTTP server in the container
+**For your convenience, the config directory in the container is remapped/mounted to your host config directory, so all generated content(such as query history) will be dumped into this directory. No other pollution.**
 ### Local
 ```console
 docker build . -t ondict
