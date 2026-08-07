@@ -17,13 +17,14 @@ import android.widget.EditText
 import android.widget.ListView
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import mobile.Mobile
 import org.json.JSONArray
 import java.io.ByteArrayInputStream
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : SystemBarsAwareActivity() {
+
+    override val avoidImeOverlap: Boolean = true
 
     private lateinit var searchInput: EditText
     private lateinit var searchButton: Button

@@ -8,7 +8,6 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -23,7 +22,7 @@ import java.util.Locale
  *   3. Tap "Sync now" to trigger an immediate one-shot cycle on a
  *      background thread; result is shown in statusText.
  */
-class SyncSettingsActivity : AppCompatActivity() {
+class SyncSettingsActivity : SystemBarsAwareActivity() {
 
     private lateinit var urlField: EditText
     private lateinit var userField: EditText
