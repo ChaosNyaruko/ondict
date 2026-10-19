@@ -11,7 +11,6 @@ import android.view.Gravity
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 
 /**
  * Dictionary management screen:
@@ -20,7 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
  * - Reorder dicts (affects query priority)
  * - Import new .mdx / .mdd files via file picker
  */
-class SetupActivity : AppCompatActivity() {
+class SetupActivity : SystemBarsAwareActivity() {
 
     private var dicts = mutableListOf<DictManager.DictEntry>()
 

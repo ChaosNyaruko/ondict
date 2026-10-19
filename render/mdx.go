@@ -43,7 +43,7 @@ func f(n *html.Node, level int, parent *html.Node, ft string) string {
 		return "\n" + readS(n, ft) + "\n"
 	}
 	if IsElement(n, "ex", "") {
-		return fmt.Sprintf("> %s <", readS(n, ft))
+		return fmt.Sprintf("\n> %s \n", readS(n, ft))
 	}
 	if n.Type == html.ElementNode && n.DataAtom.String() == "br" {
 		return "\n"

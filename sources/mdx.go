@@ -259,11 +259,16 @@ func QueryMDX(word string, f string) string {
 		if def == "" {
 			continue
 		}
+		src := d.raw.GetSrc()
 		ren := &render.MarkdownRender{
 			Raw:        def,
 			SourceType: d.t,
 		}
-		res += "\n----\n" + ren.Render()
+		if strings.Contains(src, "LDOCE5") { // TODO: parse it better
+			ren.SourceType = render.Longman5Online
+		}
+		log.Infof("source type: %v, %v, %v", src, d.t, ren.SourceType)
+		res += "# " + d.raw.GetSrc() + "\n" + ren.Render() + "\n----\n"
 	}
 	return res
 }

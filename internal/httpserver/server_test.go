@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ChaosNyaruko/ondict/sources"
+	"github.com/ChaosNyaruko/ondict/util"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
@@ -251,6 +253,27 @@ func TestMddFileHandler_NotFound(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/nonexistent.mp3", nil)
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestMddFileHandler_ServesTmpDirFile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	configDir := t.TempDir()
+	tmpDir := t.TempDir()
+	util.SetPaths(configDir, tmpDir)
+	t.Cleanup(func() { util.SetPaths("", "") })
+
+	cachedFile := filepath.Join(tmpDir, "images", "fruit.jpg")
+	require.NoError(t, os.MkdirAll(filepath.Dir(cachedFile), 0o755))
+	require.NoError(t, os.WriteFile(cachedFile, []byte("cached image"), 0o644))
+
+	r := gin.New()
+	r.NoRoute(MddFileHandler)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/images/fruit.jpg", nil)
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "cached image", w.Body.String())
 }
 
 func TestWordsHandler_WithWordbank(t *testing.T) {

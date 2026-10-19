@@ -17,8 +17,11 @@ The server renders MDX entry HTML by:
    (`sources/mdx.go: initAllCss`).
 4. Embedding the result inside the `<article class="entry-card">` in `dict.html`.
 
-On Android the same path runs, but the full page (app shell + entry card) is
-rendered inside a `WebView` backed by Android System WebView (Chromium).
+Android reuses the lookup and `render/HTMLRender` layers, but not the HTTP page
+shell. `mobile.QueryEntry()` requests the `raw` link format and returns only the
+rendered entry fragment. Kotlin wraps that fragment in a minimal document with
+the dictionary CSS and loads it into an entry-only `WebView`; search, navigation,
+word bank, import, and sync remain native views.
 
 ---
 
@@ -30,8 +33,8 @@ and adopted by GoldenDict and others. There is no official spec.
 | Scheme | Meaning | Ondict handling today |
 |---|---|---|
 | `@@@LINK=word` | Entire entry body is a redirect to another headword | `util.ReplaceLINK()` rewrites to an HTML anchor → `/dict?query=word` |
-| `entry://word` | Cross-reference link inside entry HTML | `render/html.go` rewrites `href` to `/dict?query=word&engine=mdx&format=html` |
-| `sound://file.mp3` | Audio playback; file lives in the `.mdd` archive | `render/html.go` rewrites to `/<file>` served by `MddFileHandler` |
+| `entry://word` | Cross-reference link inside entry HTML | HTTP renders rewrite it to `/dict?...`; Android `raw` renders preserve it for native interception |
+| `sound://file.mp3` | Audio playback; file lives in the `.mdd` archive | MDX renders convert it to `data-audio-src`; HTTP and Android load the MDD bytes through their respective resource handlers |
 | `bres://dict/file` | Bundled resource (image/CSS) from MDD (GoldenDict convention) | Not used in ondict; ondict serves MDD resources on `/filename` paths |
 
 ---
@@ -45,20 +48,76 @@ CSS files are shipped alongside the `.mdx`/`.mdd` by the dict maker. Key points:
 - `LM5style.css` = entry layout + GoldenDict popup UI + embedded icon fonts.
 - `LM5style_vanilla.css` = entry layout + full Longman website shell CSS. Designed for browser rendering.
 - Both files are needed together: vanilla for layout, non-vanilla for icon fonts.
-- Ondict concatenates all `*.css` files in `dicts/` and injects them as a single
-  `<style>` block per entry (`sources/mdx.go: initAllCss`).
+- Ondict concatenates all `*.css` files in `dicts/` (`sources/mdx.go: initAllCss`).
+  HTTP rendering injects the result as a `<style>` block; Android fetches it through
+  `Mobile.getCSS()` and injects it into the entry-only page.
 
 ---
 
-## Research: Native Android Rendering
+## Android Native Shell + Entry WebView
 
-### Why the current full-WebView approach feels heavy
+### Current architecture
 
-The Android app currently loads the entire Go HTTP server response (app shell + entry
-card) into a `WebView`. The WebView engine (Android System WebView / Chromium) is
-loaded regardless, so there is no memory saving from this approach — but the UX
-suffers because native UI elements (search bar, navigation) feel slower inside a
-WebView than as native Kotlin views.
+The Android app uses a native Kotlin shell and embeds Android System WebView only for
+dictionary entry HTML. The normal app path does not start Gin or make localhost HTTP
+requests:
+
+```text
+MainActivity / native controls
+  ├─ Mobile.init(filesDir, cacheDir)       paths, dictionaries, local stores
+  ├─ Mobile.complete(prefix, limit)        native autocomplete
+  ├─ Mobile.queryEntry(word)               QueryMDX(word, "raw")
+  │      └─ render.HTMLRender              entry HTML fragment
+  ├─ Mobile.getCSS()                       concatenated dictionary CSS
+  └─ Mobile.getFile(path)                  MDD audio/image bytes
+                 │
+                 ▼
+       entry-only Android WebView
+```
+
+`MainActivity.buildEntryPage()` wraps the fragment in a minimal document and injects
+the CSS returned by Go. `WebView.loadDataWithBaseURL()` uses
+`https://ondict.local/` as a stable synthetic origin; no server listens there.
+
+The legacy `mobile.StartServer()` and `OndictServerService` remain available, but the
+current activity, query, autocomplete, word-bank, and sync flows use direct gomobile
+bindings. Sync talks from the Go sync client to the configured remote server through
+`Mobile.initSyncOnly()` / `Mobile.sync()`; it does not require a local HTTP server.
+
+### Navigation, audio, and resources
+
+The Android render path asks `HTMLRender` to preserve `entry://` cross-references by
+using the `raw` link format. The entry WebView then keeps all dictionary interactions
+inside the app:
+
+- `entry://word` is handled by `WebViewClient` or the `Ondict` JavaScript interface,
+  then passed back through `Mobile.queryEntry()`.
+- Audio elements expose `data-audio-src`; Kotlin loads the bytes with
+  `Mobile.getFile()` and plays them through `MediaPlayer`.
+- Image and CSS requests are intercepted by `shouldInterceptRequest()` and resolved
+  from MDD data through `Mobile.getFile()`.
+- Android back navigation uses WebView history when a cross-reference has created a
+  previous entry; otherwise it falls through to the activity back stack.
+
+This design removes localhost round trips and keeps interactive controls native while
+still paying the Chromium cost needed for arbitrary MDX HTML and CSS.
+
+### System bars and the IME
+
+The app targets API 36. Android 16 disables
+`windowOptOutEdgeToEdgeEnforcement`, so the theme flag is only a compatibility opt-out
+on Android 15; it cannot by itself prevent content from drawing behind system UI on
+Android 16.
+
+All activities therefore inherit `SystemBarsAwareActivity`. It applies system-bar and
+display-cutout insets to `android.R.id.content`, producing the same usable content
+bounds as a non-edge-to-edge window and preventing child controls from applying the
+same insets twice. New activities must inherit this base class.
+
+`MainActivity` additionally enables `avoidImeOverlap`. While the keyboard is visible,
+the base class uses the larger of the navigation-bar and IME bottom insets, keeping the
+search input above the keyboard. The handled IME inset is then removed before child
+dispatch to avoid duplicate padding.
 
 ### How GoldenDict handles this (reference implementation)
 
@@ -83,31 +142,6 @@ precisely because embedded doc/dict viewers are a canonical use case.
 | Electron | Chromium | `protocol.registerBufferProtocol("sound://", ...)` |
 | Qt (GoldenDict) | `QWebEngineView` | `QWebEngineUrlSchemeHandler` |
 | Windows | `WebView2` (Edge/Blink) | `AddWebResourceRequestedFilter` |
-
-### Recommended Android approach (future work)
-
-The pragmatic middle ground — native shell, entry-only WebView, scheme interception —
-gives most of the UX benefit without a full renderer rewrite:
-
-1. Keep the native Kotlin UI (search bar, navigation, word bank) fully native.
-2. Use a `WebView` scoped to just the `<article class="entry-card">` region.
-3. Load entry HTML directly (`webView.loadDataWithBaseURL(...)`) instead of making
-   an HTTP request to the local Go server.
-4. Register a `WebViewClient` and override `shouldOverrideUrlLoading` /
-   `shouldInterceptRequest`:
-   - `entry://word` → call back into Go (`sources.QueryMDX`) and reload the WebView.
-   - `sound://file.mp3` → call `sources.GetMDDFile(filename)` and play with `MediaPlayer`.
-   - CSS/image resources → serve from MDD via `shouldInterceptRequest` returning a
-     `WebResourceResponse`.
-5. Inject the concatenated CSS directly into the HTML string before loading
-   (same as current `allCss` approach) rather than relying on `<link>` tags.
-
-This eliminates the local HTTP server dependency on Android for the query/render path,
-while reusing all existing Go rendering logic via gomobile bindings.
-
-**What this saves vs. what it doesn't:**
-- Saves: localhost HTTP round-trip latency, Gin server overhead, native UI responsiveness.
-- Does not save: the Chromium engine cost — Android System WebView is still loaded.
 
 ---
 

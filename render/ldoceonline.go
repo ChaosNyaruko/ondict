@@ -109,20 +109,10 @@ func pureEmptyLineEndLF(s string) bool {
 	return last == '\n' || last == '\u00a0'
 }
 
-// format removes consecutive CRLFs(the input lines are has been "compressed" in readText)
-// TODO: make it elegant and robust.
+// format concats diffent meaning entries for ONE item
 func format(input []string) string {
-	joined := strings.Join(input, "\n")
-	var res string
-	var prev rune
-	for i, c := range joined {
-		if i > 0 && c == '\n' && prev == '\n' {
-			continue
-		}
-		res += string(c)
-		prev = c
-	}
-	return res
+	joined := strings.Join(input, "\n\n")
+	return joined
 }
 
 func findFirstSubSpan(n *html.Node, class string) *html.Node {
