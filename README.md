@@ -54,7 +54,7 @@ I just write a simple markdown renderer for [Longman Dictionary of Contemporary 
 There are some similar products. They are all mature products, but may not suit me(or you) in some cases. Compared to these, this application is not yet so well polished, but it has its own advantages.
 - It can serve as a CLI application, conforming to the UNIX stdout convention. So you can further process the output, or embed it into any UNIX-like CLI tools, then integrate it into your CLI/TUI based workflow very easily.
 - The output can be plain text(such as Markdown format), so feel free to render it with any renderer. You can also embed it into your extensible editor. I provide [neovim](https://neovim.io) integration out of the box.
-- The raw output(for MDX dictionaries especially) are just HTML/CSS/JavaScript, so your can just use it to build a server, which you can access anywhere by your browser, without having to install any other apps. E.g. [Demo Website](https://mini.freecloud.dev)
+- The raw output(for MDX dictionaries especially) are just HTML/CSS/JavaScript, so your can just use it to build a server, which you can access anywhere by your browser, without having to install any other apps. E.g. [Demo Website](https://ondict.freecloud.dev)
 - Easy to cross platform. The core is written in Go. 
 - It's free and open source, just fork/PR/issue it if you like!
 
